@@ -3,13 +3,14 @@ module mod_dyn
    use mod_common
    use mod_json
    use cudafor
+   use mod_input 
    implicit none
    integer :: nbuffer, ndyn
-   integer, parameter :: nbmax = 100
+   integer, parameter :: nbmax = 100, nblocks = 500
    real(myprec), device, allocatable, dimension(:,:,:) :: r0_d, v0_d
-   real(myprec), device, allocatable, dimension(:,:) :: r2t_d
-   real(myprec),  allocatable, dimension(:,:) :: r2t
-   real(myprec),  allocatable, dimension(:) :: t
+   real(myprec), device, allocatable, dimension(:,:) :: r2tb_d
+   real(myprec),  allocatable, dimension(:,:) :: r2tb
+   real(myprec),  allocatable, dimension(:) :: t, r2t
    contains
    subroutine dyn_init()
       if (nbuffer > nbmax) then
@@ -21,25 +22,42 @@ module mod_dyn
          write(*,"('** Error: length of dynamics to short. Reduce number of buffers !')")
          stop
       endif 
-      allocate(t(ndyn))
-      allocate(r0(ndim,rmol,nbuffer),r2t(ndyn,nbuffer))
-      allocate(r0_d(ndim,nmol,nbuffer),r2t_d(ndyn,nbuffer))
+      allocate(t(ndyn),r2t(ndyn))
+      allocate(r0(ndim,rmol,nbuffer),r2tb(ndyn,nbuffer))
+      allocate(r0_d(ndim,nmol,nbuffer),r2tb_d(ndyn,nbuffer))
       if (keytrj > 0) then
          allocate(v0(ndim,rmol,nbuffer))
          allocate(v0_d(ndim,nmol,nbuffer))
       endif
    end  subroutine dyn_init
+
    subroutine rtcorr(iconf)
       integer, intent(in) :: iconf
       integer :: i
+      if (mol/nblocks<1) then
+         write(*,"('** Error: number of particles too small < ',i4)")nblocks
+      endif 
       if (iconf <= nbuffer) then
          r0_d(1:ndim,1:nmol,iconf) = r(1:ndim,1:nmol)
       endif
       t(iconf) = nstep*tstep
-      call rtcal<<<nmol,nbuffer>>>(r0_d,r_d,ndim,nmol,nbuffer,r2t_d,ndyn,nbuffer,iconf)
-      
+      call rtcal<<<nblocks,nbuffer>>>(r0_d,r_d,ndim,nmol,nbuffer,r2tb_d,ndyn,nbuffer,iconf)
+    
      
    end subroutine rtcorr
+
+   subroutine print_rtcor()
+      implicit none
+      integer :: i
+      r2tb(1:ndyn,1:nbuffer) = r2tb_d(1:ndyn,1:nbuffer)
+      r2t(1:ndyn) = sum(r2tb(1:ndyn,1:nbuffers),DIM=2)
+      open(55,file="dyn.dat")
+      do i = 1, ndyn
+         write(55,"(4f15.7)")t(i), r2t(i)/Nconf
+      end do
+   end subroutine print_rtcor
+
+
 
    subroutine vtcorr(iconf)
       integer, intent(in) :: iconf
@@ -51,14 +69,21 @@ module mod_dyn
       integer, value, intent(IN) :: mol, dim, mol, buffer,din, iconf
       real, dimension(dim, mol), intent(IN) :: r
       real, dimension(dim, mol, buffer), intent(IN) :: r0
-      real, dimension(dyn, buffer), intent(IN) :: r2t
+      real, dimension(dyn, buffer), save, intent(INOUT) :: r2t
       real :: rv(3), suma
-      integer :: i, j 
+      integer :: i, j, npsize, nprest
       i = threadidx%x
-      j = blockidx%x
+      npsize = mol/blockdim%x
+      nprest = mod(mol,blockdim%x)
       if (i<=iconf) then
-         rv(1:dim) = r(1:ndim,j)-r0(1:ndim,j,i)
-         suma = dot_product(rv,rv)
+         do j = (blockidx%x - 1)*npsize+1, blockidx%x*npsize
+            rv(1:dim) = r(1:ndim,j)-r0(1:ndim,j,i)
+            suma = dot_product(rv,rv)
+         end do
+         do j = blockidx%x*npsize+1, blockidx%x*npsize+nprest
+            rv(1:dim) = r(1:ndim,j)-r0(1:ndim,j,i)
+            suma = dot_product(rv,rv)
+         end do
          call atomicadd(r2t(iconf-i+1,i),suma)
       endif 
    end subroutine rtcal

@@ -93,7 +93,7 @@ program trj_analysis
         run_clusters = .true.
         clnfound = .false.
     end if
-    ! if (rdf_sq_cl_dyn_conf(4) == .true.) ! DYN
+    if (rdf_sq_cl_dyn_conf(4) == .true.) run_dyn = .true. 
     ! if (rdf_sq_cl_dyn_conf(5) == .true.) ! CONF
 
     ! do i = 1, size(ilen_mtl)
@@ -181,6 +181,11 @@ program trj_analysis
 
         ! Compute cluster properties
         if (run_clusters) call cluster_analysis(i)
+
+        ! Compute dynamics
+        if (run_dyn) then
+            call rtcorr(i)
+        end if 
 
         ! Print periodic output
         call print_output(i)

@@ -5,7 +5,7 @@ module mod_input
    integer, allocatable, dimension(:) :: sp_types_selected
    integer, dimension(3) :: ncfs_from_to
    character(len=2), allocatable, dimension(:) :: sp_labels
-   integer :: nthread, ndim, jmin, minclsize, idir, nsp
+   integer :: nthread, ndim, jmin, minclsize, idir, nsp, nbuffer
    logical :: use_cell = .true.
    logical, dimension(5) :: rdf_sq_cl_dyn_conf
    real(myprec) :: deltar, rcl, dcl, qmin, qmax, sigma, pwall, pwallp, rcrdf
@@ -18,7 +18,7 @@ module mod_input
    namelist /INPUT_SQ/ qmax, qmin
    namelist /INPUT_CL/ rcl, dcl, jmin, minclsize, sigma
    namelist /INPUT_CONF/ idir, pwall, pwallp
-
+   namelist /INPUT_DYN/ nbuffer
 contains
 
    subroutine read_input_file()
@@ -41,8 +41,7 @@ contains
       if (rdf_sq_cl_dyn_conf(2) == .true.) read (unit=io_input_file, nml=INPUT_SQ)
       rcl = -1.0
       if (rdf_sq_cl_dyn_conf(3) == .true.) read (unit=io_input_file, nml=INPUT_CL)
-      ! dyn_control_var = dyn_control_val
-      ! if (rdf_sq_cl_dyn_conf(4) == .true.) read (unit=io_input_file, nml=INPUT_DYN)
+      if (rdf_sq_cl_dyn_conf(4) == .true.) read (unit=io_input_file, nml=INPUT_DYN)
       idir = 0
       if (rdf_sq_cl_dyn_conf(5) == .true.) read (unit=io_input_file, nml=INPUT_CONF)
 

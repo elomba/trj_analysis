@@ -37,7 +37,7 @@ module mod_common
     real, allocatable, dimension(:, :) :: sqfp
     real, allocatable, dimension(:, :, :) :: histomix
     logical :: pdir(3) = .true., run_clusters = .false., run_rdf = .false., &
-               run_sq = .false.
+               run_sq = .false., run_dyn = .false.
     character :: fname99*18
     character, dimension(:), allocatable :: atoms*8
 
