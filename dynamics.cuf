@@ -1,14 +1,16 @@
 module mod_dyn
    use mod_precision
    use mod_common
-   use mod_input
+   use mod_json
    use cudafor
    implicit none
    integer :: nbuffer, ndyn
    integer, parameter :: nbmax = 100
-   real(c_int), device, allocatable, dimension(:,:,:) :: r0_d, v0_d
-   real(c_int), device, allocatable, dimension(:,:) :: r2t
-contains
+   real(myprec), device, allocatable, dimension(:,:,:) :: r0_d, v0_d
+   real(myprec), device, allocatable, dimension(:,:) :: r2t_d
+   real(myprec),  allocatable, dimension(:,:) :: r2t
+   real(myprec),  allocatable, dimension(:) :: t
+   contains
    subroutine dyn_init()
       if (nbuffer > nbmax) then
          write(*,'("** Error: nbuffer > ",i3,", redimension if possible !")') nbmax
@@ -19,9 +21,9 @@ contains
          write(*,"('** Error: length of dynamics to short. Reduce number of buffers !')")
          stop
       endif 
-
-      allocate(r0(ndim,rmol,nbuffer))
-      allocate(r0_d(ndim,nmol,nbuffer))
+      allocate(t(ndyn))
+      allocate(r0(ndim,rmol,nbuffer),r2t(ndyn,nbuffer))
+      allocate(r0_d(ndim,nmol,nbuffer),r2t_d(ndyn,nbuffer))
       if (keytrj > 0) then
          allocate(v0(ndim,rmol,nbuffer))
          allocate(v0_d(ndim,nmol,nbuffer))
@@ -33,8 +35,9 @@ contains
       if (iconf <= nbuffer) then
          r0_d(1:ndim,1:nmol,iconf) = r(1:ndim,1:nmol)
       endif
-      densty = natms/volumen
-
+      t(iconf) = nstep*tstep
+      call rtcal<<<nmol,nbuffer>>>(r0_d,r_d,ndim,nmol,nbuffer,r2t_d,ndyn,nbuffer,iconf)
+      
      
    end subroutine rtcorr
 
@@ -44,5 +47,19 @@ contains
 
    end subroutine vtcorr
    
-
+   attributes(global) subroutine rtcal(r0,r,dim,mol,r2t,buffer,dyn, iconf)
+      integer, value, intent(IN) :: mol, dim, mol, buffer,din, iconf
+      real, dimension(dim, mol), intent(IN) :: r
+      real, dimension(dim, mol, buffer), intent(IN) :: r0
+      real, dimension(dyn, buffer), intent(IN) :: r2t
+      real :: rv(3), suma
+      integer :: i, j 
+      i = threadidx%x
+      j = blockidx%x
+      if (i<=iconf) then
+         rv(1:dim) = r(1:ndim,j)-r0(1:ndim,j,i)
+         suma = dot_product(rv,rv)
+         call atomicadd(r2t(iconf-i+1,i),suma)
+      endif 
+   end subroutine rtcal
 end module mod_dyn
