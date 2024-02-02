@@ -54,6 +54,7 @@ __pycache__/
 *.lammpstrj
 *.nc
 *.err
+*.log
 log.lammps
 
 # Simulation directories
