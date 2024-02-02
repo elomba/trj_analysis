@@ -1,0 +1,30 @@
+{
+  "log_output_file": "trj_analysis.log",
+  "trj_input_file": "run.nc",
+  "ndim": 3,
+  "nthread": 128,
+  "use_cell": true,
+  "unitr": false,
+  "ncfs_from_to": [0, 0, 0],
+  "sp_types_selected": [0],
+  "sp_labels": ["A", "B"],
+  "sp_atomic_weight": [100.0, 100.0],
+  "sp_scattering": [1.0, 1.0],
+  "deltar": 0.5,
+  "rcrdf": 150.0,
+  "tstep": 0.0005,
+  "rcl": 5.25,
+  "dcl": 6.0,
+  "jmin": 5,
+  "minclsize": 100,
+  "qmin": 0.2,
+  "qmax": 8.0,
+  "sigma": 4.0,
+  "idir": 0,
+  "idir_pwall_pwallp": [0.0, 0.0],
+  "modules_to_load": [
+    "clusters",
+    "rdf",
+    "sq"
+  ]
+}

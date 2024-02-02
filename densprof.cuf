@@ -1,0 +1,97 @@
+module mod_densprof
+    use mod_precision
+    use mod_common
+    use mod_input
+    use cudafor
+    implicit none
+
+contains
+
+    subroutine normdenspr(nconf)
+        use mod_input
+        implicit none
+        integer, intent(in) :: nconf
+        integer :: I
+        real(myprec) :: high, low, zpos
+        logical :: found
+        found = .false.
+        i = 0
+        do while (.not. found)
+            if (maxval(densprof(i, 1:nsp)) < 1.0e-6) then
+                low = (2*i + 1)*deltar + pwall
+                i = i + 1
+            else
+                found = .true.
+            end if
+        end do
+        found = .false.
+        i = width
+        do while (.not. found)
+            if (maxval(densprof(i, 1:nsp)) < 1.0e-6) then
+                high = (2*i + 1)*deltar + pwall
+                i = i - 1
+            else
+                found = .true.
+            end if
+        end do
+        high = (pwallp + high)/2
+        low = (pwall + low)/2
+    write(*,"('   Highest accesible constrained coordinate for fluid',f15.7,/'   Lowest accessible constrained coordinate for fluid',f15.7)")high,low
+        volumen_r = (high - low)*product(sidel, pdir)
+        rdenst = natms/volumen_r
+        write (*, '(/" ** Total renormalized density =",f10.6)') rdenst
+        do i = 1, nsp
+            write (*, '(/"     - Renormalized density per species",i1," =",f10.6)') i, ntype(i)/volumen_r
+        end do
+        open (222, file='densprof.dat')
+        !
+        ! One dimensional rho(x) normalized such that rho_i(L/2) approximates the bulk average rho_i
+        !
+        write (222, '("#       r ",7x,8(8x,"rho(",i1,")":))') ((i), i=1, nsp)
+        do i = 0, width
+            zpos = (2*i + 1)*deltar + pwall
+            write (222, '(10f15.7)') zpos, (high - low)*densprof(i, 1:nsp)/(Nconf*2*deltar*volumen_r)
+        end do
+        close (222)
+    end subroutine normdenspr
+
+    
+    subroutine profile_comp(nthread, ndim, idir, pwall, deltar)
+        !
+        ! Compute density profile along non periodic dimension
+        !
+        implicit none
+        integer, intent(in) :: nthread, ndim, idir
+        real(myprec), intent(in) :: pwall, deltar
+        densprof_d(:, :) = 0
+        call dprof<<<nbcuda, nthread>>>(r_d, Nmol, ndim, densprof_d, width, nsp, idir, itype_d&
+             &, pwall, deltar)
+        densprofi(:, :) = densprof_d(:, :)
+        densprof(:, :) = densprof(:, :) + real(densprofi(:, :))
+    end subroutine profile_comp
+
+    attributes(global) subroutine dprof(r, Nmol, dim, densprof, width, nsp, idir, itype&
+        &, pwall, deltar)
+        integer, value, intent(IN) :: Nmol, dim, nsp, width, idir
+        integer, intent(IN) :: itype(Nmol)
+        integer i, ind, ia, ity
+        real, dimension(3) :: rv
+        real, value, intent(IN) :: deltar, pwall
+        real, dimension(dim, Nmol), intent(IN) :: r
+        integer, intent(INOUT) :: densprof(width, nsp)
+        i = (blockidx%x - 1)*blockdim%x + threadidx%x
+        if (i <= Nmol) then
+            !
+            ! Warning: density profile must be computed along a confined direction or using wrapped coordinates
+            !
+            ind = int((r(idir, i) - pwall)/(2*deltar))
+            if (ind < 0 .or. ind > width) then
+                print *, ' Error: density profile out of boundaries ', ind, width
+                stop
+            end if
+            ity = itype(i)
+            ia = atomicadd(densprof(ind, ity), 1)
+        end if
+    end subroutine dprof
+
+end module mod_densprof

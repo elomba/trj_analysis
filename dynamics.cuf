@@ -1,0 +1,48 @@
+module mod_dyn
+   use mod_precision
+   use mod_common
+   use mod_input
+   use cudafor
+   implicit none
+   integer :: nbuffer, ndyn
+   integer, parameter :: nbmax = 100
+   real(c_int), device, allocatable, dimension(:,:,:) :: r0_d, v0_d
+   real(c_int), device, allocatable, dimension(:,:) :: r2t
+contains
+   subroutine dyn_init()
+      if (nbuffer > nbmax) then
+         write(*,'("** Error: nbuffer > ",i3,", redimension if possible !")') nbmax
+         stop
+      endif
+      ndyn = Nconf - Nbuffer
+      if (dyn < 10) then
+         write(*,"('** Error: length of dynamics to short. Reduce number of buffers !')")
+         stop
+      endif 
+
+      allocate(r0(ndim,rmol,nbuffer))
+      allocate(r0_d(ndim,nmol,nbuffer))
+      if (keytrj > 0) then
+         allocate(v0(ndim,rmol,nbuffer))
+         allocate(v0_d(ndim,nmol,nbuffer))
+      endif
+   end  subroutine dyn_init
+   subroutine rtcorr(iconf)
+      integer, intent(in) :: iconf
+      integer :: i
+      if (iconf <= nbuffer) then
+         r0_d(1:ndim,1:nmol,iconf) = r(1:ndim,1:nmol)
+      endif
+      densty = natms/volumen
+
+     
+   end subroutine rtcorr
+
+   subroutine vtcorr(iconf)
+      integer, intent(in) :: iconf
+      integer :: i
+
+   end subroutine vtcorr
+   
+
+end module mod_dyn

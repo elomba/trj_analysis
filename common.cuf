@@ -1,0 +1,294 @@
+module mod_common
+    use mod_precision
+    use cudafor
+    implicit none
+
+    Integer, Parameter :: npmx = 8192, nmblock = 500, nmgrid = 50000, &
+                          nspmax = 4, nmolmax = 220000, nmesmax = 10000, nkmax = 200, ksmax = 6
+    Integer, Parameter :: nitmax = nspmax*(nspmax + 1)/2
+    real(myprec), parameter :: pi = 3.1415926535898D0, fconv = 4.135, &
+                               rgas = 8.3144d7, aunit = 1.0d-8, tunit = 1.0d-12, &
+                               kelvintokcal = 0.00198717
+    real(myprec) :: time_cpu_start, time_cpu_stop, time_total = 0_sp
+    real(double) :: ekin, suma
+    type(cudaEvent) :: startEvent, stopEvent
+    type(cudaDeviceProp) :: gpu_properties
+    type(dim3) :: bl2, thr2, grid, tBlock
+    integer, save :: nstep = 0
+    integer :: nbcuda, natms, nmol, keytrj, width, nqmax, lmaxx, lmaxy, lmaxz, &
+               lsmax, nqmin, ndr, shmsize, maxthread, nit, nconf, nmzero = 0
+    integer, allocatable, dimension(:) :: ntype, itype, lty, list, done, nq
+    integer, allocatable, dimension(:, :) :: ipos, densprofi, histomixi
+    integer, device, allocatable, dimension(:) :: itype_d, ntype_d, gdone
+    integer, device, allocatable, dimension(:, :) :: ipos_d, densprof_d, histomix_d
+    real(myprec) :: tuniti, volumen, side, side2, ecaver, dq, densty, Tfact, taver, &
+                    temperature, rdenst, volumen_r, tstep
+    real(myprec), dimension(3) :: sidel, rlow
+    real, device, dimension(3) :: fk_d, sidel_d
+    real(myprec), dimension(3, 3) :: cell
+    real(myprec), allocatable, dimension(:) :: masa, bscat
+    real, device, allocatable, dimension(:) :: sqf_d, sqfcl_d
+    real(myprec), allocatable, dimension(:, :) :: r, vel, force, densprof
+    real, device, allocatable, dimension(:, :) :: r_d, rclxyzd, sqfp_d
+    real ::  qmin2, cpu0, cpu1
+    real, dimension(3) :: fk
+    real, allocatable, dimension(:) :: sqf, sqfcl, gcluster, gclustav, gclcl, rhoclus, &
+                                       rhoclusav, sqcl
+    real, allocatable, dimension(:, :) :: sqfp
+    real, allocatable, dimension(:, :, :) :: histomix
+    logical :: pdir(3) = .true., run_clusters = .false., run_rdf = .false., &
+               run_sq = .false.
+    character :: fname99*18
+    character, dimension(:), allocatable :: atoms*8
+
+    type clus
+        sequence
+        real(myprec) :: vl(3)
+        real(myprec) :: center(3)
+        real(myprec) :: ekin
+        real(myprec) :: radio
+        real(myprec) :: cldens
+        real(myprec) :: mass
+        Integer :: clsize
+        integer, allocatable :: members(:)
+    end type clus
+    type(clus), Allocatable :: cluster(:)
+    Real(myprec), Dimension(:), Allocatable :: sizedist, densav
+    Real(myprec), Dimension(:, :), Allocatable ::  rclxyz
+    real(myprec) :: ekclaver, ekinclsav, ekincl, ekincls
+    real(myprec) :: tadj = 0, tgraph = 0, tthrus = 0, tbfs = 0, tread = 0, tsq = 0, trdf = 0
+    real(myprec) :: avradio = 0, averdens = 0, tconf0 = 0, tconf1 = 0, drho
+    integer, allocatable ::   radii(:), densclus(:), contador(:)
+    integer :: Nu_clus, ndrho
+    real(myprec) :: NTclus = 0
+
+    integer, allocatable, dimension(:) :: offset, neighbors, adjacency
+    integer, device, allocatable, dimension(:) :: goffset, gneighbors, gadjacency
+    logical(kind=1), allocatable, dimension(:) :: visited, core, border
+    logical(kind=1), device, allocatable, dimension(:) :: gvisited, gcore, gborder
+
+    Real(myprec) :: cellx, celly, cellz
+    Integer, Dimension(:), Allocatable :: head, lista
+    Integer, Dimension(:, :), Allocatable:: neigh
+    Integer :: ncell, nn, maxi, maxj, maxk
+
+    Real(myprec), device :: cellxd, cellyd, cellzd
+    Integer, device, Dimension(:), Allocatable :: headd, listad
+    Integer, device, Dimension(:, :), Allocatable:: neighd
+    Integer, device :: ncelld, nnd, maxid, maxjd, maxkd
+
+    interface
+
+        function minj(dim, members, nm, center, sidel, side2)
+            use mod_precision
+            integer, intent(IN) :: nm, dim
+            integer, intent(IN) :: members(nm)
+            real, intent(IN) :: center(3), sidel(3), side2
+        end function minj
+
+        function cldens(dim, members, nm, sidel, side2, center, rclus)
+            use mod_precision
+            integer, intent(IN) :: nm, dim
+            integer, intent(IN) :: members(nm)
+            real, intent(IN) :: sidel(3), side2, center(3), rclus
+            real :: avcldens
+        end function cldens
+
+        function radius(members, nm, center, sidel)
+            use mod_precision
+            integer, intent(IN) :: nm
+            integer, intent(IN) :: members(nm)
+            real(myprec), intent(IN) :: center(3), sidel(3)
+        end function radius
+
+        function vector_product(a, b)
+            use mod_precision
+            real(myprec), dimension(:), intent(in) :: a, b
+            real(myprec), dimension(size(a)) :: vector_product
+        end function vector_product
+
+        subroutine common_init(natoms, ndim, nthread, idir, units, factor, nsp)
+            use mod_precision
+            integer, intent(in) :: natoms, ndim, nthread, idir, nsp
+            real(myprec), intent(in) :: factor
+            character(*), intent(in) :: units
+        end subroutine common_init
+
+        subroutine common_clear()
+            use mod_precision
+        end subroutine common_clear
+    end interface
+
+contains
+
+    function minj(dim, members, nm, center, sidel, side2)
+        integer, intent(IN) :: nm, dim
+        integer, intent(IN) :: members(nm)
+        real, intent(IN) :: center(3), sidel(3), side2
+        real :: rv(3), dist, r2
+        integer :: j, i, jmin, minj
+        dist = 100000000.0
+        do j = 1, nm
+            i = members(j)
+            rv(1:dim) = r(1:dim, i) - center(1:dim)
+            rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+            r2 = dot_product(rv(1:dim), rv(1:dim))
+            if (r2 <= dist) then
+                dist = r2
+                jmin = j
+            end if
+        end do
+        minj = jmin
+    end function minj
+
+    function cldens(dim, members, nm, sidel, side2, center, rclus)
+        integer, intent(IN) :: nm, dim
+        integer, intent(IN) :: members(nm)
+        real, intent(IN) :: sidel(3), side2, center(3), rclus
+        real :: avcldens
+        real :: rv(3), vol, rr2, rclus2
+        integer :: i, j, count
+        if (dim == 3) then
+            vol = 4*pi*rclus**3/3.0
+        else
+            vol = 4*pi*rclus**2
+        end if
+        rclus2 = rclus*rclus
+        count = 0
+        do i = 1, nm
+            j = members(i)
+            rv(1:dim) = r(1:dim, j) - center(1:dim)
+            ! PBC (unwrap if necessary)
+            rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+            rr2 = Dot_product(rv(1:dim), rv(1:dim))
+            if (rr2 < rclus2) then
+                count = count + 1
+            end if
+        end do
+        cldens = real(count)/vol
+    end function cldens
+
+    function radius(members, nm, center, sidel)
+        implicit none
+        integer, intent(IN) :: nm
+        integer, intent(IN) :: members(nm)
+        real(myprec), intent(IN) :: center(3), sidel(3)
+        real(myprec) :: rr2, rv(3)
+        integer :: i
+        real(myprec) :: radius
+        radius = 0
+        do i = 1, nm
+            rv(:) = r(:, members(i)) - center(:)
+            rv = rv - sidel*nint(rv/sidel)
+            rr2 = Dot_product(rv, rv)
+            if (rr2 > radius) radius = rr2
+        end do
+        radius = sqrt(radius)
+    end function radius
+
+    function gptime(stopEvent, startEvent)
+        type(cudaEvent), intent(IN) :: startEvent, stopEvent
+        integer :: istat
+        real :: time, gptime
+        istat = cudaEventRecord(stopEvent, 0)
+        istat = cudaEventSynchronize(stopEvent)
+        istat = cudaEventElapsedTime(time, startEvent, stopEvent)
+        gptime = time/1000.0
+    end function gptime
+
+    function vector_product(a, b)
+        use mod_precision
+        real(myprec), dimension(:), intent(in) :: a, b
+        real(myprec), dimension(size(a)) :: vector_product
+        vector_product(1) = a(2)*b(3) - a(3)*b(2)
+        vector_product(2) = -a(1)*b(3) + a(3)*b(1)
+        vector_product(3) = a(1)*b(2) - a(2)*b(1)
+    end function vector_product
+
+    subroutine transfer_cpu_gpu(ndim)
+        implicit none
+        integer, intent(in) :: ndim
+
+        ! side2 = (side/2)**2
+        sidel_d(:) = sidel(:)
+        r_d(1:ndim, 1:Nmol) = r(1:ndim, 1:Nmol)
+        fk_d(:) = fk(:)
+
+    end subroutine transfer_cpu_gpu
+
+    subroutine common_init(natoms, ndim, nthread, idir, units, factor, nsp)
+        use mod_precision
+        real(myprec), intent(in) :: factor
+        integer, intent(in) :: natoms, ndim, nthread, idir, nsp
+        character(*), intent(in) :: units
+
+        nmol = natoms !! WARN, change when molecules are implemented
+        natms = natoms !! WARN, assign for compatibility
+
+        ! CUDA number of blocks
+        nbcuda = Nmol/nthread
+        if (nbcuda*nthread .ne. Nmol) nbcuda=nbcuda+1
+        bl2 = dim3(Nmol/16, Nmol/16, 1)
+        thr2 = dim3(16, 16, 1)
+
+        ! Time unit load from netcdf, set in real type seconds units
+        if (units == 'femtosecond') then
+            tuniti = 1.0d-15
+            tstep = factor*0.001
+        else if (units == 'picosecond') then
+            tuniti = 1.0d-12
+            tstep = factor
+        else
+            print *, 'ERROR: timeunit ', units, ' not implemented!'
+            stop
+        end if
+
+        ! Idir parameters control and set pdir
+        if (idir > 0) then
+            if (idir > ndim) stop(" ** Error : wrong non periodic dimension")
+            pdir(idir) = .false.
+        end if
+
+        ! Allocate CPU memory
+        allocate (atoms(nsp))
+        allocate (ntype(nsp))
+        allocate (lty(nsp))
+        allocate (itype(nmol))
+        allocate (ipos(nsp, nmol))
+        allocate (bscat(nmol))
+        allocate (masa(nmol))
+        allocate (list(nmol))
+        allocate (done(nmol))
+        allocate (r(ndim, nmol))
+        if (keytrj == 1) then
+            allocate (vel(ndim, nmol))
+            allocate (force(ndim, nmol))
+        end if
+
+        ! Allocate GPU memory
+        allocate (r_d(ndim, nmol))
+        allocate (itype_d(nmol))
+        allocate (ntype_d(nsp))
+        allocate (ipos_d(nsp, nmol))
+        allocate (gdone(nmol))
+
+        ! Init variables
+        ecaver = 0.0
+        cell(:, :) = 0
+
+    end subroutine common_init
+
+    subroutine common_clear()
+        use mod_precision
+
+        ! Clean house
+        deallocate (atoms)
+        deallocate (ntype)
+        deallocate (lty)
+        deallocate (itype)
+        deallocate (ipos)
+        deallocate (bscat)
+        deallocate (masa)
+    end subroutine common_clear
+
+end module mod_common

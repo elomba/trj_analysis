@@ -1,0 +1,266 @@
+module mod_rdf
+    use mod_precision
+    use mod_common
+    use mod_input
+    use cudafor
+    implicit none
+
+contains
+    subroutine RDF_init(nsp)
+        implicit none
+        integer, intent(in) :: nsp
+        if (rcrdf > 0.0) then
+            lsmax = nint(rcrdf/deltar) + 1
+        else
+            lsmax = nint(minval(sidel(1:ndim))/2.0/deltar) + 1
+        end if
+        if (lsmax*nit*4>shmsize) then
+            print *, " Error g(r) grid requires ",4*lsmax*nit," bytes, larger that shared memory,",shmsize
+            print *, " Increase grid size, dr, or reduce g(r) cutoff, rcdrf"
+            stop
+        endif
+        ndr = lsmax
+        Allocate (histomix(lsmax, nsp, nsp), histomixi(nbcuda*lsmax, nit))
+        Allocate (histomix_d(nbcuda*lsmax, nit))
+        if (run_clusters) then
+            Allocate(gcluster(lsmax), gclustav(lsmax), gclcl(lsmax), rhoclus(0:lsmax),&
+            & rhoclusav(0:lsmax))
+          gclustav(:) = 0.0
+          rhoclus(:) = 0.0
+          rhoclusav(:) = 0.0
+          gclcl(:) = 0
+        endif
+        histomix(:, :, :) = 0
+        histomix_d(:, :) = 0
+    end subroutine  RDF_init
+
+    subroutine rdf_clear()
+        implicit none
+
+        ! Clean house
+        !deallocate (histomix)
+        !deallocate (histomixi)
+        !deallocate (histomix_d)
+        if (run_clusters) then
+            deallocate (gcluster)
+            deallocate (gclustav)
+            deallocate (gclcl)
+            deallocate (rhoclus)
+            deallocate (rhoclusav)
+        endif
+
+    end subroutine rdf_clear
+
+    subroutine RDFcomp(Nmol, Iconf, nbcuda, nthread)
+        !
+        ! Main call to compute pdfs and move data back and forth from device
+        !
+        implicit none
+        integer, intent(IN) :: Nmol, Iconf, nbcuda, nthread
+        integer :: istart, i, ind, k, l, istat
+        real :: time_gpu
+        histomix_d(:, :) = 0
+        !
+        ! Note the increase in the number of threads to optimize the use of shared atomics
+        ! Important : the third parameter in the kernel call is the size of dynamically allocated shared
+        !             memory (assumed sized arrays for the shared histogram)
+        !
+        istat = cudaEventRecord(startEvent, 0)
+        if (ndim == 3) then
+            call rdf_sh<<<nbcuda/8 + 1, 8*nthread, lsmax*nit*4>>>(r_d, Nmol, ndim, histomix_d, nit&
+                 &, nsp, nbcuda*lsmax, lsmax, itype_d, side2, sidel_d, deltar)
+        else
+            call rdf2_sh<<<nbcuda/8 + 1, 8*nthread, lsmax*nit*4>>>(r_d, Nmol, ndim, histomix_d, nit&
+                 &, nsp, nbcuda*lsmax, lsmax, itype_d, side2, sidel_d, deltar)
+        end if
+        time_gpu = gptime(stopEvent, startEvent)
+        trdf = trdf + time_gpu
+        ! Block histograms back from device to host
+        histomixi(:, :) = histomix_d(:, :)
+        !
+        ! Gather histograms from each block
+        !
+        do i = 0, nbcuda - 1
+            istart = i*lsmax
+            ind = 1
+            do k = 1, nsp
+                do l = k, nsp
+                    histomix(1:lsmax, k, l) = histomix(1:lsmax, k, l) + real(histomixi(istart + 1:istart + lsmax, ind))
+                    ind = ind + 1
+                end do
+            end do
+        end do
+    end subroutine RDFcomp
+
+    subroutine rdfcl(dim, members, nm, sidel, side2, g, lsmax, deltar, dens, jmin)
+        integer, intent(IN) :: nm, lsmax, jmin, dim
+        integer, intent(IN) :: members(nm)
+        real, intent(IN) :: sidel(3), side2, deltar, dens
+        real, intent(INOUT) :: g(lsmax)
+        real :: rv(3), rr2, rr, fact
+        integer :: k, l, i, j, ind
+        ! g(r) is normalized for each configuration, since particle number may change
+        fact = 1.0/dens
+        do k = 1, nm
+            i = members(k)
+            if (k .ne. jmin) then
+                j = members(jmin)
+                rv(1:dim) = r(1:dim, i) - r(1:dim, j)
+                ! PBC (unwrap if necessary)
+                rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+                rr2 = Dot_product(rv(1:dim), rv(1:dim))
+                If (rr2 .Lt. side2) Then
+                    rr = sqrt(rr2)
+                    ind = Nint(rr/deltar)
+                    g(ind) = g(ind) + fact
+                end If
+            end if
+        end do
+    end subroutine rdfcl
+
+    subroutine rdfclcl(dim, centers, nm, sidel, side2, g, lsmax, deltar, vol)
+        integer, intent(IN) :: nm, lsmax, dim
+        real, intent(IN) :: centers(dim, nm), sidel(dim), side2, deltar, vol
+        real, intent(INOUT) :: g(lsmax)
+        real :: rv(3), rr2, rr, fact
+        integer :: k, l, i, j, ind
+        ! g(r) is normalized for each configuration, since particle number may change
+        fact = vol/real(nm*nm)
+        do i = 1, nm
+            do j = i + 1, nm
+                rv(1:dim) = centers(1:dim, i) - centers(1:dim, j)
+                ! PBC (unwrap if necessary)
+                rv(1:dim) = rv(1:dim) - sidel*nint(rv(1:dim)/sidel(1:dim))
+                rr2 = Dot_product(rv(1:dim), rv(1:dim))
+                If (rr2 .Lt. side2) Then
+                    rr = sqrt(rr2)
+                    ind = Nint(rr/deltar)
+                    g(ind) = g(ind) + fact
+                end If
+            end do
+        end do
+    end subroutine rdfclcl
+
+    attributes(global) subroutine rdf_sh(r, Nmol, dim, histomix, nit, nsp, hdim, lsmax, itype&
+    &, side2, sidel, deltar)
+        !
+        ! Mossively parallel rdf calculation using shared memory
+        !
+        integer, value, intent(IN) :: Nmol, dim, nit, lsmax, hdim, nsp
+        integer, intent(IN) :: itype(Nmol)
+        integer i, j, ind, ia, fact, iti, itj, istart, ij
+        real ::  rr2, rr, xi, yi, zi, xd, yd, zd
+        real, dimension(3) :: rv
+        real, value, intent(IN) :: side2, deltar
+        real, intent(IN) :: sidel(3)
+        real, dimension(dim, Nmol), intent(IN) :: r
+        integer, intent(INOUT) :: histomix(hdim, nit)
+        ! Assumed size histogram (memory size must be assigned in the kernel call)
+        integer, shared :: histomix_s(lsmax, nit)
+        histomix_s(:, :) = 0
+        i = (blockidx%x - 1)*blockdim%x + threadidx%x
+        if (i <= Nmol - 1) then
+            iti = itype(i)
+            xi = r(1, i)
+            yi = r(2, i)
+            zi = r(3, i)
+            Do j = i + 1, Nmol
+                xd = r(1, j) - xi
+                yd = r(2, j) - yi
+                zd = r(3, j) - zi
+                xd = xd - sidel(1)*nint(xd/sidel(1))
+                yd = yd - sidel(2)*nint(yd/sidel(2))
+                zd = zd - sidel(3)*nint(zd/sidel(3))
+                rr2 = xd*xd + yd*yd + zd*zd
+                If (rr2 .Lt. side2) Then
+                    itj = itype(j)
+                    rr = __fsqrt_rn(rr2)
+                    ind = Nint(rr/deltar)
+                    !
+                    ! Use shared memory histogram to speed calculations
+                    !
+                    ij = rdf_fij(iti, itj, nsp)
+                    ia = atomicadd(histomix_s(ind, ij), 1)
+                    !   if (iti /= itj) ia = atomicadd(histomix_s(ind,ij),1)
+                end if
+            End do
+            call syncthreads()
+            if (threadidx%x == 1) then
+                istart = (blockidx%x - 1)*lsmax
+                !
+                ! Store each block's shared memory histogram on different positions
+                ! in global memory
+                !
+                histomix(istart + 1:istart + lsmax, :) = histomix_s(1:lsmax, :) + histomix(istart + 1:istart + lsmax, :)
+            end if
+        end if
+
+    end subroutine rdf_sh
+
+    attributes(global) subroutine rdf2_sh(r, Nmol, dim, histomix, nit, nsp, hdim, lsmax, itype&
+    &, side2, sidel, deltar)
+!
+! Masively parallel rdf calculation using shared memory (2D)
+!
+        integer, value, intent(IN) :: Nmol, dim, nit, lsmax, hdim, nsp
+        integer, intent(IN) :: itype(Nmol)
+        integer i, j, ind, ia, fact, iti, itj, istart, ij
+        real ::  rr2, rr, xi, yi, zi, xd, yd, zd
+        real, dimension(3) :: rv
+        real, value, intent(IN) :: side2, deltar
+        real, intent(IN) :: sidel(3)
+        real, dimension(dim, Nmol), intent(IN) :: r
+        integer, intent(INOUT) :: histomix(hdim, nit)
+! Assumed size histogram (memory size must be assigned in the kernel call)
+        integer, shared :: histomix_s(lsmax, nit)
+        histomix_s(:, :) = 0
+        i = (blockidx%x - 1)*blockdim%x + threadidx%x
+        if (i <= Nmol - 1) then
+            iti = itype(i)
+            xi = r(1, i)
+            yi = r(2, i)
+            Do j = i + 1, Nmol
+                xd = r(1, j) - xi
+                yd = r(2, j) - yi
+                xd = xd - sidel(1)*nint(xd/sidel(1))
+                yd = yd - sidel(2)*nint(yd/sidel(2))
+                rr2 = xd*xd + yd*yd
+                If (rr2 .Lt. side2) Then
+                    itj = itype(j)
+                    rr = __fsqrt_rn(rr2)
+                    ind = Nint(rr/deltar)
+                    ij = rdf_fij(iti, itj, nsp)
+                    !
+                    ! Use atomics over shared memory to minimize collisions
+                    !
+                    ia = atomicadd(histomix_s(ind, ij), 1)
+                    !   if (iti /= itj) ia = atomicadd(histomix_s(ind,ij),1)
+                end if
+            End do
+            call syncthreads()
+            if (threadidx%x == 1) then
+                istart = (blockidx%x - 1)*lsmax
+                !
+                ! Store each block's shared memory histogram on different positions
+                ! in global memory
+                !
+                histomix(istart + 1:istart + lsmax, :) = histomix_s(1:lsmax, :) + histomix(istart + 1:istart + lsmax, :)
+            end if
+        end if
+    end subroutine rdf2_sh
+
+    attributes(device) integer function rdf_fij(i, j, nsp)
+        implicit none
+        integer, value :: i, j, nsp
+        !
+        ! this function maps the indices (i,j) of a symmetric matrix A(i,j) onto the single index k
+        ! of a vector
+        !
+        if (i <= j) then
+            rdf_fij = (i - 1)*(nsp - 1) - (i - 1)*(i - 2)/2 + j
+        else
+            rdf_fij = (j - 1)*(nsp - 1) - (j - 1)*(j - 2)/2 + i
+        end if
+    end function rdf_fij
+
+end module mod_rdf
