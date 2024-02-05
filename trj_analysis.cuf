@@ -207,7 +207,12 @@ program trj_analysis
     end do
 
     ! Print partial pair distribution functions
-    call printrdf(rcl, lsmax)
+    if (run_rdf) then
+         call printrdf(rcl, lsmax)
+    end if
+    if (run_dyn) then
+        call print_rtcor()
+    endif
     if (run_clusters) then
         call print_clusinfo(nqmin, Nmol)
     end if
