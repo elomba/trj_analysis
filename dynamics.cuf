@@ -40,7 +40,6 @@ module mod_dyn
       if (nmol/nblocks<1) then
          write(*,"('** Error: number of particles too small < ',i4)")nblocks
       endif 
-      v_d(1:ndim,1:Nmol) = vel(1:ndim,1:nmol)
       if (iconf <= nbuffer) then
          r0_d(1:ndim,1:nmol,iconf) = r_d(1:ndim,1:nmol)
          r2tb_d(:,:) = 0
@@ -50,8 +49,6 @@ module mod_dyn
          end if
 
       endif
-      v(1:ndim) = v_d(1:ndim,1)
-      v0(1:ndim) = v0_d(1:ndim,1,1)
       t(iconf) = nstep*tstep
       istat = cudaEventRecord(startEvent, 0)
       call rtcal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf)
@@ -74,7 +71,7 @@ module mod_dyn
       t(1:ndyn) = t(1:ndyn)-t(1)
       open(55,file="dyn.dat")
       do i = 1, ndyn
-         write(55,"(f8.3,8f15.5)")t(i), r2t(i)/nbuffer,v2t(i)/(nbuffer),v2tb(i,:)
+         write(55,"(f8.3,8f15.5)")t(i), r2t(i)/nbuffer,v2t(i)/(nbuffer)!,v2tb(i,:)
       end do
    end subroutine print_rtcor
 
@@ -104,9 +101,9 @@ module mod_dyn
    endif 
 end subroutine vtcal
    
-   attributes(global) subroutine rtcal(dim,mol,buffer,dyn,iconf)
+   attributes(global) subroutine vrtcal(dim,mol,buffer,dyn,iconf)
       integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf
-      real :: rv(3), suma
+      real :: rv(3), v(3), v0(3), suma, sumav
       integer :: i, j, k, npsize, nprest, ia
       i = threadidx%x
       if (iconf-i+1>dyn) return
@@ -124,15 +121,55 @@ end subroutine vtcal
                              & *nint((rt_d(k,1:mol,i)-r_d(k,1:mol))/sidel_d(k))
          end do
          suma = 0
+         sumav = 0
          do j = (blockidx%x - 1)*npsize+1, blockidx%x*npsize
             rv(1:dim) = rt_d(1:dim,j,i)-r0_d(1:dim,j,i)
-            suma = dot_product(rv,rv)/mol + suma 
+            v0(1:dim) = v0_d(1:dim,j,i)
+            v(1:dim) = v_d(1:dim,j)
+            sumav = dot_product(v,v0) + sumav 
+            suma = dot_product(rv,rv) + suma 
          end do
          do j = blockidx%x*npsize+1, blockidx%x*npsize+nprest
             rv(1:dim) = rt_d(1:dim,j,i)-r0_d(1:dim,j,i)
-            suma = dot_product(rv,rv)/mol  + suma
+            v0(1:dim) = v0_d(1:dim,j,i)
+            v(1:dim) = v_d(1:dim,j)
+            sumav = dot_product(v,v0) + sumav 
+            suma = dot_product(rv,rv)  + suma
          end do
-         ia = atomicadd(r2tb_d(iconf-i+1,i),suma)
+         ia = atomicadd(r2tb_d(iconf-i+1,i),suma/mol)
+         ia = atomicadd(v2tb_d(iconf-i+1,i),sumav/mol)
       endif 
-   end subroutine rtcal
+   end subroutine vrtcal
+
+   attributes(global) subroutine rtcal(dim,mol,buffer,dyn,iconf)
+   integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf
+   real :: rv(3), suma
+   integer :: i, j, k, npsize, nprest, ia
+   i = threadidx%x
+   if (iconf-i+1>dyn) return
+   npsize = mol/nblocks
+   nprest = mod(mol,nblocks)
+!     if (i==1) print *, i, 'iconf=',iconf, npsize, nprest, blockidx%x
+   if (i==iconf) then
+      rt_d(1:dim,1:mol,i) = r_d(1:dim,1:mol)
+      r2tb_d(1,i) = 0.0
+   end if
+   if (iconf>i) then
+      ! Unwrap coordinates
+      do k = 1, dim
+         rt_d(k,1:mol,i)= r_d(k,1:mol) +sidel_d(k)&
+                          & *nint((rt_d(k,1:mol,i)-r_d(k,1:mol))/sidel_d(k))
+      end do
+      suma = 0
+      do j = (blockidx%x - 1)*npsize+1, blockidx%x*npsize
+         rv(1:dim) = rt_d(1:dim,j,i)-r0_d(1:dim,j,i)
+         suma = dot_product(rv,rv)/mol + suma 
+      end do
+      do j = blockidx%x*npsize+1, blockidx%x*npsize+nprest
+         rv(1:dim) = rt_d(1:dim,j,i)-r0_d(1:dim,j,i)
+         suma = dot_product(rv,rv)/mol  + suma
+      end do
+      ia = atomicadd(r2tb_d(iconf-i+1,i),suma)
+   endif 
+end subroutine rtcal
 end module mod_dyn
