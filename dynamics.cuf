@@ -5,9 +5,9 @@ module mod_dyn
    use mod_input 
    implicit none
    integer :: ndyn
-   integer, parameter :: nbmax = 100, nblocks = 500
+   integer, parameter :: nbmax = 100, nblocks = 250
    real(myprec), device, allocatable, dimension(:,:,:) :: r0_d, rt_d, v0_d
-   real(myprec), device, allocatable, dimension(:,:) :: r2tb_d
+   real(myprec), device, allocatable, dimension(:,:) :: r2tb_d, v2tb_d
    real(myprec), allocatable, dimension(:,:,:) :: r0, v0
    real(myprec),  allocatable, dimension(:,:) :: r2tb, v2tb
    real(myprec),  allocatable, dimension(:) :: t, r2t, v2t 
@@ -28,7 +28,7 @@ module mod_dyn
       allocate(r0_d(ndim,nmol,nbuffer),rt_d(ndim,nmol,nbuffer),r2tb_d(ndyn,nbuffer))
       if (keytrj > 0) then
          allocate(v0(ndim,nmol,nbuffer),v2t(ndyn),v2tb(ndyn,nbuffer))
-         allocate(v0_d(ndim,nmol,nbuffer))
+         allocate(v0_d(ndim,nmol,nbuffer),v2tb_d(ndyn,nbuffer))
       endif
    end  subroutine dyn_init
 
@@ -43,6 +43,11 @@ module mod_dyn
       if (iconf <= nbuffer) then
          r0_d(1:ndim,1:nmol,iconf) = r_d(1:ndim,1:nmol)
          r2tb_d(:,:) = 0
+         if (keytrj>0) then
+            v0_d(1:ndim,1:nmol,iconf) = v_d(1:ndim,1:nmol)
+            v2tb_d(:,:) = 0
+         end if
+
       endif
       t(iconf) = nstep*tstep
       istat = cudaEventRecord(startEvent, 0)
@@ -57,10 +62,9 @@ module mod_dyn
       r2tb(1:ndyn,1:nbuffer) = r2tb_d(1:ndyn,1:nbuffer)
       r2t(1:ndyn) = sum(r2tb(1:ndyn,1:nbuffer),DIM=2)
       t(1:ndyn) = t(1:ndyn)-t(1)
-      print *, Nconf, nbuffer, nmol
       open(55,file="dyn.dat")
       do i = 1, ndyn
-         write(55,"(f8.3,ff15.5)")t(i), r2t(i)/(nbuffer),r2tb(i,:)/(nbuffer)
+         write(55,"(f8.3,8f15.5)")t(i), r2t(i)/(nbuffer),r2tb(i,:)
       end do
    end subroutine print_rtcor
 

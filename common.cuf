@@ -29,7 +29,7 @@ module mod_common
     real(myprec), allocatable, dimension(:) :: masa, bscat
     real, device, allocatable, dimension(:) :: sqf_d, sqfcl_d
     real(myprec), allocatable, dimension(:, :) :: r, vel, force, densprof
-    real, device, allocatable, dimension(:, :) :: r_d, rclxyzd, sqfp_d
+    real, device, allocatable, dimension(:, :) :: r_d, v_d, rclxyzd, sqfp_d
     real ::  qmin2, cpu0, cpu1
     real, dimension(3) :: fk
     real, allocatable, dimension(:) :: sqf, sqfcl, gcluster, gclustav, gclcl, rhoclus, &
@@ -213,6 +213,9 @@ contains
         ! side2 = (side/2)**2
         sidel_d(:) = sidel(:)
         r_d(1:ndim, 1:Nmol) = r(1:ndim, 1:Nmol)
+        if (keytrj>1) then
+            v_d(1:ndim, 1:Nmol) = vel(1:ndim,1:Nmol)
+        endif
         fk_d(:) = fk(:)
 
     end subroutine transfer_cpu_gpu
@@ -263,6 +266,8 @@ contains
         allocate (r(ndim, nmol))
         if (keytrj == 1) then
             allocate (vel(ndim, nmol))
+            allocate (v_d(ndim,mol))
+        else if (keytrj ==2) then
             allocate (force(ndim, nmol))
         end if
 
