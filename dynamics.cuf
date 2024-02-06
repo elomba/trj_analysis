@@ -71,7 +71,7 @@ module mod_dyn
       t(1:ndyn) = t(1:ndyn)-t(1)
       open(55,file="dyn.dat")
       do i = 1, ndyn
-         write(55,"(f8.3,8f15.5)")t(i), r2t(i)/nbuffer,v2t(i)/(nbuffer)!,v2tb(i,:)
+         write(55,"(f8.3,8f15.5)")t(i), r2t(i)/nbuffer,v2t(i)/(nbuffer),v2tb(i,:)
       end do
    end subroutine print_rtcor
 
