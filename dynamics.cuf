@@ -1,32 +1,33 @@
 module mod_dyn
    use mod_precision
    use mod_common
-   use mod_json
    use cudafor
    use mod_input 
    implicit none
-   integer :: nbuffer, ndyn
+   integer :: ndyn
    integer, parameter :: nbmax = 100, nblocks = 500
-   real(myprec), device, allocatable, dimension(:,:,:) :: r0_d, v0_d
+   real(myprec), device, allocatable, dimension(:,:,:) :: r0_d, rt_d, v0_d
    real(myprec), device, allocatable, dimension(:,:) :: r2tb_d
-   real(myprec),  allocatable, dimension(:,:) :: r2tb
-   real(myprec),  allocatable, dimension(:) :: t, r2t
+   real(myprec), allocatable, dimension(:,:,:) :: r0, v0
+   real(myprec),  allocatable, dimension(:,:) :: r2tb, v2tb
+   real(myprec),  allocatable, dimension(:) :: t, r2t, v2t 
    contains
+
    subroutine dyn_init()
       if (nbuffer > nbmax) then
          write(*,'("** Error: nbuffer > ",i3,", redimension if possible !")') nbmax
          stop
       endif
       ndyn = Nconf - Nbuffer
-      if (dyn < 10) then
+      if (ndyn < 10) then
          write(*,"('** Error: length of dynamics to short. Reduce number of buffers !')")
          stop
       endif 
       allocate(t(ndyn),r2t(ndyn))
-      allocate(r0(ndim,rmol,nbuffer),r2tb(ndyn,nbuffer))
-      allocate(r0_d(ndim,nmol,nbuffer),r2tb_d(ndyn,nbuffer))
+      allocate(r0(ndim,nmol,nbuffer),r2tb(ndyn,nbuffer))
+      allocate(r0_d(ndim,nmol,nbuffer),rt_d(ndim,nmol,nbuffer),r2tb_d(ndyn,nbuffer))
       if (keytrj > 0) then
-         allocate(v0(ndim,rmol,nbuffer))
+         allocate(v0(ndim,nmol,nbuffer),v2t(ndyn),v2tb(ndyn,nbuffer))
          allocate(v0_d(ndim,nmol,nbuffer))
       endif
    end  subroutine dyn_init
@@ -34,15 +35,15 @@ module mod_dyn
    subroutine rtcorr(iconf)
       integer, intent(in) :: iconf
       integer :: i
-      if (mol/nblocks<1) then
+      if (nmol/nblocks<1) then
          write(*,"('** Error: number of particles too small < ',i4)")nblocks
       endif 
       if (iconf <= nbuffer) then
-         r0_d(1:ndim,1:nmol,iconf) = r(1:ndim,1:nmol)
+         r0_d(1:ndim,1:nmol,iconf) = r_d(1:ndim,1:nmol)
+         r2tb_d(:,:) = 0
       endif
       t(iconf) = nstep*tstep
-      call rtcal<<<nblocks,nbuffer>>>(r0_d,r_d,ndim,nmol,nbuffer,r2tb_d,ndyn,nbuffer,iconf)
-    
+      call rtcal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf)
      
    end subroutine rtcorr
 
@@ -50,10 +51,12 @@ module mod_dyn
       implicit none
       integer :: i
       r2tb(1:ndyn,1:nbuffer) = r2tb_d(1:ndyn,1:nbuffer)
-      r2t(1:ndyn) = sum(r2tb(1:ndyn,1:nbuffers),DIM=2)
+      r2t(1:ndyn) = sum(r2tb(1:ndyn,1:nbuffer),DIM=2)
+      t(1:ndyn) = t(1:ndyn)-t(1)
+      print *, Nconf, nbuffer, nmol
       open(55,file="dyn.dat")
       do i = 1, ndyn
-         write(55,"(4f15.7)")t(i), r2t(i)/Nconf
+         write(55,"(f8.3,ff15.5)")t(i), r2t(i)/(nbuffer),r2tb(i,:)/(nbuffer)
       end do
    end subroutine print_rtcor
 
@@ -65,26 +68,37 @@ module mod_dyn
 
    end subroutine vtcorr
    
-   attributes(global) subroutine rtcal(r0,r,dim,mol,r2t,buffer,dyn, iconf)
-      integer, value, intent(IN) :: mol, dim, mol, buffer,din, iconf
-      real, dimension(dim, mol), intent(IN) :: r
-      real, dimension(dim, mol, buffer), intent(IN) :: r0
-      real, dimension(dyn, buffer), save, intent(INOUT) :: r2t
+   attributes(global) subroutine rtcal(dim,mol,buffer,dyn,iconf)
+      integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf
+      !real, dimension(dim, mol), intent(IN) :: r
+      !real, dimension(dim, mol, buffer), intent(IN) :: r0
+      !real, dimension(dyn, buffer), intent(INOUT) :: r2tbb
       real :: rv(3), suma
-      integer :: i, j, npsize, nprest
+      integer :: i, j, k, npsize, nprest, ia
       i = threadidx%x
-      npsize = mol/blockdim%x
-      nprest = mod(mol,blockdim%x)
-      if (i<=iconf) then
+      npsize = mol/nblocks
+      nprest = mod(mol,nblocks)
+ !     if (i==1) print *, i, 'iconf=',iconf, npsize, nprest, blockidx%x
+      if (i==iconf) then
+         rt_d(1:dim,1:mol,i) = r_d(1:dim,1:mol)
+         r2tb_d(1,i) = 0.0
+      end if
+      if (iconf>i) then
+         ! Unwrap coordinates
+         do k = 1, dim
+            rt_d(k,1:mol,i)= r_d(k,1:mol) +sidel_d(k)&
+                             & *nint((rt_d(k,1:mol,i)-r_d(k,1:mol))/sidel_d(k))
+         end do
+         suma = 0
          do j = (blockidx%x - 1)*npsize+1, blockidx%x*npsize
-            rv(1:dim) = r(1:ndim,j)-r0(1:ndim,j,i)
-            suma = dot_product(rv,rv)
+            rv(1:dim) = rt_d(1:dim,j,i)-r0_d(1:dim,j,i)
+            suma = dot_product(rv,rv)/mol + suma 
          end do
          do j = blockidx%x*npsize+1, blockidx%x*npsize+nprest
-            rv(1:dim) = r(1:ndim,j)-r0(1:ndim,j,i)
-            suma = dot_product(rv,rv)
+            rv(1:dim) = rt_d(1:dim,j,i)-r0_d(1:dim,j,i)
+            suma = dot_product(rv,rv)/mol  + suma
          end do
-         call atomicadd(r2t(iconf-i+1,i),suma)
+         ia = atomicadd(r2tb_d(iconf-i+1,i),suma)
       endif 
    end subroutine rtcal
 end module mod_dyn
