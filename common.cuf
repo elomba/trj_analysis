@@ -266,7 +266,7 @@ contains
         allocate (r(ndim, nmol))
         if (keytrj == 1) then
             allocate (vel(ndim, nmol))
-            allocate (v_d(ndim,mol))
+            allocate (v_d(ndim, nmol))
         else if (keytrj ==2) then
             allocate (force(ndim, nmol))
         end if

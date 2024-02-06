@@ -5,7 +5,7 @@ module mod_dyn
    use mod_input 
    implicit none
    integer :: ndyn
-   integer, parameter :: nbmax = 100, nblocks = 250
+   integer, parameter :: nbmax = 100, nblocks = 1
    real(myprec), device, allocatable, dimension(:,:,:) :: r0_d, rt_d, v0_d
    real(myprec), device, allocatable, dimension(:,:) :: r2tb_d, v2tb_d
    real(myprec), allocatable, dimension(:,:,:) :: r0, v0
@@ -52,6 +52,9 @@ module mod_dyn
       t(iconf) = nstep*tstep
       istat = cudaEventRecord(startEvent, 0)
       call rtcal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf)
+      if (keytrj>0) then
+         call vtcal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf)
+      end if 
       time_gpu = gptime(stopEvent, startEvent)
       tdyn = tdyn + time_gpu
    end subroutine rtcorr
@@ -61,29 +64,49 @@ module mod_dyn
       integer :: i
       r2tb(1:ndyn,1:nbuffer) = r2tb_d(1:ndyn,1:nbuffer)
       r2t(1:ndyn) = sum(r2tb(1:ndyn,1:nbuffer),DIM=2)
+      if (keytrj>0) then
+         v2tb(1:ndyn,1:nbuffer) = v2tb_d(1:ndyn,1:nbuffer)
+         v2t(1:ndyn) = sum(v2tb(1:ndyn,1:nbuffer),DIM=2)
+      end if 
       t(1:ndyn) = t(1:ndyn)-t(1)
       open(55,file="dyn.dat")
       do i = 1, ndyn
-         write(55,"(f8.3,8f15.5)")t(i), r2t(i)/(nbuffer),r2tb(i,:)
+         write(55,"(f8.3,8f15.5)")t(i), r2t(i)/nbuffer,v2t(i)/(real(nmol)*nbuffer)
       end do
    end subroutine print_rtcor
 
 
 
-   subroutine vtcorr(iconf)
-      integer, intent(in) :: iconf
-      integer :: i
-
-   end subroutine vtcorr
+   attributes(global) subroutine vtcal(dim,mol,buffer,dyn,iconf)
+   integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf
+   real :: v(3), v0(3), suma
+   integer :: i, j, k, npsize, nprest, ia
+   i = threadidx%x
+   if (iconf-i+1>dyn) return
+   npsize = mol/nblocks
+   nprest = mod(mol,nblocks)
+   if (iconf>=i) then
+      suma = 0
+      do j = (blockidx%x - 1)*npsize+1, blockidx%x*npsize
+         v0(1:dim) = v0_d(1:dim,j,i)
+         v(1:dim) = v_d(1:dim,j)
+         suma = dot_product(v,v0) + suma 
+      end do
+      do j = blockidx%x*npsize+1, blockidx%x*npsize+nprest
+         v0(1:dim) = v0_d(1:dim,j,i)
+         v(1:dim) = v_d(1:dim,j)
+         suma = dot_product(v,v0) + suma 
+      end do
+      ia = atomicadd(v2tb_d(iconf-i+1,i),suma)
+   endif 
+end subroutine vtcal
    
    attributes(global) subroutine rtcal(dim,mol,buffer,dyn,iconf)
       integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf
-      !real, dimension(dim, mol), intent(IN) :: r
-      !real, dimension(dim, mol, buffer), intent(IN) :: r0
-      !real, dimension(dyn, buffer), intent(INOUT) :: r2tbb
       real :: rv(3), suma
       integer :: i, j, k, npsize, nprest, ia
       i = threadidx%x
+      if (iconf-i+1>dyn) return
       npsize = mol/nblocks
       nprest = mod(mol,nblocks)
  !     if (i==1) print *, i, 'iconf=',iconf, npsize, nprest, blockidx%x
