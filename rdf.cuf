@@ -74,7 +74,9 @@ contains
                  &, nsp, nbcuda*lsmax, lsmax, itype_d, side2, sidel_d, deltar)
         end if
         time_gpu = gptime(stopEvent, startEvent)
+        print *, trdf, time_gpu
         trdf = trdf + time_gpu
+        print *, trdf, Iconf
         ! Block histograms back from device to host
         histomixi(:, :) = histomix_d(:, :)
         !

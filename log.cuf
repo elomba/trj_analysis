@@ -110,8 +110,9 @@ contains
                 print *, " ··Time adjacency list construction =", tadj/iconf
                 print *, " ··Time for BFS cluster search =", tbfs/iconf
             end if
-            print *, " ··Time for rdf ", trdf/iconf
-            print *, " ··Time por S(Q) ", tsQ/iconf
+            if (run_rdf) print *, " ··Time for rdf ", trdf/iconf
+            if (run_sq) print *, " ··Time for S(Q) ", tsQ/iconf
+            if (run_dyn) print *, " ··Time for dynamics ", tdyn/iconf
             print *, " ··Time config in/out  ", tread/iconf
         End if
 

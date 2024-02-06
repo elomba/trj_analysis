@@ -35,6 +35,8 @@ module mod_dyn
    subroutine rtcorr(iconf)
       integer, intent(in) :: iconf
       integer :: i
+      integer :: istat
+      real :: time_gpu
       if (nmol/nblocks<1) then
          write(*,"('** Error: number of particles too small < ',i4)")nblocks
       endif 
@@ -43,8 +45,10 @@ module mod_dyn
          r2tb_d(:,:) = 0
       endif
       t(iconf) = nstep*tstep
+      istat = cudaEventRecord(startEvent, 0)
       call rtcal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf)
-     
+      time_gpu = gptime(stopEvent, startEvent)
+      tdyn = tdyn + time_gpu
    end subroutine rtcorr
 
    subroutine print_rtcor()

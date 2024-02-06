@@ -56,7 +56,8 @@ module mod_common
     Real(myprec), Dimension(:), Allocatable :: sizedist, densav
     Real(myprec), Dimension(:, :), Allocatable ::  rclxyz
     real(myprec) :: ekclaver, ekinclsav, ekincl, ekincls
-    real(myprec) :: tadj = 0, tgraph = 0, tthrus = 0, tbfs = 0, tread = 0, tsq = 0, trdf = 0
+    real(myprec) :: tadj = 0, tgraph = 0, tthrus = 0, tbfs = 0, tread = 0, &
+                    & tsq = 0, tdyn=0, trdf = 0
     real(myprec) :: avradio = 0, averdens = 0, tconf0 = 0, tconf1 = 0, drho
     integer, allocatable ::   radii(:), densclus(:), contador(:)
     integer :: Nu_clus, ndrho

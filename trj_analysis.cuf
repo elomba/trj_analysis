@@ -171,7 +171,9 @@ program trj_analysis
         call thermo_calc(i)
 
         ! Run RDF
+        print *, trdf
         if (run_rdf) call RDFcomp(Nmol, i, nbcuda, nthread)
+        print *, trdf
 
         ! Compute density profile along idir direction
         if (idir > 0) then
