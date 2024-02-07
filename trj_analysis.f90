@@ -157,20 +157,18 @@ program trj_analysis
         if (run_sq) then
             if (i == 1) then
                 call sq_init(nmol, nsp, nbcuda)
+                if (run_clusters) call clusters_sq_init()
             end if
         end if
         !done(:) = 0 !!! WARN, try to move inside function
 
         ! Transfer data to GPU
-        print *, 'trans'
         call transfer_cpu_gpu(ndim)
-        print *, 'sla tran'
 
         ! BFS cluster search
         if (run_clusters) then
             call cluster_search()
         end if
-        print *, ' sal bfs'
         ! Thermodynamics calculus
         call thermo_calc(i)
 
@@ -184,19 +182,15 @@ program trj_analysis
 
         ! Compute SQ
         if (run_sq) call SQcalc()
-        print *, ' culsin', i
         ! Compute cluster properties
         if (run_clusters) call cluster_analysis(i)
-        print *, ' clusout'
         ! Compute dynamics
         if (run_dyn) then
             call rtcorr(i)
         end if 
 
         ! Print periodic output
-        print *, i
         call print_output(i)
-        print *, ' sal'
     end do
 
     ! Normalize density profiles computed along the non-periodic dimension

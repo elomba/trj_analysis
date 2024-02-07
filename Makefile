@@ -4,16 +4,16 @@ NETCDF_INC = $(PROG_DIR)/$(NETCDF)/include
 NETCDF_LIB = $(PROG_DIR)/$(NETCDF)/lib64
 
 FC = nvfortran
-FCOPTS = -O4 -cuda -fast -mavx2 -mno-avx512f -gpu=cc60,cc70,cc80 -lnetcdff
+FCOPTS = -O2 -mavx2 -mno-avx512f -gpu=cc60,cc70,cc80 -lnetcdff
 FCINC = -I$(NETCDF_INC)
 FCLIBS = -L$(NETCDF_LIB)
 
 F90 = $(FC)
-F90OPTS = $(FCOPTS)
+F90OPTS = -O2 -C -mavx2 -mno-avx512f
 F90INC = $(FCINC)
 F90LIBS = $(FCLIBS)
 
-LKOPTS = -cuda -c++libs -gpu=cc60,cc70,cc80 -lnetcdff
+LKOPTS =  -cuda -c++libs -gpu=cc60,cc70,cc80 -lnetcdff
 LKINC = -I$(NETCDF_INC)
 LKLIBS = -L$(NETCDF_LIB)
 

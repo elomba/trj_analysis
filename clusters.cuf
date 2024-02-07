@@ -228,7 +228,6 @@ contains
         else
             call gpu_graf<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, jmin)
         end if
-        print *, 'passa'
         time_gpu = gptime(stopEvent, startEvent)
         tgraph = tgraph + time_gpu
         goffset(:) = gneighbors(:)
@@ -272,7 +271,6 @@ contains
             stop(error_msg)
         end if
         Nu_clus = cluster_id
-        print *, 'sal search'
     end subroutine cluster_search
 
     subroutine breadfirst(i, nbcuda, nthread, Nmol, jmin, cluster_id, border, visited, done)
