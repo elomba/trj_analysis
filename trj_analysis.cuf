@@ -219,10 +219,11 @@ program trj_analysis
         call print_clusinfo(nqmin, Nmol)
     end if
     ! Cleaning house
-    if (run_sq) call sq_clear()
-    if (run_rdf) call rdf_clear()
-    if (run_clusters) call clusters_clear()
-    if (use_cell) call cells_clear()
+    !if (run_sq) call sq_clear()
+    !if (run_rdf) call rdf_clear()
+    !if (run_clusters) call clusters_clear()
+    !if (use_cell) call cells_clear()
+    if (run_dyn) call dyn_clear()
     call common_clear()
     call log_clear()
     call input_clear()

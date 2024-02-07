@@ -32,6 +32,16 @@ module mod_dyn
       endif
    end  subroutine dyn_init
 
+   subroutine dyn_clear()
+      deallocate(t,r2t)
+      deallocate(r0,r2tb)
+      deallocate(r0_d,rt_d,r2tb_d)
+      if (keytrj > 0) then
+         deallocate(v0,v2t,v2tb)
+         deallocate(v0_d,v2tb_d)
+      endif
+   end subroutine dyn_clear
+   
    subroutine rtcorr(iconf)
       integer, intent(in) :: iconf
       integer :: i
@@ -42,10 +52,10 @@ module mod_dyn
       endif 
       if (iconf <= nbuffer) then
          r0_d(1:ndim,1:nmol,iconf) = r_d(1:ndim,1:nmol)
-         r2tb_d(:,:) = 0
+         r2tb_d(1:ndim,iconf) = 0
          if (keytrj>0) then
             v0_d(1:ndim,1:nmol,iconf) = v_d(1:ndim,1:nmol)
-            v2tb_d(:,:) = 0
+            v2tb_d(1:ndyn,iconf) = 0
          end if
 
       endif
@@ -71,8 +81,9 @@ module mod_dyn
       t(1:ndyn) = t(1:ndyn)-t(1)
       open(55,file="dyn.dat")
       do i = 1, ndyn
-         write(55,"(f8.3,8f15.5)")t(i), r2t(i)/nbuffer,v2t(i)/(nbuffer),v2tb(i,:)
+         write(55,"(f8.3,8f15.5)")t(i), r2t(i)/nbuffer,v2t(i)/(nbuffer)
       end do
+      close(55)
    end subroutine print_rtcor
 
 
@@ -97,6 +108,7 @@ module mod_dyn
          v(1:dim) = v_d(1:dim,j)
          suma = dot_product(v,v0) + suma 
       end do
+  !    print *,  iconf-i+1,i, dyn, buffer, suma/mol 
       ia = atomicadd(v2tb_d(iconf-i+1,i),suma/mol)
    endif 
 end subroutine vtcal

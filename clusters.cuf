@@ -182,7 +182,6 @@ contains
         else
             call sqf2Dcl<<<tBlock, grid>>>(rclxyzd, cluster_id, fk_d, sqfcl_d, nqmax, qmin2, dq)
         end if
-        print *, ' denscl/cluster_id', denscl/cluster_id
         averdens = averdens + denscl/cluster_id
         avradio = avradio + rclus/cluster_id
         ! Determine average cluster density, cluster g(r) and density profiles
