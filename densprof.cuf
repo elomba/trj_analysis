@@ -8,7 +8,7 @@ module mod_densprof
 contains
 
     subroutine prof_init()
-        implicit normdenspr
+        implicit none
         width = nint((pwallp - pwall)/(2*deltar))
         allocate (densprof(0:width, nsp), densprofi(0:width, nsp))
         allocate (densprof_d(0:width, nsp))

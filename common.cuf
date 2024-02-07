@@ -217,6 +217,7 @@ contains
             v_d(1:ndim, 1:Nmol) = vel(1:ndim,1:Nmol)
         endif
         fk_d(:) = fk(:)
+        itype_d(1:Nmol) = itype(1:Nmol)
 
     end subroutine transfer_cpu_gpu
 

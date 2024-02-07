@@ -65,6 +65,7 @@ contains
         ! Important : the third parameter in the kernel call is the size of dynamically allocated shared
         !             memory (assumed sized arrays for the shared histogram)
         !
+        print *, ' start', lsmax, nbcuda, nthread  
         istat = cudaEventRecord(startEvent, 0)
         if (ndim == 3) then
             call rdf_sh<<<nbcuda/8 + 1, 8*nthread, lsmax*nit*4>>>(r_d, Nmol, ndim, histomix_d, nit&
@@ -75,6 +76,8 @@ contains
         end if
         time_gpu = gptime(stopEvent, startEvent)
         trdf = trdf + time_gpu
+        print *, ' end 1'
+
         ! Block histograms back from device to host
         histomixi(:, :) = histomix_d(:, :)
         !

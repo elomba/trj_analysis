@@ -346,16 +346,4 @@ subroutine trans_ncdfinput()
         bscat(nct(i) + 1:nct(i) + ntype(i)) = bscat(i)
     end do
 
-    lty(:) = 0
-    do i = 1, Nmol
-        lty(itype(i)) = lty(itype(i)) + 1
-        ipos(itype(i), lty(itype(i))) = i
-    end do
-    !
-    ! Device data transfer
-    !
-    ntype_d(:) = ntype(:)
-    ipos_d(:, :) = ipos(:, :)
-    itype_d(1:Nmol) = itype(1:Nmol)
-
 end subroutine trans_ncdfinput

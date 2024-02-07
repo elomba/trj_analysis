@@ -348,7 +348,6 @@ contains
     !
     ntype_d(:) = ntype(:)
     ipos_d(:, :) = ipos(:, :)
-    itype_d(1:Nmol) = itype(1:Nmol)
 
     end subroutine sq_init
 
