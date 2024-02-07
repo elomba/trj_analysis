@@ -210,7 +210,6 @@ contains
         Write (*, "(' ** Average total number of particles in clusters ', f10.2)") NTclus/nconf
         Write (*, "(' ** Average total number of clusters ', I5)") nint(sum(sizedist(:))/real(nconf))
         avcldens = sum(sizedist(:)/real(nconf))/volumen
-        print *, sum(sizedist(:)), nconf, volumen, sidel(:)
         Write (*, "(' ** Average cluster density ', f15.9)") avcldens
         open (125, file='dens.dat')
         open (126, file='radii.dat')

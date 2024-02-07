@@ -26,9 +26,10 @@ module mod_dyn
       allocate(t(ndyn),r2t(ndyn))
       allocate(r0(ndim,nmol,nbuffer),r2tb(ndyn,nbuffer))
       allocate(r0_d(ndim,nmol,nbuffer),rt_d(ndim,nmol,nbuffer),r2tb_d(ndyn,nbuffer))
+      r2tb_d(:,:) = 0
       if (keytrj > 0) then
          allocate(v0(ndim,nmol,nbuffer),v2t(ndyn),v2tb(ndyn,nbuffer))
-         print *, ndyn, nbuffer
+         v2tb_d(:,:) = 0
          allocate(v0_d(ndim,nmol,nbuffer),v2tb_d(ndyn,nbuffer))
       endif
    end  subroutine dyn_init
@@ -39,7 +40,7 @@ module mod_dyn
       deallocate(r0_d,rt_d,r2tb_d)
       if (keytrj > 0) then
          deallocate(v0,v2t,v2tb)
-       !  deallocate(v0_d,v2tb_d)
+         deallocate(v0_d,v2tb_d)
       endif
    end subroutine dyn_clear
 
@@ -53,14 +54,12 @@ module mod_dyn
       endif 
       if (iconf <= nbuffer) then
          r0_d(1:ndim,1:nmol,iconf) = r_d(1:ndim,1:nmol)
-         r2tb_d(1:ndim,iconf) = 0
          if (keytrj>0) then
             v0_d(1:ndim,1:nmol,iconf) = v_d(1:ndim,1:nmol)
-            v2tb_d(1:ndyn,iconf) = 0
          end if
 
       endif
-      t(iconf) = nstep*tstep
+      if (iconf <= ndyn) t(iconf) = nstep*tstep
       istat = cudaEventRecord(startEvent, 0)
       call rtcal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf)
       if (keytrj>0) then
@@ -80,6 +79,7 @@ module mod_dyn
          v2t(1:ndyn) = sum(v2tb(1:ndyn,1:nbuffer),DIM=2)
       end if 
       t(1:ndyn) = t(1:ndyn)-t(1)
+
       open(55,file="dyn.dat")
       do i = 1, ndyn
          write(55,"(f8.3,8f15.5)")t(i), r2t(i)/nbuffer,v2t(i)/(nbuffer)
@@ -94,7 +94,8 @@ module mod_dyn
    real :: v(3), v0(3), suma
    integer :: i, j, k, npsize, nprest, ia
    i = threadidx%x
-   if (iconf-i+1>dyn) return
+   ! Check origin and final configuration of each averaging buffer 
+   if (iconf<i.or. iconf-i+1>dyn) return
    npsize = mol/nblocks
    nprest = mod(mol,nblocks)
    if (iconf>=i) then
@@ -109,12 +110,7 @@ module mod_dyn
          v(1:dim) = v_d(1:dim,j)
          suma = dot_product(v,v0) + suma 
       end do
-  !    print *,  iconf-i+1,i, dyn, buffer, suma/mol
-      if (iconf-i+1 >0 .and. iconf-i+1 <= dyn) then
       ia = atomicadd(v2tb_d(iconf-i+1,i),suma/mol)
-      else 
-         print *, " Wrning !!", iconf-i+1, iconf, i
-      endif
    endif 
 end subroutine vtcal
    
@@ -123,7 +119,7 @@ end subroutine vtcal
       real :: rv(3), v(3), v0(3), suma, sumav
       integer :: i, j, k, npsize, nprest, ia
       i = threadidx%x
-      if (iconf-i+1>dyn) return
+      if (iconf<i.or. iconf-i+1>dyn) return
       npsize = mol/nblocks
       nprest = mod(mol,nblocks)
  !     if (i==1) print *, i, 'iconf=',iconf, npsize, nprest, blockidx%x
@@ -163,10 +159,9 @@ end subroutine vtcal
    real :: rv(3), suma
    integer :: i, j, k, npsize, nprest, ia
    i = threadidx%x
-   if (iconf-i+1>dyn) return
+   if (iconf<i .or. iconf-i+1>dyn) return
    npsize = mol/nblocks
    nprest = mod(mol,nblocks)
-!     if (i==1) print *, i, 'iconf=',iconf, npsize, nprest, blockidx%x
    if (i==iconf) then
       rt_d(1:dim,1:mol,i) = r_d(1:dim,1:mol)
       r2tb_d(1,i) = 0.0
