@@ -38,9 +38,9 @@ contains
         implicit none
 
         ! Clean house
-        !deallocate (histomix)
-        !deallocate (histomixi)
-        !deallocate (histomix_d)
+        deallocate (histomix)
+        deallocate (histomixi)
+        deallocate (histomix_d)
         if (run_clusters) then
             deallocate (gcluster)
             deallocate (gclustav)
