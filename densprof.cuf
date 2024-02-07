@@ -7,6 +7,20 @@ module mod_densprof
 
 contains
 
+    subroutine prof_init()
+        implicit normdenspr
+        width = nint((pwallp - pwall)/(2*deltar))
+        allocate (densprof(0:width, nsp), densprofi(0:width, nsp))
+        allocate (densprof_d(0:width, nsp))
+        densprof(:, :) = 0.0d0
+        densprof_d(:, :) = 0.0d0
+    end subroutine prof_init
+
+    subroutine prof_clear()
+        deallocate (densprof, densprofi)
+        deallocate (densprof_d)
+    end subroutine prof_clear
+
     subroutine normdenspr(nconf)
         use mod_input
         implicit none

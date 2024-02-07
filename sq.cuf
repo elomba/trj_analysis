@@ -250,13 +250,6 @@ contains
         integer, intent(IN) :: Nmol, nsp, nbcuda
         integer :: i, j, k, ind, indm
         real :: rr
-        if (idir > 0) then
-            width = nint((pwallp - pwall)/(2*deltar))
-            allocate (densprof(0:width, nsp), densprofi(0:width, nsp))
-            allocate (densprof_d(0:width, nsp))
-            densprof(:, :) = 0.0d0
-            densprof_d(:, :) = 0.0d0
-        end if
         dq = 2*pi/sidel(1)
         nqmax = nint(qmax/dq)
         lmaxx = nint(qmin/(2*pi/sidel(1)))
@@ -290,12 +283,6 @@ contains
             Allocate(sqfcl_d(nqmax))
         endif
         Allocate (sqf_d(nqmax), sqfp_d(nqmax, nsp))
-        gclustav(:) = 0.0
-        rhoclus(:) = 0.0
-        rhoclusav(:) = 0.0
-        gclcl(:) = 0
-        histomix(:, :, :) = 0
-        histomix_d(:, :) = 0
         sqf_d(:) = 0.0
         sqfcl_d(:) = 0.0
         sqfp_d(:, :) = 0
@@ -350,17 +337,18 @@ contains
             write (*, "(/' *** Averaging over (100), (010) and (001)  q-vectors  **'/)")
         end if
 
-        lty(:) = 0
-        do i = 1, Nmol
-            lty(itype(i)) = lty(itype(i)) + 1
-            ipos(itype(i), lty(itype(i))) = i
-        end do
-        !
-        ! Device data transfer
-        !
-        ntype_d(:) = ntype(:)
-        ipos_d(:, :) = ipos(:, :)
-        itype_d(1:Nmol) = itype(1:Nmol)
+
+    lty(:) = 0
+    do i = 1, Nmol
+        lty(itype(i)) = lty(itype(i)) + 1
+        ipos(itype(i), lty(itype(i))) = i
+    end do
+    !
+    ! Device data transfer
+    !
+    ntype_d(:) = ntype(:)
+    ipos_d(:, :) = ipos(:, :)
+    itype_d(1:Nmol) = itype(1:Nmol)
 
     end subroutine sq_init
 

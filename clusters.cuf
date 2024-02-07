@@ -294,20 +294,9 @@ contains
         end do
     end subroutine breadfirst
 
-    subroutine clusters_sq_init()
-        use mod_common, only: ndr
-        implicit none
-
-        drho = 0.05
-        ndrho = nint(1.4/drho)
-        allocate (densclus(0:ndrho))
-        allocate (radii(0:ndr))
-        densclus(:) = 0
-        radii(:) = 0
-
-    end subroutine clusters_sq_init
 
     subroutine clusters_init(nmol)
+        use mod_common, only: ndr
         implicit none
         integer, intent(in) :: nmol
 
@@ -318,6 +307,17 @@ contains
         sizedist(:) = 0.0
         ekclaver = 0.0
         ekinclsav = 0.0
+        gclustav(:) = 0.0
+        rhoclus(:) = 0.0
+        rhoclusav(:) = 0.0
+        gclcl(:) = 0
+
+        drho = 0.05
+        ndrho = nint(1.4/drho)
+        allocate (densclus(0:ndrho))
+        allocate (radii(0:ndr))
+        densclus(:) = 0
+        radii(:) = 0
 
         ! Open output files
         open (newunit=io_centers_file, file=centers_filename)

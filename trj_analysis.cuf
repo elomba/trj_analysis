@@ -121,6 +121,9 @@ program trj_analysis
     call common_init(natoms, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)
     ! call log_01()
 
+    if (idir > 0) then
+        call prof_init()
+    end if
     ! Simulation begin, every configuration selected
     do i = 1, ncfs_from_to(1)
         ! In the first configuration init modules
@@ -154,7 +157,6 @@ program trj_analysis
         if (run_sq) then
             if (i == 1) then
                 call sq_init(nmol, nsp, nbcuda)
-                if (run_clusters) call clusters_sq_init()
             end if
         end if
         done(:) = 0 !!! WARN, try to move inside function
@@ -230,6 +232,7 @@ program trj_analysis
     if (run_clusters) call clusters_clear()
     if (use_cell) call cells_clear()
     if (run_dyn) call dyn_clear()
+    if (idir > 0) call prof_clear()
     call common_clear()
     call log_clear()
     call input_clear()
