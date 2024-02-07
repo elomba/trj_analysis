@@ -328,8 +328,9 @@ contains
     subroutine clusters_clear()
         implicit none
 
+
         ! Clean house
-        deallocate (sizedist)
+       ! deallocate (sizedist)
         deallocate (densclus)
         deallocate (radii)
 

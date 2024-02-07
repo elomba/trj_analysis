@@ -28,6 +28,7 @@ module mod_dyn
       allocate(r0_d(ndim,nmol,nbuffer),rt_d(ndim,nmol,nbuffer),r2tb_d(ndyn,nbuffer))
       if (keytrj > 0) then
          allocate(v0(ndim,nmol,nbuffer),v2t(ndyn),v2tb(ndyn,nbuffer))
+         print *, ndyn, nbuffer
          allocate(v0_d(ndim,nmol,nbuffer),v2tb_d(ndyn,nbuffer))
       endif
    end  subroutine dyn_init
@@ -38,10 +39,10 @@ module mod_dyn
       deallocate(r0_d,rt_d,r2tb_d)
       if (keytrj > 0) then
          deallocate(v0,v2t,v2tb)
-         deallocate(v0_d,v2tb_d)
+       !  deallocate(v0_d,v2tb_d)
       endif
    end subroutine dyn_clear
-   
+
    subroutine rtcorr(iconf)
       integer, intent(in) :: iconf
       integer :: i
@@ -108,8 +109,12 @@ module mod_dyn
          v(1:dim) = v_d(1:dim,j)
          suma = dot_product(v,v0) + suma 
       end do
-  !    print *,  iconf-i+1,i, dyn, buffer, suma/mol 
+  !    print *,  iconf-i+1,i, dyn, buffer, suma/mol
+      if (iconf-i+1 >0 .and. iconf-i+1 <= dyn) then
       ia = atomicadd(v2tb_d(iconf-i+1,i),suma/mol)
+      else 
+         print *, " Wrning !!", iconf-i+1, iconf, i
+      endif
    endif 
 end subroutine vtcal
    
