@@ -61,7 +61,7 @@ module mod_dyn
       endif
       if (iconf <= ndyn) t(iconf) = nstep*tstep
       istat = cudaEventRecord(startEvent, 0)
-      call rtcal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf)
+     ! call rtcal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf)
       if (keytrj>0) then
          call vtcal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf)
       end if 
@@ -82,7 +82,7 @@ module mod_dyn
 
       open(55,file="dyn.dat")
       do i = 1, ndyn
-         write(55,"(f8.3,8f15.5)")t(i), r2t(i)/nbuffer,v2t(i)/(nbuffer)
+         write(55,"(f8.3,8f15.5)")t(i), r2t(i)/nbuffer,v2t(i)/(nbuffer),r2tb(i,:)
       end do
       close(55)
    end subroutine print_rtcor
@@ -114,45 +114,7 @@ module mod_dyn
    endif 
 end subroutine vtcal
    
-   attributes(global) subroutine vrtcal(dim,mol,buffer,dyn,iconf)
-      integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf
-      real :: rv(3), v(3), v0(3), suma, sumav
-      integer :: i, j, k, npsize, nprest, ia
-      i = threadidx%x
-      if (iconf<i.or. iconf-i+1>dyn) return
-      npsize = mol/nblocks
-      nprest = mod(mol,nblocks)
- !     if (i==1) print *, i, 'iconf=',iconf, npsize, nprest, blockidx%x
-      if (i==iconf) then
-         rt_d(1:dim,1:mol,i) = r_d(1:dim,1:mol)
-         r2tb_d(1,i) = 0.0
-      end if
-      if (iconf>i) then
-         ! Unwrap coordinates
-         do k = 1, dim
-            rt_d(k,1:mol,i)= r_d(k,1:mol) +sidel_d(k)&
-                             & *nint((rt_d(k,1:mol,i)-r_d(k,1:mol))/sidel_d(k))
-         end do
-         suma = 0
-         sumav = 0
-         do j = (blockidx%x - 1)*npsize+1, blockidx%x*npsize
-            rv(1:dim) = rt_d(1:dim,j,i)-r0_d(1:dim,j,i)
-            v0(1:dim) = v0_d(1:dim,j,i)
-            v(1:dim) = v_d(1:dim,j)
-            sumav = dot_product(v,v0) + sumav 
-            suma = dot_product(rv,rv) + suma 
-         end do
-         do j = blockidx%x*npsize+1, blockidx%x*npsize+nprest
-            rv(1:dim) = rt_d(1:dim,j,i)-r0_d(1:dim,j,i)
-            v0(1:dim) = v0_d(1:dim,j,i)
-            v(1:dim) = v_d(1:dim,j)
-            sumav = dot_product(v,v0) + sumav 
-            suma = dot_product(rv,rv)  + suma
-         end do
-         ia = atomicadd(r2tb_d(iconf-i+1,i),suma/mol)
-         ia = atomicadd(v2tb_d(iconf-i+1,i),sumav/mol)
-      endif 
-   end subroutine vrtcal
+
 
    attributes(global) subroutine rtcal(dim,mol,buffer,dyn,iconf)
    integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf
@@ -164,7 +126,6 @@ end subroutine vtcal
    nprest = mod(mol,nblocks)
    if (i==iconf) then
       rt_d(1:dim,1:mol,i) = r_d(1:dim,1:mol)
-      r2tb_d(1,i) = 0.0
    end if
    if (iconf>i) then
       ! Unwrap coordinates

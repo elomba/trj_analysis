@@ -54,6 +54,126 @@ contains
 
     end subroutine sq_transfer_gpu_cpu
 
+    subroutine sq_init(nmol, nsp, nbcuda)
+        Implicit none
+        integer, intent(IN) :: Nmol, nsp, nbcuda
+        integer :: i, j, k, ind, indm
+        real :: rr
+        if (idir > 0) then
+            width = nint((pwallp - pwall)/(2*deltar))
+            allocate (densprof(0:width, nsp), densprofi(0:width, nsp))
+            allocate (densprof_d(0:width, nsp))
+            densprof(:, :) = 0.0d0
+            densprof_d(:, :) = 0.0d0
+        end if
+        dq = 2*pi/sidel(1)
+        nqmax = nint(qmax/dq)
+        lmaxx = nint(qmin/(2*pi/sidel(1)))
+        lmaxy = nint(qmin/(2*pi/sidel(2)))
+        if (ndim == 3) lmaxz = nint(qmin/(2*pi/sidel(3)))
+        if (ndim == 3) then
+            grid = dim3(4, 4, 4)
+            if (mod(lmaxx, 4) .ne. 0) lmaxx = lmaxx - 4 + mod(lmaxx, 4)
+            if (mod(lmaxy, 4) .ne. 0) lmaxy = lmaxy - 4 + mod(lmaxy, 4)
+            if (mod(lmaxz, 4) .ne. 0) lmaxz = lmaxz - 4 + mod(lmaxz, 4)
+            tBlock = dim3(lmaxx/grid%x + 1, lmaxy/grid%y + 1, lmaxz/grid%z + 1)
+            nqmin = min(lmaxx, lmaxy, lmaxz)
+        else
+            grid = dim3(16, 16, 1)
+            if (mod(lmaxx, 16) .ne. 0) lmaxx = lmaxx - 16 + mod(lmaxx, 16)
+            if (mod(lmaxy, 16) .ne. 0) lmaxy = lmaxy - 16 + mod(lmaxy, 16)
+            tBlock = dim3(lmaxx/grid%x + 1, lmaxy/grid%y + 1, 1)
+            nqmin = min(lmaxx, lmaxy)
+        end if
+        fk(:) = 2*pi/sidel(:)
+        if (nqmin == 0) then
+            nqmin = 1
+            lmaxx = 1
+            lmaxy = 1
+            lmaxz = 1
+        end if
+        qmin = lmaxx*fk(1)
+        Allocate (sqf(nqmax), sqfp(nqmax, nsp), nq(0:nqmax))
+        if (run_clusters) then
+            Allocate(sqcl(nqmax), sqfcl(nqmax))
+            Allocate(sqfcl_d(nqmax))
+        endif
+        Allocate (sqf_d(nqmax), sqfp_d(nqmax, nsp))
+        gclustav(:) = 0.0
+        rhoclus(:) = 0.0
+        rhoclusav(:) = 0.0
+        gclcl(:) = 0
+        histomix(:, :, :) = 0
+        histomix_d(:, :) = 0
+        sqf_d(:) = 0.0
+        sqfcl_d(:) = 0.0
+        sqfp_d(:, :) = 0
+        sqf(:) = 0.0d0
+        sqfcl(:) = 0.0d0
+        sqfp(:, :) = 0
+        nq(:) = 0
+        if (nqmin > 10) then
+            indm = 0
+            if (ndim == 3) then
+                do i = 0, lmaxx - 1
+                    do j = 0, lmaxy - 1
+                        do k = 0, lmaxz - 1
+                            if (i + j + k .ne. 0) then
+                                rr = sqrt((i*fk(1))**2 + (j*fk(2))**2 + (k*fk(3))**2)
+                                if (rr .lt. qmin) then
+                                    ind = nint(rr/dq)
+                                    if (ind > indm) indm = ind
+                                    if (ind <= nqmax) nq(ind) = nq(ind) + 1
+                                end if
+                            end if
+                        end do
+                    end do
+                end do
+                write (*, "(' *** Using ',i4,'x',i4,'x',i4,' vectors **'/)") lmaxx, lmaxy, lmaxz
+                nq(indm + 1:nqmax) = 3
+            else
+                do i = 0, lmaxx - 1
+                    do j = 0, lmaxy - 1
+                        if (i + j .ne. 0) then
+                            rr = sqrt((i*fk(1))**2 + (j*fk(2))**2)
+                            if (rr .lt. qmin) then
+                                ind = nint(rr/dq)
+                                if (ind > indm) indm = ind
+                                if (ind <= nqmax) nq(ind) = nq(ind) + 1
+                            end if
+                        end if
+                    end do
+                end do
+                nq(indm + 1:nqmax) = 2
+                write (*, "(' *** Using ',i4,'x',i4,' vectors **'/)") lmaxx, lmaxy
+            end if
+            qmin2 = qmin**2
+            write (*, "(/' *** Averaging over all q-vectors for q <',f10.6,' A^-1 **')") qmin
+        else
+            if (ndim == 3) then
+                nq(1:nqmax) = 3
+            else
+                nq(1:nqmax) = 2
+            end if
+            nqmin = 1
+            write (*, "(/' *** Averaging over (100), (010) and (001)  q-vectors  **'/)")
+        end if
+
+        lty(:) = 0
+        do i = 1, Nmol
+            lty(itype(i)) = lty(itype(i)) + 1
+            ipos(itype(i), lty(itype(i))) = i
+        end do
+        !
+        ! Device data transfer
+        !
+        ntype_d(:) = ntype(:)
+        ipos_d(:, :) = ipos(:, :)
+        itype_d(1:Nmol) = itype(1:Nmol)
+
+    end subroutine sq_init
+
+
     attributes(global) subroutine sqfact(r_d, Nmol, dim, itype, ntype, ipos, fk, sqf, sqfp, nsp, kmax, kmin)
         integer, value, intent(IN) :: Nmol, dim, nsp, kmax, kmin
         integer, intent(IN) :: itype(Nmol), ntype(nsp), ipos(nsp, Nmol)
@@ -245,111 +365,7 @@ contains
         end if
     end subroutine sqf2D
 
-    subroutine sq_init(nmol, nsp, nbcuda)
-        Implicit none
-        integer, intent(IN) :: Nmol, nsp, nbcuda
-        integer :: i, j, k, ind, indm
-        real :: rr
-        dq = 2*pi/sidel(1)
-        nqmax = nint(qmax/dq)
-        lmaxx = nint(qmin/(2*pi/sidel(1)))
-        lmaxy = nint(qmin/(2*pi/sidel(2)))
-        if (ndim == 3) lmaxz = nint(qmin/(2*pi/sidel(3)))
-        if (ndim == 3) then
-            grid = dim3(4, 4, 4)
-            if (mod(lmaxx, 4) .ne. 0) lmaxx = lmaxx - 4 + mod(lmaxx, 4)
-            if (mod(lmaxy, 4) .ne. 0) lmaxy = lmaxy - 4 + mod(lmaxy, 4)
-            if (mod(lmaxz, 4) .ne. 0) lmaxz = lmaxz - 4 + mod(lmaxz, 4)
-            tBlock = dim3(lmaxx/grid%x + 1, lmaxy/grid%y + 1, lmaxz/grid%z + 1)
-            nqmin = min(lmaxx, lmaxy, lmaxz)
-        else
-            grid = dim3(16, 16, 1)
-            if (mod(lmaxx, 16) .ne. 0) lmaxx = lmaxx - 16 + mod(lmaxx, 16)
-            if (mod(lmaxy, 16) .ne. 0) lmaxy = lmaxy - 16 + mod(lmaxy, 16)
-            tBlock = dim3(lmaxx/grid%x + 1, lmaxy/grid%y + 1, 1)
-            nqmin = min(lmaxx, lmaxy)
-        end if
-        fk(:) = 2*pi/sidel(:)
-        if (nqmin == 0) then
-            nqmin = 1
-            lmaxx = 1
-            lmaxy = 1
-            lmaxz = 1
-        end if
-        qmin = lmaxx*fk(1)
-        Allocate (sqf(nqmax), sqfp(nqmax, nsp), nq(0:nqmax))
-        if (run_clusters) then
-            Allocate(sqcl(nqmax), sqfcl(nqmax))
-            Allocate(sqfcl_d(nqmax))
-        endif
-        Allocate (sqf_d(nqmax), sqfp_d(nqmax, nsp))
-        sqf_d(:) = 0.0
-        sqfcl_d(:) = 0.0
-        sqfp_d(:, :) = 0
-        sqf(:) = 0.0d0
-        sqfcl(:) = 0.0d0
-        sqfp(:, :) = 0
-        nq(:) = 0
-        if (nqmin > 10) then
-            indm = 0
-            if (ndim == 3) then
-                do i = 0, lmaxx - 1
-                    do j = 0, lmaxy - 1
-                        do k = 0, lmaxz - 1
-                            if (i + j + k .ne. 0) then
-                                rr = sqrt((i*fk(1))**2 + (j*fk(2))**2 + (k*fk(3))**2)
-                                if (rr .lt. qmin) then
-                                    ind = nint(rr/dq)
-                                    if (ind > indm) indm = ind
-                                    if (ind <= nqmax) nq(ind) = nq(ind) + 1
-                                end if
-                            end if
-                        end do
-                    end do
-                end do
-                write (*, "(' *** Using ',i4,'x',i4,'x',i4,' vectors **'/)") lmaxx, lmaxy, lmaxz
-                nq(indm + 1:nqmax) = 3
-            else
-                do i = 0, lmaxx - 1
-                    do j = 0, lmaxy - 1
-                        if (i + j .ne. 0) then
-                            rr = sqrt((i*fk(1))**2 + (j*fk(2))**2)
-                            if (rr .lt. qmin) then
-                                ind = nint(rr/dq)
-                                if (ind > indm) indm = ind
-                                if (ind <= nqmax) nq(ind) = nq(ind) + 1
-                            end if
-                        end if
-                    end do
-                end do
-                nq(indm + 1:nqmax) = 2
-                write (*, "(' *** Using ',i4,'x',i4,' vectors **'/)") lmaxx, lmaxy
-            end if
-            qmin2 = qmin**2
-            write (*, "(/' *** Averaging over all q-vectors for q <',f10.6,' A^-1 **')") qmin
-        else
-            if (ndim == 3) then
-                nq(1:nqmax) = 3
-            else
-                nq(1:nqmax) = 2
-            end if
-            nqmin = 1
-            write (*, "(/' *** Averaging over (100), (010) and (001)  q-vectors  **'/)")
-        end if
-
-
-    lty(:) = 0
-    do i = 1, Nmol
-        lty(itype(i)) = lty(itype(i)) + 1
-        ipos(itype(i), lty(itype(i))) = i
-    end do
-    !
-    ! Device data transfer
-    !
-    ntype_d(:) = ntype(:)
-    ipos_d(:, :) = ipos(:, :)
-
-    end subroutine sq_init
+    
 
     subroutine sq_clear()
         implicit none
