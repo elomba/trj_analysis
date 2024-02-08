@@ -213,9 +213,6 @@ contains
         ! side2 = (side/2)**2
         sidel_d(:) = sidel(:)
         r_d(1:ndim, 1:Nmol) = r(1:ndim, 1:Nmol)
-        if (keytrj>0) then
-            v_d(1:ndim, 1:Nmol) = vel(1:ndim,1:Nmol)
-        endif
         fk_d(:) = fk(:)
         itype_d(1:Nmol) = itype(1:Nmol)
 

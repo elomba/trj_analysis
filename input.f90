@@ -36,9 +36,9 @@ contains
       read (unit=io_input_file, nml=INPUT_SP)
 
       deltar = -1.0
-      if (rdf_sq_cl_dyn_conf(1) == .true.) read (unit=io_input_file, nml=INPUT_RDF)
+      if (rdf_sq_cl_dyn_conf(1) == .true. .or. rdf_sq_cl_dyn_conf(3) == .true.) read (unit=io_input_file, nml=INPUT_RDF)
       qmax = -1.0
-      if (rdf_sq_cl_dyn_conf(2) == .true.) read (unit=io_input_file, nml=INPUT_SQ)
+      if (rdf_sq_cl_dyn_conf(2) == .true. .or. rdf_sq_cl_dyn_conf(3) == .true.) read (unit=io_input_file, nml=INPUT_SQ)
       rcl = -1.0
       if (rdf_sq_cl_dyn_conf(3) == .true.) read (unit=io_input_file, nml=INPUT_CL)
       if (rdf_sq_cl_dyn_conf(4) == .true.) read (unit=io_input_file, nml=INPUT_DYN)

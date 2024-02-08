@@ -11,7 +11,6 @@ module mod_dyn
    real(myprec), allocatable, dimension(:,:,:) :: r0, v0
    real(myprec),  allocatable, dimension(:,:) :: r2tb, v2tb
    real(myprec),  allocatable, dimension(:) :: t, r2t, v2t
-   real(myprec), device :: v2_d(100)=0.0, r2_d(100) = 0
    contains
 
    subroutine dyn_init()
@@ -19,7 +18,7 @@ module mod_dyn
          write(*,'("** Error: nbuffer > ",i3,", redimension if possible !")') nbmax
          stop
       endif
-      ndyn = Nconf - Nbuffer
+      ndyn = Nconf
       if (ndyn < 10) then
          write(*,"('** Error: length of dynamics to short. Reduce number of buffers !')")
          stop
@@ -49,8 +48,8 @@ module mod_dyn
       integer, intent(in) :: iconf
       integer :: i
       integer :: istat
-      real :: time_gpu, v0(3), v(3)
-      v_d(1:ndim, 1:Nmol) = vel(1:ndim,1:Nmol)
+      real :: time_gpu, v0(3), v(3), res
+      if (keytrj>0) v_d(1:ndim, 1:Nmol) = vel(1:ndim,1:Nmol)
       if (nmol/nblocks<1) then
          write(*,"('** Error: number of particles too small < ',i4)")nblocks
       endif 
@@ -63,9 +62,9 @@ module mod_dyn
       endif
       if (iconf <= ndyn) t(iconf) = nstep*tstep
       istat = cudaEventRecord(startEvent, 0)
-      call rtcal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf,r2_d)
+      call rtcal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf)
       if (keytrj>0) then
-         call vtcal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf,v2_d)
+         call vtcal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf)
       end if 
       time_gpu = gptime(stopEvent, startEvent)
       tdyn = tdyn + time_gpu
@@ -75,26 +74,25 @@ module mod_dyn
       implicit none
       integer :: i
       r2tb(1:ndyn,1:nbuffer) = r2tb_d(1:ndyn,1:nbuffer)
-      r2t(1:ndyn) = r2_d(1:ndyn) ! sum(r2tb(1:ndyn,1:nbuffer),DIM=2)
+      r2t(1:ndyn) = sum(r2tb(1:ndyn,1:nbuffer),DIM=2)
       if (keytrj>0) then
          v2tb(1:ndyn,1:nbuffer) = v2tb_d(1:ndyn,1:nbuffer)
-         v2t(1:ndyn) = v2_d(1:ndyn) !sum(v2tb(1:ndyn,1:nbuffer),DIM=2)
+         v2t(1:ndyn) = sum(v2tb(1:ndyn,1:nbuffer),DIM=2)
       end if 
       t(1:ndyn) = t(1:ndyn)-t(1)
 
       open(55,file="dyn.dat")
-      do i = 1, ndyn
-         write(55,"(f8.3,8f15.5)")t(i), r2t(i)/nbuffer,v2t(i)/(nbuffer),r2tb(i,:)
+      write(55,"('#',4x,'t(ps)',5x,'C_r(t)',5x'C_v(t)'")
+      do i = 1, Nconf - nbuffer
+         write(55,"(f8.3,8f15.5)")t(i), r2t(i)/nbuffer,v2t(i)/(nbuffer)!,r2tb(i,:)
       end do
       close(55)
    end subroutine print_rtcor
 
 
 
-   attributes(global) subroutine vtcal(dim,mol,buffer,dyn,iconf,v2)
+   attributes(global) subroutine vtcal(dim,mol,buffer,dyn,iconf)
    integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf
-   real, intent(inout) :: v2(100)
-   real :: v(3), v0(3), suma 
    real(kind=8) :: suma8
    real :: sumf 
    integer :: i, j, k, npsize, nprest, ia, indx 
@@ -106,35 +104,27 @@ module mod_dyn
    nprest = mod(mol,nblocks)
    suma8 = 0.0d0
    if (iconf>=i) then
-      suma = 0
       do j = (blockidx%x - 1)*npsize+1, blockidx%x*npsize
-         v0(1:dim) = v0_d(1:dim,j,i)
-         v(1:dim) = v_d(1:dim,j)
-         suma8 = dot_product(v,v0) + suma8 
+         suma8 = dot_product(v_d(1:dim,j),v0_d(1:dim,j,i)) + suma8 
       end do
       do j = blockidx%x*npsize+1, blockidx%x*npsize+nprest
-         v0(1:dim) = v0_d(1:dim,j,i)
-         v(1:dim) = v_d(1:dim,j)
-         suma8 = dot_product(v,v0) + suma8 
+         suma8 = dot_product(v_d(1:dim,j),v0_d(1:dim,j,i)) + suma8 
       end do
       sumf = suma8/mol 
-    !  print *, ' sumf =', sumf
-      suma = sumf 
-   !   ia = atomicadd(v2tb_d(indx,i),sumf)
-      ia = atomicadd(v2(indx),sumf)
+      ia = atomicadd(v2tb_d(indx,i),sumf)
    endif 
 end subroutine vtcal
    
 
 
-   attributes(global) subroutine rtcal(dim,mol,buffer,dyn,iconf,r2)
+   attributes(global) subroutine rtcal(dim,mol,buffer,dyn,iconf)
    integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf
-   real, intent(INOUT) :: r2(100)
    real :: rv(3), suma
    real(kind=8) :: suma8
    integer :: i, j, k, npsize, nprest, ia, indx 
    i = threadidx%x
    indx = iconf -i + 1
+   ! Check origin and final configuration of each averaging buffer 
    if (iconf<i .or. indx>dyn) return
    suma8 = 0
    npsize = mol/nblocks
@@ -158,8 +148,7 @@ end subroutine vtcal
          suma8 = dot_product(rv,rv)  + suma8
       end do
       suma = suma8/mol 
-     ! ia = atomicadd(r2tb_d(indx,i),suma)
-      r2(indx) = r2(indx)+ suma
+      ia = atomicadd(r2tb_d(indx,i),suma)
    endif 
 end subroutine rtcal
 end module mod_dyn

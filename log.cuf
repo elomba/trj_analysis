@@ -128,10 +128,10 @@ contains
         integer :: i, j
         open (100, file='sq.dat')
         open (110, file='sqmix.dat')
+        x1 = (real(ntype(1))/real(Nmol))
+        x2 = (real(ntype(2))/real(Nmol))
         if (nsp == 2) then
-            x1 = (real(ntype(1))/real(Nmol))
-            x2 = (real(ntype(2))/real(Nmol))
-            write (100, "('#           Q        S_NN(Q)          S_cc(Q)       S_11(Q)        S_22(Q)           S_12(Q)         n(Q)')")
+        write (100, "('#           Q        S_NN(Q)          S_cc(Q)       S_11(Q)        S_22(Q)           S_12(Q)         n(Q)')")
         else
             write (100, "('#           Q       S_NN(Q)          n(Q)')")
         end if
@@ -215,7 +215,11 @@ contains
         open (126, file='radii.dat')
         open (999, file='rhoprof.dat')
         open (1001, file='clustdistr.dat')
-        write (125, "('#      rho_cl        rho_cl*        N(rho_cl)')")
+        write (125, "('#      rho_cl*        rho_cl        N(rho_cl)')")
+        !
+        ! Note, the cluster density distribution is commputed in units reduced with and 
+        ! estimated particle diameters
+        !
         do i = 1, ndrho
             write (125, "(5f15.7)") i*drho, i*drho/sigma**3, (real(densclus(i))/drho/Nconf)
         end do

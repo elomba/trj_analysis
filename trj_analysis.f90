@@ -1,4 +1,20 @@
 program trj_analysis
+    !
+    !  This program performs an analysis of a netcdf trajectory file from LAMMPS.
+    !  At this stage it computes:
+    !     - Pair distribution functions
+    !     - Static structure factors
+    !     - Cluster analysis (average cluster profiles, cluster-cluster rdf's and sq's)
+    !                         size and radii distributions, and a trajectory file with the
+    !                         evolution of cluster  com's 
+    !     - Dynamics (position and velocity correlation functions)
+    !   The input is provided as a set of namelist (see attached example) 
+    !
+    !   Programmed in NVIDIA CUDA Fortran
+    !
+    !   A. Diaz-Pozuelo & E. Lomba, Madrid February 2024 
+    !
+    !
     use mod_precision
     use mod_common
     use mod_input
@@ -79,7 +95,7 @@ program trj_analysis
     nconf = ncfs_from_to(1)
     ncfs_from_to(3) = ncfs_from_to(3) + 1
 
-    ! Keytrj set & control
+    ! Keytrj set & control (0: only positions ; 1: positions & velocities)
     if (allocated(v)) then
         keytrj = 1
     else
@@ -92,26 +108,17 @@ program trj_analysis
     run_sq = .false. 
     if (rdf_sq_cl_dyn_conf(2) == .true.) run_sq = .true.
     if (rdf_sq_cl_dyn_conf(3) == .true.) then
+        !
+        ! Cluster analysis needs rdf's and s(q)'s to be computed
+        ! This is also modified in input.f90
+        !
         run_clusters = .true.
+        run_rdf = .true.
+        run_sq = .true.
         clnfound = .false.
     end if
     if (rdf_sq_cl_dyn_conf(4) == .true.) run_dyn = .true. 
-    ! if (rdf_sq_cl_dyn_conf(5) == .true.) ! CONF
-
-    ! do i = 1, size(ilen_mtl)
-    !     if (modules_to_load(i) == "clusters") then
-    !         run_clusters = .true.
-    !         clnfound = .false.
-    !     else if (modules_to_load(i) == "rdf") then
-    !         run_rdf = .true.
-    !     else if (modules_to_load(i) == "sq") then
-    !         run_sq = .true.
-    !     else
-    !         print *, 'Error: ', modules_to_load(i), ' is not a valid module name'
-    !         print *, 'Check JSON input file!'
-    !         stop
-    !     end if
-    ! end do
+   ! Deactivate use of cell lists if clusters not analysed 
     if (clnfound) then
         rcl = -1.
         use_cell = .false.
