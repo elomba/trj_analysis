@@ -4,7 +4,7 @@ NETCDF_INC = $(PROG_DIR)/$(NETCDF)/include
 NETCDF_LIB = $(PROG_DIR)/$(NETCDF)/lib64
 
 FC = nvfortran
-FCOPTS = -O2 -mavx2 -mno-avx512f -gpu=cc60,cc70,cc80 -lnetcdff
+FCOPTS = -O2 -mavx2 -mno-avx512f -gpu=cc60,cc70,cc80
 FCINC = -I$(NETCDF_INC)
 FCLIBS = -L$(NETCDF_LIB)
 
