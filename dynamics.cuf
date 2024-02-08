@@ -82,7 +82,7 @@ module mod_dyn
       t(1:ndyn) = t(1:ndyn)-t(1)
 
       open(55,file="dyn.dat")
-      write(55,"('#',4x,'t(ps)',5x,'C_r(t)',5x'C_v(t)'")
+      write(55,"('#',2x,'t(ps)',9x,'C_r(t)',7x'C_v(t)')")
       do i = 1, Nconf - nbuffer
          write(55,"(f8.3,8f15.5)")t(i), r2t(i)/nbuffer,v2t(i)/(nbuffer)!,r2tb(i,:)
       end do
