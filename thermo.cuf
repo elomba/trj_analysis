@@ -1,0 +1,22 @@
+module mod_thermo
+   use mod_precision
+   use mod_common
+   use mod_input
+   use cudafor
+   implicit none
+   real(myprec), device, allocatable, dimension(:) :: rcpot_d
+   real(myprec), allocatable, dimension(:) :: rcpot
+
+contains
+
+   subroutine thermo_init()
+      allocate(rcpot(nit))
+      allocate(rcpot_d(nit))
+   end subroutine thermo_init
+
+   subroutine thermo_clear()
+      deallocate(rcpot)
+      deallocate(rcpot_d)
+   end subroutine thermo_clear
+
+end module mod_thermo

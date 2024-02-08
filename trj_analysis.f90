@@ -126,6 +126,7 @@ program trj_analysis
 
     ! Init common variables & print log_01
     call common_init(natoms, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)
+    call thermo_init()
     ! call log_01()
 
     if (idir > 0) then
@@ -177,7 +178,7 @@ program trj_analysis
             call cluster_search()
         end if
         ! Thermodynamics calculus
-        call thermo_calc(i)
+        call thermo_kin(i, ndim)
 
         ! Run RDF
         if (run_rdf) call RDFcomp(Nmol, i, nbcuda, nthread)
@@ -234,6 +235,7 @@ program trj_analysis
     if (run_dyn) call dyn_clear()
     if (idir > 0) call prof_clear()
     call common_clear()
+    call thermo_clear()
     call log_clear()
     call input_clear()
     call cpu_time(time_cpu_stop)
