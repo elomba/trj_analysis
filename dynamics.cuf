@@ -93,7 +93,7 @@ module mod_dyn
 
    attributes(global) subroutine vtcal(dim,mol,buffer,dyn,iconf)
    integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf
-   real(kind=8) :: suma8
+   real(double) :: suma8
    real :: sumf 
    integer :: i, j, k, npsize, nprest, ia, indx 
    i = threadidx%x
@@ -120,7 +120,7 @@ end subroutine vtcal
    attributes(global) subroutine rtcal(dim,mol,buffer,dyn,iconf)
    integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf
    real :: rv(3), suma
-   real(kind=8) :: suma8
+   real(double) :: suma8
    integer :: i, j, k, npsize, nprest, ia, indx 
    i = threadidx%x
    indx = iconf -i + 1
