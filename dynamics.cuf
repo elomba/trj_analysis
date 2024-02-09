@@ -5,7 +5,7 @@ module mod_dyn
    use mod_input 
    implicit none
    integer :: ndyn
-   integer, parameter :: nbmax = 100, nblocks = 1
+   integer, parameter :: nbmax = 100, nblocks = 50
    real(myprec), device, allocatable, dimension(:,:,:) :: r0_d, rt_d, v0_d
    real(myprec), device, allocatable, dimension(:,:) :: r2tb_d, v2tb_d
    real(myprec), allocatable, dimension(:,:,:) :: r0, v0
