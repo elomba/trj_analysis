@@ -4,19 +4,64 @@ module mod_thermo
    use mod_input
    use cudafor
    implicit none
-   real(myprec), device, allocatable, dimension(:) :: rcpot_d
-   real(myprec), allocatable, dimension(:) :: rcpot
+   real(myprec), allocatable, dimension(:) :: potrc
+   real(myprec), allocatable, dimension(:, :, :) :: pottable
+   real(myprec), device, allocatable, dimension(:) :: potrc_d
+   real(myprec), device, allocatable, dimension(:, :, :) :: pottable_d
 
 contains
 
    subroutine thermo_init()
-      allocate(rcpot(nit))
-      allocate(rcpot_d(nit))
+      integer :: io_input_file, i, j, k, npots, junkint, nitid = 1
+      character(len=128) :: filename, junkchar
+      real(double) :: junkreal, potd
+      real(myprec) :: test_prec = 0.0, rr
+
+      allocate (potrc(nit))
+      allocate (potrc_d(nit))
+      potrc(:) = 1.0e-7
+
+      do i = 1, nit - 1
+         do j = i, nit - 1
+            write (filename, "(A1,2I1,A4)") 'u', i, j, '.dat'
+            open (newunit=io_input_file, file=filename, action='read')
+            do k = 1, 4
+               read (io_input_file, *)
+            end do
+            read (io_input_file, *) junkchar, npots, junkchar, junkreal, junkint
+            read (io_input_file, *)
+            if (.not. allocated(pottable)) then
+               allocate (pottable(npots, 2, nit))
+               allocate (pottable_d(npots, 2, nit))
+            end if
+            do k = 1, npots
+               read (io_input_file, *) junkint, rr, potd, junkreal
+               if (potd >= huge(test_prec)) then
+                  pottable(k, 2, nitid) = huge(test_prec)
+               else
+                  pottable(k, 2, nitid) = potd
+               end if
+               pottable(k, 1, nitid) = rr * rr
+            end do
+            nitid = nitid + 1
+            close (io_input_file)
+         end do
+      end do
+      do i = 1, nit
+         do j = npots, 1, -1
+            if (pottable(j, 2, i) > potrc(i)) then
+               potrc(i) = sqrt(pottable(j, 1, i))
+               exit
+            end if
+         end do
+      end do
+      potrc_d(:) = potrc(:)
+      pottable_d(:, :, :) = pottable(:, :, :)
    end subroutine thermo_init
 
    subroutine thermo_clear()
-      deallocate(rcpot)
-      deallocate(rcpot_d)
+      deallocate (potrc)
+      deallocate (potrc_d)
    end subroutine thermo_clear
 
 end module mod_thermo
