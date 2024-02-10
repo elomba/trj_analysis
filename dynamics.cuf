@@ -80,6 +80,7 @@ module mod_dyn
       use fftw3
       implicit none
       integer :: i
+      real :: fconv=4.135
       r2tb(1:ndyn,1:nbuffer) = r2tb_d(1:ndyn,1:nbuffer)
       r2t(1:ndyn) = sum(r2tb(1:ndyn,1:nbuffer),DIM=2)
       if (keytrj>0) then
@@ -91,9 +92,9 @@ module mod_dyn
       r2t(:) = r2t(:)/nbuffer
       call fftw1d(v2t,ftv,w,ndyn,t(2)-t(1),tmax)
       open(55,file="dyn.dat")
-      write(55,"('#',2x,'t(ps)',9x,'C_r(t)',7x'C_v(t)',13x,'w',13x,'F(w)')")
+      write(55,"('#',2x,'t(ps)',9x,'C_r(t)',7x'C_v(t)',10x,'f(THz)',7x,'f(meV)',12x,'F(w)')")
       do i = 1, Nconf - nbuffer
-         write(55,"(f8.3,8f15.5)")t(i), r2t(i),v2t(i),w(i), ftv(i)
+         write(55,"(f8.3,8f15.5)")t(i), r2t(i),v2t(i),w(i)/(2*pi),fconv*w(i)/(2*pi),ftv(i)
       end do
       close(55)
    end subroutine print_rtcor
