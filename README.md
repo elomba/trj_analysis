@@ -1,5 +1,19 @@
 # trj_analysis
-
+ !
+    !  This program performs an analysis of a netcdf trajectory file from LAMMPS.
+    !  At this stage it computes:
+    !     - Pair distribution functions
+    !     - Static structure factors
+    !     - Cluster analysis (average cluster profiles, cluster-cluster rdf's and sq's)
+    !                         size and radii distributions, and a trajectory file with the
+    !                         evolution of cluster  com's 
+    !     - Dynamics (position and velocity correlation functions)
+    !   The input is provided as a set of namelist (see attached example) 
+    !
+    !   Programmed in NVIDIA CUDA Fortran
+    !
+    !   A. Diaz-Pozuelo & E. Lomba, Madrid February 2024 
+    !
 
 
 ## Getting started

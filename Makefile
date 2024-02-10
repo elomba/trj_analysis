@@ -13,7 +13,7 @@ F90OPTS = -O2 -C -mavx2 -mno-avx512f
 F90INC = $(FCINC)
 F90LIBS = $(FCLIBS)
 
-LKOPTS =  -cuda -c++libs -gpu=cc60,cc70,cc80 -lnetcdff
+LKOPTS =  -cuda -c++libs -gpu=cc60,cc70,cc80 -lnetcdff -lfftw3
 LKINC = -I$(NETCDF_INC)
 LKLIBS = -L$(NETCDF_LIB)
 
@@ -21,7 +21,7 @@ CC = nvcc
 
 EXE = -o trj_analysis.exe
 OBJ = precision.o thrust.o common.o input.o netcdf.o cells.o \
-	sq.o rdf.o densprof.o clusters.o log.o thermo.o dynamics.o\
+	sq.o rdf.o densprof.o clusters.o log.o thermo.o fftwlib.o dynamics.o\
 	trj_analysis.o ex-scan.o
 
 %.o : %.mod

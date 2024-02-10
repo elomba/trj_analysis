@@ -5,12 +5,14 @@ module mod_dyn
    use mod_input 
    implicit none
    integer :: ndyn
-   integer, parameter :: nbmax = 100, nblocks = 50
+   integer, parameter :: nbmax = 100, nblocks = 1
    real(myprec), device, allocatable, dimension(:,:,:) :: r0_d, rt_d, v0_d
    real(myprec), device, allocatable, dimension(:,:) :: r2tb_d, v2tb_d
    real(myprec), allocatable, dimension(:,:,:) :: r0, v0
    real(myprec),  allocatable, dimension(:,:) :: r2tb, v2tb
    real(myprec),  allocatable, dimension(:) :: t, r2t, v2t
+   real(float), allocatable, dimension(:) :: w, ftv
+   real(float) :: sumvel=0 
    contains
 
    subroutine dyn_init()
@@ -31,6 +33,7 @@ module mod_dyn
          allocate(v0(ndim,nmol,nbuffer),v2t(ndyn),v2tb(ndyn,nbuffer))
          v2tb_d(:,:) = 0
          allocate(v0_d(ndim,nmol,nbuffer),v2tb_d(ndyn,nbuffer))
+         allocate(w(ndyn),ftv(ndyn))
       endif
    end  subroutine dyn_init
 
@@ -41,6 +44,7 @@ module mod_dyn
       if (keytrj > 0) then
          deallocate(v0,v2t,v2tb)
          deallocate(v0_d,v2tb_d)
+         deallocate(w,ftv)
       endif
    end subroutine dyn_clear
 
@@ -49,7 +53,9 @@ module mod_dyn
       integer :: i
       integer :: istat
       real :: time_gpu, v0(3), v(3), res
-      if (keytrj>0) v_d(1:ndim, 1:Nmol) = vel(1:ndim,1:Nmol)
+      if (keytrj>0) then
+         v_d(1:ndim, 1:Nmol) = vel(1:ndim,1:Nmol)
+      end if
       if (nmol/nblocks<1) then
          write(*,"('** Error: number of particles too small < ',i4)")nblocks
       endif 
@@ -71,6 +77,7 @@ module mod_dyn
    end subroutine rtcorr
 
    subroutine print_rtcor()
+      use fftw3
       implicit none
       integer :: i
       r2tb(1:ndyn,1:nbuffer) = r2tb_d(1:ndyn,1:nbuffer)
@@ -80,11 +87,13 @@ module mod_dyn
          v2t(1:ndyn) = sum(v2tb(1:ndyn,1:nbuffer),DIM=2)
       end if 
       t(1:ndyn) = t(1:ndyn)-t(1)
-
+      v2t(:) = v2t(:)/nbuffer
+      r2t(:) = r2t(:)/nbuffer
+      call fftw1d(v2t,ftv,w,ndyn,t(2)-t(1),tmax)
       open(55,file="dyn.dat")
-      write(55,"('#',2x,'t(ps)',9x,'C_r(t)',7x'C_v(t)')")
+      write(55,"('#',2x,'t(ps)',9x,'C_r(t)',7x'C_v(t)',13x,'w',13x,'F(w)')")
       do i = 1, Nconf - nbuffer
-         write(55,"(f8.3,8f15.5)")t(i), r2t(i)/nbuffer,v2t(i)/(nbuffer)!,r2tb(i,:)
+         write(55,"(f8.3,8f15.5)")t(i), r2t(i),v2t(i),w(i), ftv(i)
       end do
       close(55)
    end subroutine print_rtcor
@@ -110,7 +119,7 @@ module mod_dyn
       do j = blockidx%x*npsize+1, blockidx%x*npsize+nprest
          suma8 = dot_product(v_d(1:dim,j),v0_d(1:dim,j,i)) + suma8 
       end do
-      sumf = suma8/mol 
+      sumf = suma8/mol
       ia = atomicadd(v2tb_d(indx,i),sumf)
    endif 
 end subroutine vtcal
