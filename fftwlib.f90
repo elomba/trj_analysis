@@ -15,6 +15,7 @@ subroutine fftw1d(fin,fout,w,nin,dtin, tmax)
    real(float), intent(OUT) :: fout(nin), w(nin)
    real(float), allocatable, dimension(:) :: tx
    Complex(double), allocatable, Dimension(:) :: out, in
+   Real(float) :: alpha=1.0
    Integer :: i, j, nu, n
    Integer(kind=8) :: plan
    nu = int(log(real(nin))/log(2.00)+0.540)
