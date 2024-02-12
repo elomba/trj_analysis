@@ -10,12 +10,8 @@ trj_analysis
 - Cluster analysis (average cluster profiles, cluster-cluster rdf's and sq's) size and radii distributions, and a trajectory file with the evolution of cluster  com's 
 - Dynamics (position and velocity correlation functions)
 
-##
-The input is provided as a set of namelist (see attached example) 
-
-
-
-## Programmed in NVIDIA CUDA Fortran by
+## Input 
+The input is provided as a set of namelist directives (see attached example) 
 
 ## Installation
 
