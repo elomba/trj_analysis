@@ -137,6 +137,7 @@ contains
         end if
         write (110, "('#       Q',14x,6('S_',2i1,'(Q)',9x:))") ((j, j), j=1, nsp)
         do i = 1, nqmax
+            if (i*dq<=qmin .or. dq > 0.2) then
             if (nsp == 2) then
                 s11 = x1*sqfp(i, 1)/(ntype(1)*Nconf*real(nq(i)))
                 s22 = x2*sqfp(i, 2)/(ntype(2)*Nconf*real(nq(i)))
@@ -150,7 +151,24 @@ contains
 
             write (110, '(7f15.7)') i*dq, (sqfp(i, j)/(ntype(j)*Nconf&
                                                       &*real(nq(i))), j=1, nsp)
+            endif 
         end do
+        if (dq <=0.2) then
+            do i = nint(qmin/dq)+1, nqmax-2, 3
+                if (nsp == 2) then
+                    s11 = x1*sum(sqfp(i-2:i+2, 1)/(ntype(1)*Nconf*real(nq(i-2:i+2))))/5
+                     s22 = x2*sum(sqfp(i-2:i+2, 2)/(ntype(2)*Nconf*real(nq(i-2:i+2))))/5
+                    s12 = 0.5*(sum(sqf(i-2:i+2)/(Nmol*Nconf*real(nq(i-2:i+2))))/5 - s11 - s22)
+                    scc = x2**2*s11 + x1**2*s22 - 2*x1*x2*s12
+                    write (100, '(6f15.7,i12)') i*dq, sum(sqf(i-2:i+2)/(Nmol*Nconf*real(nq(i-2:i+2))))/5&
+                     &, scc, s11, s22, s12, nq(i)
+                else
+                     write (100, '(2f15.7,i12)') i*dq, sum(sqf(i-2:i+2)/(Nmol*Nconf*real(nq(i-2:i+2))))/5, nq(i)
+                end if
+                write (110, '(7f15.7)') i*dq, (sum(sqfp(i-2:i+2, j)/(ntype(j)*Nconf&
+                                    &*real(nq(i-2:i+2))))/5, j=1, nsp) 
+            end do
+        end if
         close (100)
         close (110)
     end subroutine printSQ
