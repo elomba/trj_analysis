@@ -88,13 +88,23 @@ module mod_dyn
          v2t(1:ndyn) = sum(v2tb(1:ndyn,1:nbuffer),DIM=2)
       end if 
       t(1:ndyn) = t(1:ndyn)-t(1)
-      v2t(:) = v2t(:)/nbuffer
       r2t(:) = r2t(:)/nbuffer
-      call fftw1d(v2t,ftv,w,ndyn,t(2)-t(1),tmax)
+      if (keytrj>0) then
+         v2t(:) = v2t(:)/nbuffer
+         call fftw1d(v2t,ftv,w,ndyn,t(2)-t(1),tmax)
+      end if 
       open(55,file="dyn.dat")
-      write(55,"('#',2x,'t(ps)',9x,'C_r(t)',7x'C_v(t)',10x,'f(THz)',7x,'f(meV)',12x,'F(w)')")
+      if (keytrj>0) then
+          write(55,"('#',2x,'t(ps)',9x,'C_r(t)',7x'C_v(t)',10x,'f(THz)',7x,'f(meV)',12x,'F(w)')")
+      else
+         write(55,"('#',2x,'t(ps)',9x,'C_r(t)')")
+      endif
       do i = 1, Nconf - nbuffer
-         write(55,"(f8.3,8f15.5)")t(i), r2t(i),v2t(i),w(i)/(2*pi),fconv*w(i)/(2*pi),ftv(i)
+         if (keytrj > 0) then
+             write(55,"(f8.3,8f15.5)")t(i), r2t(i),v2t(i),w(i)/(2*pi),fconv*w(i)/(2*pi),ftv(i)
+         else
+            write(55,"(f8.3,8f15.5)")t(i), r2t(i)
+         endif 
       end do
       close(55)
    end subroutine print_rtcor
