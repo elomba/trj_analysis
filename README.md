@@ -1,5 +1,5 @@
-# Name: 
-trj_analysis
+## Name: 
+Trajectoryanalysis
 
 ## Description
  This program performs an analysis of a netcdf trajectory file from LAMMPS.
