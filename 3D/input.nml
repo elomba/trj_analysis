@@ -5,7 +5,7 @@
   nsp=2
   nthread=128
   ncfs_from_to=0 0 0
-  rdf_sq_cl_dyn_conf=T T T F F
+  rdf_sq_cl_dyn_thermo_conf=T T T T T F
 /
 &INPUT_SP
   sp_types_selected=0 0
@@ -29,6 +29,11 @@
   sigma=4.0
 /
 &INPUT_DYN
+  nbuffer=10
+  tmax=2.5
+/
+&INPUT_THERMO
+  thermo_junk=1
 /
 &INPUT_CONF
   idir=0

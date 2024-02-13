@@ -104,10 +104,10 @@ program trj_analysis
 
     ! Modules to run
     clnfound = .true.
-    if (rdf_sq_cl_dyn_conf(1) == .true.) run_rdf = .true.
+    if (rdf_sq_cl_dyn_thermo_conf(1) == .true.) run_rdf = .true.
     run_sq = .false. 
-    if (rdf_sq_cl_dyn_conf(2) == .true.) run_sq = .true.
-    if (rdf_sq_cl_dyn_conf(3) == .true.) then
+    if (rdf_sq_cl_dyn_thermo_conf(2) == .true.) run_sq = .true.
+    if (rdf_sq_cl_dyn_thermo_conf(3) == .true.) then
         !
         ! Cluster analysis needs rdf's and s(q)'s to be computed
         ! This is also modified in input.f90
@@ -117,16 +117,17 @@ program trj_analysis
         run_sq = .true.
         clnfound = .false.
     end if
-    if (rdf_sq_cl_dyn_conf(4) == .true.) run_dyn = .true. 
+    if (rdf_sq_cl_dyn_thermo_conf(4) == .true.) run_dyn = .true. 
    ! Deactivate use of cell lists if clusters not analysed 
     if (clnfound) then
         rcl = -1.
         use_cell = .false.
     endif
+    if (rdf_sq_cl_dyn_thermo_conf(5) == .true.) run_thermo = .true. 
 
     ! Init common variables & print log_01
     call common_init(natoms, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)
-    call thermo_init()
+    if (run_thermo) call thermo_init()
     ! call log_01()
 
     if (idir > 0) then
@@ -234,8 +235,8 @@ program trj_analysis
     if (use_cell) call cells_clear()
     if (run_dyn) call dyn_clear()
     if (idir > 0) call prof_clear()
+    if (run_thermo) call thermo_clear()
     call common_clear()
-    call thermo_clear()
     call log_clear()
     call input_clear()
     call cpu_time(time_cpu_stop)
