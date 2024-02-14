@@ -64,7 +64,7 @@ contains
         ! Write trajectory file with centers of mass of clusters with size > minclsize
         !
         write (io_centers_file, "('ITEM: TIMESTEP'/I12/'ITEM: NUMBER OF ATOMS'/I12/'ITE&
-             &M: BOX BOUNDS pp pp pp')") nstep_in, nbigcl
+             &M: BOX BOUNDS pp pp pp')") nstep, nbigcl
         write (io_centers_file, "(2f15.7)") (0.0, sidel(i), i=1, ndim)
         if (ndim == 2) write (io_centers_file, "('-0.5 0.5')")
         if (keytrj>0) then
