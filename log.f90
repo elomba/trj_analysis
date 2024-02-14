@@ -132,9 +132,9 @@ contains
       integer :: i, j
       open (100, file='sq.dat')
       open (110, file='sqmix.dat')
-      x1 = (real(ntype(1))/real(Nmol))
-      x2 = (real(ntype(2))/real(Nmol))
       if (nsp == 2) then
+        x1 = (real(ntype(1))/real(Nmol))
+        x2 = (real(ntype(2))/real(Nmol))
         write (100, "('#           Q        S_NN(Q)          S_cc(Q)       S_11(Q)        S_22(Q)           S_12(Q)         n(Q)')")
       else
          write (100, "('#           Q       S_NN(Q)          n(Q)')")
