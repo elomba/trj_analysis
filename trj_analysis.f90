@@ -133,6 +133,7 @@ program trj_analysis
     if (idir > 0) then
         call prof_init()
     end if
+
     ! Simulation begin, every configuration selected
     do i = 1, ncfs_from_to(1)
         ! In the first configuration init modules
@@ -197,6 +198,9 @@ program trj_analysis
         if (run_dyn) then
             call rtcorr(i)
         end if 
+
+        ! Compute potential energy
+        if (run_thermo) call poteng(Nmol, i, nbcuda, nthread)
 
         ! Print periodic output
         call print_output(i)

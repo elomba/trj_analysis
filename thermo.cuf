@@ -8,11 +8,15 @@ module mod_thermo
    real(myprec), allocatable, dimension(:, :, :) :: r2_pot
    real(myprec), device, allocatable, dimension(:) :: rc2pot_d
    real(myprec), device, allocatable, dimension(:, :, :) :: r2_pot_d
+   integer :: npots
+   real(myprec) :: dr2pot
+   real(double), allocatable, dimension(:) :: eng_block
+   real(double), device, allocatable, dimension(:) :: eng_block_d
 
 contains
 
    subroutine thermo_init()
-      integer :: io_input_file, i, j, k, npots, junkint, nitid = 1
+      integer :: io_input_file, i, j, k, junkint, nitid = 1
       character(len=128) :: filename, junkchar
       real(double) :: junkreal, potd
       real(myprec) :: test_prec = 0.0, rr
@@ -21,6 +25,10 @@ contains
       allocate (rc2pot_d(nit))
       rc2pot(:) = 1.0e-7
 
+      allocate(eng_block(nbcuda))
+      allocate(eng_block_d(nbcuda))
+      eng_block = 0.0
+      
       do i = 1, nit - 1
          do j = i, nit - 1
             write (filename, "(A1,2I1,A4)") 'u', i, j, '.dat'
@@ -41,7 +49,7 @@ contains
                else
                   r2_pot(k, 2, nitid) = potd
                end if
-               r2_pot(k, 1, nitid) = rr * rr
+               r2_pot(k, 1, nitid) = rr*rr
             end do
             nitid = nitid + 1
             close (io_input_file)
@@ -57,11 +65,116 @@ contains
       end do
       rc2pot_d(:) = rc2pot(:)
       r2_pot_d(:, :, :) = r2_pot(:, :, :)
+      eng_block_d(:) = eng_block(:)
+      dr2pot = r2_pot(3,1,1) - r2_pot(2,1,1)
    end subroutine thermo_init
+
+   subroutine poteng(Nmol, Iconf, nbcuda, nthread)
+      !
+      ! Main call to compute potential energy and move data back and forth from device
+      !
+      implicit none
+      integer, intent(IN) :: Nmol, Iconf, nbcuda, nthread
+      integer :: istart, i, ind, k, l, istat
+      real :: time_gpu
+
+      istat = cudaEventRecord(startEvent, 0)
+      if (ndim == 3) then
+         call poteng3d<<<nbcuda, nthread>>>(Nmol, nsp, dr2pot, nthread)
+      else
+         call poteng2d<<<nbcuda, nthread>>>(Nmol, nsp, dr2pot)
+      end if
+      eng_block(:) = eng_block_d(:)
+      time_gpu = gptime(stopEvent, startEvent)
+      epot = sum(eng_block) / 2.0
+      tpoteng = tpoteng + time_gpu
+
+   end subroutine poteng
+
+   attributes(global) subroutine poteng3d(Nmol, nsp, dr2pot, nthread)
+      !
+      ! Massively parallel potential energy calculation
+      !
+      integer, value, intent(IN) :: Nmol, nsp, nthread
+      real, value, intent(in) :: dr2pot
+      integer i, j, ind, ia, fact, iti, itj, istart, ij, ir
+      real ::  rr2, xi, yi, zi, xd, yd, zd, mu, mu2, xmu, y0, y1, y2, y3, a0, a1, a2, a3
+      real(double), shared, dimension(nthread) :: eng_thread
+
+      eng_thread(threadidx%x) = 0.0
+      i = (blockidx%x - 1)*blockdim%x + threadidx%x
+      iti = itype_d(i)
+      xi = r_d(1, i)
+      yi = r_d(2, i)
+      zi = r_d(3, i)
+      do j = 1, Nmol
+         if (i /= j) then
+            itj = itype_d(j)
+            ij = rdf_fij(iti, itj, nsp)
+            xd = r_d(1, j) - xi
+            yd = r_d(2, j) - yi
+            zd = r_d(3, j) - zi
+            xd = xd - sidel_d(1)*nint(xd/sidel_d(1))
+            yd = yd - sidel_d(2)*nint(yd/sidel_d(2))
+            zd = zd - sidel_d(3)*nint(zd/sidel_d(3))
+            rr2 = xd*xd + yd*yd + zd*zd
+            If (rr2 .Lt. rc2pot_d(ij)) Then
+               xmu = rr2/dr2pot
+               ir = int(xmu)
+               mu = xmu-ir
+               mu2 = mu*mu
+               y0 = r2_pot_d(ir-1, 2, ij)
+               y1 = r2_pot_d(ir, 2, ij)
+               y2 = r2_pot_d(ir+1, 2, ij)
+               y3 = r2_pot_d(ir+2, 2, ij)
+               a0 = -0.5d0*y0 + 1.5d0*y1 - 1.5d0*y2 + 0.5d0*y3
+               a1 = y0 - 2.5d0*y1 + 2*y2 - 0.5d0*y3
+               a2 = -0.5d0*y0 + 0.5d0*y2
+               a3 = y1
+               eng_thread(threadidx%x) = eng_thread(threadidx%x)+a0*mu*mu2+a1*mu2+a2*mu+a3
+            end if
+         end if
+      end do
+      call syncthreads()
+      if (threadidx%x == 1) eng_block_d(blockidx%x) = sum(eng_thread)
+
+   end subroutine poteng3d
+
+   attributes(global) subroutine poteng2d(Nmol, nsp, dr2pot)
+      !
+      ! Massively parallel potential energy calculation
+      !
+      integer, value, intent(IN) :: Nmol, nsp
+      real, value, intent(in) :: dr2pot
+      integer i, j, ind, ia, fact, iti, itj, istart, ij, ir
+      real ::  rr2, xi, yi, zi, xd, yd, zd, mu, mu2, xmu, y0, y1, y2, y3, a0, a1, a2, a3
+      real(double) :: eng0 = 0.0
+
+      i = (blockidx%x - 1)*blockdim%x + threadidx%x
+
+   end subroutine poteng2d
 
    subroutine thermo_clear()
       deallocate (rc2pot)
       deallocate (rc2pot_d)
+      deallocate (r2_pot)
+      deallocate (r2_pot_d)
+      deallocate (eng_block)
+      deallocate (eng_block_d)
    end subroutine thermo_clear
+
+   attributes(device) integer function rdf_fij(i, j, nsp)
+        implicit none
+        integer, value :: i, j, nsp
+        !
+        ! this function maps the indices (i,j) of a symmetric matrix A(i,j) onto the single index k
+        ! of a vector
+        !
+        if (i <= j) then
+            rdf_fij = (i - 1)*(nsp - 1) - (i - 1)*(i - 2)/2 + j
+        else
+            rdf_fij = (j - 1)*(nsp - 1) - (j - 1)*(j - 2)/2 + i
+        end if
+    end function rdf_fij
 
 end module mod_thermo
