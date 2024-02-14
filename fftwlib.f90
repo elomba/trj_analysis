@@ -37,6 +37,9 @@ subroutine fftw1d(fin,fout,w,nin,dtin, tmax)
  end subroutine fftw1d
 
   Subroutine fftw1(in,out,n,forward)
+   !
+   ! Use FFTW3 to compute the 1D Fourier cosine transform from t->w
+   !
    Implicit None
    Integer, Intent(IN) :: n
    Complex(double), Dimension(n), Intent(INOUT) :: in, out
@@ -60,7 +63,7 @@ subroutine fftw1d(fin,fout,w,nin,dtin, tmax)
    Call dfftw_destroy_plan(plan)
    out(1) = out(1)*dfact
    Forall (i=2:n/2)
-      ! FT(k_x,k_y) = 2*(Real(F(k_x,k_y))+Real(F(K_x,-k_y)) and we make use of the symmetry 
+      ! FT(k_x) = 2*(Real(F(k_x))+Real(F(-K_x)) and we make use of the symmetry 
       out(i) = (out(i)+out(n-i+2))*dfact/2
    End Forall
  End Subroutine fftw1

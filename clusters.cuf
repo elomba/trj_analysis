@@ -6,6 +6,7 @@ module mod_clusters
     use mod_rdf
     use mod_densprof
     use cudafor
+    use mod_nc_conf, only : conf
     implicit none
 
     integer :: io_centers_file, io_clusevol_file
@@ -24,7 +25,8 @@ contains
              & imaxcl, clsz, nbigcl, clussize, cmin
         Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
         Real(myprec) :: denscl
-        Real(kind=8) ::  mcl, ekcls, suma, rclus, rcluster, volcl
+        Real(kind=8) ::  mcl, ekcls, suma, rclus, rcluster, volcl, factorv=1.0
+        if (conf(4)%units == 'femtosecond' ) factorv = 0.001
         if (Nu_clus < 1) then
             maxcln = 1
         else
@@ -62,10 +64,14 @@ contains
         ! Write trajectory file with centers of mass of clusters with size > minclsize
         !
         write (io_centers_file, "('ITEM: TIMESTEP'/I12/'ITEM: NUMBER OF ATOMS'/I12/'ITE&
-             &M: BOX BOUNDS pp pp pp')") nstep, nbigcl
+             &M: BOX BOUNDS pp pp pp')") nstep_in, nbigcl
         write (io_centers_file, "(2f15.7)") (0.0, sidel(i), i=1, ndim)
         if (ndim == 2) write (io_centers_file, "('-0.5 0.5')")
-        write (io_centers_file, "('ITEM: ATOMS id type id x y z')")
+        if (keytrj>0) then
+            write (io_centers_file, "('ITEM: ATOMS id type x y z vx vy vz')")
+        else
+            write (io_centers_file, "('ITEM: ATOMS id type x y z')")
+        end if
         !        write(189,*) " iconf=", iconf
         icl = 0
         do I = 1, cluster_id
@@ -112,11 +118,19 @@ contains
             end if
             if (j >= minclsize) then
                 icl = icl + 1
-                if (ndim == 3) then
-                    write (io_centers_file, '(3i10,3f15.7)') icl, nsp + 2, icl, cluster(i)%center(1:ndim)
+                if (keytrj>0) then
+                 if (ndim == 3) then
+                      write (io_centers_file, '(2i10,6f15.7)') icl, 1, cluster(i)%center(1:ndim), factorv*cluster(i)%vl(1:ndim)
+                 else
+                    write (io_centers_file, '(2i10,6f15.7)') icl, 1, cluster(i)%center(1:ndim), 0.0,factorv*cluster(i)%vl(1:ndim),0.0
+                 end if
                 else
-                    write (io_centers_file, '(3i10,3f15.7)') icl, nsp + 2, icl, cluster(i)%center(1:ndim), 0.0
-                end if
+                    if (ndim == 3) then
+                        write (io_centers_file, '(2i10,6f15.7)') icl, 1, cluster(i)%center(1:ndim)
+                   else
+                      write (io_centers_file, '(2i10,6f15.7)') icl, 1, cluster(i)%center(1:ndim), 0.0
+                   end if
+                endif  
             end if
         end do
         ekincl = 0
