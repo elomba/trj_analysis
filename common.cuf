@@ -10,7 +10,7 @@ module mod_common
                                rgas = 8.3144d7, aunit = 1.0d-8, tunit = 1.0d-12, &
                                kelvintokcal = 0.00198717
     real(myprec) :: time_cpu_start, time_cpu_stop, time_total = 0_sp
-    real(double) :: ekin, suma
+    real(double) :: ekin, suma, epot
     type(cudaEvent) :: startEvent, stopEvent
     type(cudaDeviceProp) :: gpu_properties
     type(dim3) :: bl2, thr2, grid, tBlock
@@ -57,7 +57,7 @@ module mod_common
     Real(myprec), Dimension(:, :), Allocatable ::  rclxyz
     real(myprec) :: ekclaver, ekinclsav, ekincl, ekincls
     real(myprec) :: tadj = 0, tgraph = 0, tthrus = 0, tbfs = 0, tread = 0, &
-                    & tsq = 0, tdyn=0, trdf = 0
+                    & tsq = 0, tdyn=0, trdf = 0, tpoteng = 0
     real(myprec) :: avradio = 0, averdens = 0, tconf0 = 0, tconf1 = 0, drho
     integer, allocatable ::   radii(:), densclus(:), contador(:)
     integer :: Nu_clus, ndrho
