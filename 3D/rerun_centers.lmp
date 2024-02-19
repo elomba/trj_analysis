@@ -1,0 +1,65 @@
+# 3d Lennard-Jones melt
+#dimension 2
+units		real
+atom_style	full
+dimension 3
+
+# Define initial configuration
+
+#region          mybox block 0 21.54 0 21.54 -0.5 0.5
+#create_box      1 mybox
+#create_atoms    1 random 449 234789761 NULL
+
+variable dens equal 0.001
+variable latconst equal round((1.0/${dens})^0.3333333)
+variable N equal 216000
+variable nrep equal round((${N})^0.333333)
+lattice         sc ${latconst}
+region  box block 0 1 0 1  0 1  units lattice
+create_box      2 box
+create_atoms 1 box
+replicate ${nrep} ${nrep} ${nrep} 
+
+# define atom properties 
+
+mass		1 100.0
+mass		2 100.0
+
+set atom 1 charge		0.0
+set atom 2 charge		0.0
+
+reset_timestep 0
+timestep 2.0
+
+group A type 1
+group B type 2
+
+# Define force field
+variable Rc equal 60.0
+variable Nint equal 100000
+#pair_style      python ${Rc}
+#pair_coeff      * * py_pot.SALR sl
+#pair_coeff      * * py_pot.LJCutReal lj
+#shell rm -f potsalr.dat
+#pair_write 1 1 ${Nint} rsq 0.000001 ${Rc} potsalr.dat SALR
+#pair_style  table linear ${Nint} 
+#pair_coeff 1 1 potsalr.dat SALR ${Rc}
+#include forcefield.lj
+#neighbor	0.1 multi
+#neigh_modify	every 20 delay 0 check no
+
+pair_style  table linear ${Nint} 
+pair_coeff 1 1 u11.dat SALR11 ${Rc}
+pair_coeff 1 2 u12.dat SALR12 ${Rc}
+pair_coeff 2 2 u22.dat SALR22 ${Rc}
+neighbor        5.0 bin
+neigh_modify    every 10 delay 0 check yes
+
+thermo_style custom step temp ke  pe etotal press
+thermo          100
+
+#compute msd A msd com yes
+#fix msd A ave/time 1 1 500 c_msd[4] file A.msd
+#dump trj1 all netcdf 400 centers.nc  id type x y z vx vy vz
+
+rerun run.nc first 400000 last 3400000 every 3000 dump x y z vx vy vz

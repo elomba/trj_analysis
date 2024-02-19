@@ -5,7 +5,7 @@
   nsp=2
   nthread=128
   ncfs_from_to=0 0 0
-  rdf_sq_cl_dyn_thermo_conf=T T T T T F
+  rdf_sq_cl_dyn_thermo_conf=T T F F T F
 /
 &INPUT_SP
   sp_types_selected=0 0
