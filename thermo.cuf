@@ -5,18 +5,18 @@ module mod_thermo
    use cudafor
    implicit none
    real(myprec), allocatable, dimension(:) :: rc2pot
-   real(myprec), allocatable, dimension(:, :, :) :: r2_pot
    real(myprec), device, allocatable, dimension(:) :: rc2pot_d
-   real(myprec), device, allocatable, dimension(:, :, :) :: r2_pot_d
+   real(myprec), allocatable, dimension(:, :, :) :: rr2_pot
+   real(myprec), device, allocatable, dimension(:, :, :) :: rr2_pot_d
    integer :: npots
    real(myprec) :: dr2pot
-   real(double), allocatable, dimension(:) :: eng
-   real(double), device, allocatable, dimension(:) :: eng_d
+   real(myprec), allocatable, dimension(:) :: eng
+   real(myprec), device, allocatable, dimension(:) :: eng_d
 
 contains
 
-   subroutine thermo_init(natoms)
-      integer, intent(in) :: natoms
+   subroutine thermo_init()
+      ! integer, intent(in) :: nbcuda
       integer :: io_input_file, i, j, k, junkint, nitid = 1
       character(len=128) :: filename, junkchar
       real(double) :: junkreal, potd
@@ -26,8 +26,8 @@ contains
       allocate (rc2pot_d(nit))
       rc2pot(:) = 1.0e-7
 
-      allocate (eng(natoms))
-      allocate (eng_d(natoms))
+      allocate (eng(nbcuda))
+      allocate (eng_d(nbcuda))
 
       do i = 1, nit - 1
          do j = i, nit - 1
@@ -38,34 +38,34 @@ contains
             end do
             read (io_input_file, *) junkchar, npots, junkchar, junkreal, junkint
             read (io_input_file, *)
-            if (.not. allocated(r2_pot)) then
-               allocate (r2_pot(npots, 2, nit))
-               allocate (r2_pot_d(npots, 2, nit))
+            if (.not. allocated(rr2_pot)) then
+               allocate (rr2_pot(0:npots, 2, nit))
+               allocate (rr2_pot_d(0:npots, 2, nit))
             end if
-            do k = 1, npots
+            do k = 0, npots - 1
                read (io_input_file, *) junkint, rr, potd, junkreal
                if (potd >= huge(test_prec)) then
-                  r2_pot(k, 2, nitid) = huge(test_prec)
+                  rr2_pot(k, 2, nitid) = huge(test_prec)
                else
-                  r2_pot(k, 2, nitid) = potd
+                  rr2_pot(k, 2, nitid) = potd
                end if
-               r2_pot(k, 1, nitid) = rr*rr
+               rr2_pot(k, 1, nitid) = rr*rr
             end do
             nitid = nitid + 1
             close (io_input_file)
          end do
       end do
       do i = 1, nit
-         do j = npots, 1, -1
-            if (r2_pot(j, 2, i) > rc2pot(i)) then
-               rc2pot(i) = r2_pot(j, 1, i)
+         do j = npots - 1, 1, -1
+            if (rr2_pot(j, 2, i) > rc2pot(i)) then
+               rc2pot(i) = rr2_pot(j, 1, i)
                exit
             end if
          end do
       end do
       rc2pot_d(:) = rc2pot(:)
-      r2_pot_d(:, :, :) = r2_pot(:, :, :)
-      dr2pot = r2_pot(3, 1, 1) - r2_pot(2, 1, 1)
+      rr2_pot_d(:, :, :) = rr2_pot(:, :, :)
+      dr2pot = rr2_pot(3, 1, 1) - rr2_pot(2, 1, 1)
    end subroutine thermo_init
 
    subroutine poteng(natoms, nbcuda, nthread)
@@ -97,12 +97,13 @@ contains
       integer, value, intent(IN) :: natoms, nsp
       real, value, intent(in) :: dr2pot
       integer i, j, ind, ia, fact, iti, itj, istart, ij, ir
-      real(double) :: rr2, xi, yi, zi, xd, yd, zd, mu, mu2, xmu
-      real(double) :: y0, y1, y2, y3, a0, a1, a2, a3, energ
+      real(myprec) :: rr2, xi, yi, zi, xd, yd, zd, mu, mu2, xmu
+      real(myprec) :: y0, y1, y2, y3, a0, a1, a2, a3
+      real(double), shared, dimension(blockdim%x) :: energ
 
       i = (blockidx%x - 1)*blockdim%x + threadidx%x
+      energ(threadidx%x) = 0.0
       if (i <= natoms) then
-         energ = 0.0
          iti = itype_d(i)
          xi = r_d(1, i)
          yi = r_d(2, i)
@@ -123,20 +124,21 @@ contains
                   ir = int(xmu)
                   mu = xmu - ir
                   mu2 = mu*mu
-                  y0 = r2_pot_d(ir - 1, 2, ij)
-                  y1 = r2_pot_d(ir, 2, ij)
-                  y2 = r2_pot_d(ir + 1, 2, ij)
-                  y3 = r2_pot_d(ir + 2, 2, ij)
+                  y0 = rr2_pot_d(ir - 1, 2, ij)
+                  y1 = rr2_pot_d(ir, 2, ij)
+                  y2 = rr2_pot_d(ir + 1, 2, ij)
+                  y3 = rr2_pot_d(ir + 2, 2, ij)
                   a0 = -0.5d0*y0 + 1.5d0*y1 - 1.5d0*y2 + 0.5d0*y3
                   a1 = y0 - 2.5d0*y1 + 2*y2 - 0.5d0*y3
                   a2 = -0.5d0*y0 + 0.5d0*y2
                   a3 = y1
-                  energ = energ + a0*mu*mu2 + a1*mu2 + a2*mu + a3
+                  energ(threadidx%x) = energ(threadidx%x) + a0*mu*mu2 + a1*mu2 + a2*mu + a3
                end if
             end if
          end do
-         eng_d(i) = energ
       end if
+      call syncthreads()
+      if (threadidx%x == 1) eng_d(blockidx%x) = sum(energ(:))
 
    end subroutine poteng3d
 
@@ -157,8 +159,8 @@ contains
    subroutine thermo_clear()
       deallocate (rc2pot)
       deallocate (rc2pot_d)
-      deallocate (r2_pot)
-      deallocate (r2_pot_d)
+      deallocate (rr2_pot)
+      deallocate (rr2_pot_d)
       deallocate (eng)
       deallocate (eng_d)
    end subroutine thermo_clear
