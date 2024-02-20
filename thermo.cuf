@@ -4,10 +4,11 @@ module mod_thermo
    use mod_input
    use cudafor
    implicit none
+   real(myprec), allocatable, dimension(:, :) :: rr2table
    real(myprec), allocatable, dimension(:) :: rc2pot
    real(myprec), device, allocatable, dimension(:) :: rc2pot_d
-   real(myprec), allocatable, dimension(:, :, :) :: rr2_pot
-   real(myprec), device, allocatable, dimension(:, :, :) :: rr2_pot_d
+   real(myprec), allocatable, dimension(:, :) :: pottable
+   real(myprec), device, allocatable, dimension(:, :) :: pottable_d
    integer :: npots
    real(myprec) :: dr2pot
    real(myprec), allocatable, dimension(:) :: eng
@@ -16,7 +17,6 @@ module mod_thermo
 contains
 
    subroutine thermo_init()
-      ! integer, intent(in) :: nbcuda
       integer :: io_input_file, i, j, k, junkint, nitid = 1
       character(len=128) :: filename, junkchar
       real(double) :: junkreal, potd
@@ -38,18 +38,19 @@ contains
             end do
             read (io_input_file, *) junkchar, npots, junkchar, junkreal, junkint
             read (io_input_file, *)
-            if (.not. allocated(rr2_pot)) then
-               allocate (rr2_pot(0:npots, 2, nit))
-               allocate (rr2_pot_d(0:npots, 2, nit))
+            if (.not. allocated(pottable)) then
+               allocate (pottable(0:npots, nit))
+               allocate (pottable_d(0:npots, nit))
+               allocate (rr2table(0:npots, nit))
             end if
             do k = 0, npots - 1
                read (io_input_file, *) junkint, rr, potd, junkreal
                if (potd >= huge(test_prec)) then
-                  rr2_pot(k, 2, nitid) = huge(test_prec)
+                  pottable(k, nitid) = huge(test_prec)
                else
-                  rr2_pot(k, 2, nitid) = potd
+                  pottable(k, nitid) = potd
                end if
-               rr2_pot(k, 1, nitid) = rr*rr
+               rr2table(k, nitid) = rr*rr
             end do
             nitid = nitid + 1
             close (io_input_file)
@@ -57,15 +58,15 @@ contains
       end do
       do i = 1, nit
          do j = npots - 1, 1, -1
-            if (rr2_pot(j, 2, i) > rc2pot(i)) then
-               rc2pot(i) = rr2_pot(j, 1, i)
+            if (rr2table(j, i) > rc2pot(i)) then
+               rc2pot(i) = rr2table(j, i)
                exit
             end if
          end do
       end do
       rc2pot_d(:) = rc2pot(:)
-      rr2_pot_d(:, :, :) = rr2_pot(:, :, :)
-      dr2pot = rr2_pot(3, 1, 1) - rr2_pot(2, 1, 1)
+      pottable_d(:, :) = pottable(:, :)
+      dr2pot = rr2table(3, 1) - rr2table(2, 1)
    end subroutine thermo_init
 
    subroutine poteng(natoms, nbcuda, nthread)
@@ -124,10 +125,10 @@ contains
                   ir = int(xmu)
                   mu = xmu - ir
                   mu2 = mu*mu
-                  y0 = rr2_pot_d(ir - 1, 2, ij)
-                  y1 = rr2_pot_d(ir, 2, ij)
-                  y2 = rr2_pot_d(ir + 1, 2, ij)
-                  y3 = rr2_pot_d(ir + 2, 2, ij)
+                  y0 = pottable_d(ir - 1, ij)
+                  y1 = pottable_d(ir, ij)
+                  y2 = pottable_d(ir + 1, ij)
+                  y3 = pottable_d(ir + 2, ij)
                   a0 = -0.5d0*y0 + 1.5d0*y1 - 1.5d0*y2 + 0.5d0*y3
                   a1 = y0 - 2.5d0*y1 + 2*y2 - 0.5d0*y3
                   a2 = -0.5d0*y0 + 0.5d0*y2
@@ -159,8 +160,9 @@ contains
    subroutine thermo_clear()
       deallocate (rc2pot)
       deallocate (rc2pot_d)
-      deallocate (rr2_pot)
-      deallocate (rr2_pot_d)
+      deallocate (pottable)
+      deallocate (pottable_d)
+      deallocate (rr2table)
       deallocate (eng)
       deallocate (eng_d)
    end subroutine thermo_clear

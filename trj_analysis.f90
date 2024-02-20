@@ -127,7 +127,7 @@ program trj_analysis
 
     ! Init common variables & print log_01
     call common_init(natoms, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)
-    if (run_thermo) call thermo_init(natoms)
+    if (run_thermo) call thermo_init()
     ! call log_01()
 
     if (idir > 0) then
