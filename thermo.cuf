@@ -91,6 +91,31 @@ contains
 
    end subroutine poteng
 
+   subroutine potengcl(dim, members, nm, sidel, side2, g, lsmax, deltar, dens, jmin)
+      integer, intent(IN) :: nm, lsmax, jmin, dim
+      integer, intent(IN) :: members(nm)
+      real, intent(IN) :: sidel(3), side2, deltar, dens
+      real, intent(INOUT) :: g(lsmax)
+      real :: rv(3), rr2, rr, fact
+      integer :: k, l, i, j, ind
+      !   do k = 1, nm
+      !    i = members(k)
+      !    if (k .ne. jmin) then
+      !        j = members(jmin)
+      !        rv(1:dim) = r(1:dim, i) - r(1:dim, j)
+      !        ! PBC (unwrap if necessary)
+      !        rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+      !        rr2 = Dot_product(rv(1:dim), rv(1:dim))
+      !        If (rr2 .Lt. side2) Then
+      !            rr = sqrt(rr2)
+      !            ind = Nint(rr/deltar)
+      !            g(ind) = g(ind) + fact
+      !        end If
+      !    end if
+   !   end do
+      
+   end subroutine potengcl
+
    attributes(global) subroutine poteng3d(natoms, nsp, dr2pot)
       !
       ! Massively parallel potential energy calculation

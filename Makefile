@@ -21,7 +21,7 @@ CC = nvcc
 
 EXE = -o trj_analysis.exe
 OBJ = precision.o thrust.o common.o input.o netcdf.o cells.o \
-	sq.o rdf.o densprof.o clusters.o log.o thermo.o fftwlib.o dynamics.o\
+	sq.o rdf.o densprof.o thermo.o clusters.o log.o fftwlib.o dynamics.o\
 	trj_analysis.o ex-scan.o
 
 %.o : %.mod
