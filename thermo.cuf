@@ -82,7 +82,7 @@ contains
       if (ndim == 3) then
          call poteng3d<<<nbcuda, nthread>>>(natoms, nsp, dr2pot)
       else
-         call poteng2d<<<nbcuda, nthread>>>(Nmol, nsp, dr2pot)
+         call poteng2d<<<nbcuda, nthread>>>(natoms, nsp, dr2pot)
       end if
       eng(:) = eng_d(:)
       time_gpu = gptime(stopEvent, startEvent)
@@ -143,17 +143,52 @@ contains
 
    end subroutine poteng3d
 
-   attributes(global) subroutine poteng2d(Nmol, nsp, dr2pot)
+   attributes(global) subroutine poteng2d(natoms, nsp, dr2pot)
       !
       ! Massively parallel potential energy calculation
       !
-      integer, value, intent(IN) :: Nmol, nsp
+      integer, value, intent(IN) :: natoms, nsp
       real, value, intent(in) :: dr2pot
       integer i, j, ind, ia, fact, iti, itj, istart, ij, ir
-      real ::  rr2, xi, yi, zi, xd, yd, zd, mu, mu2, xmu, y0, y1, y2, y3, a0, a1, a2, a3
-      real(double) :: eng0 = 0.0
+      real(myprec) :: rr2, xi, yi, xd, yd, mu, mu2, xmu
+      real(myprec) :: y0, y1, y2, y3, a0, a1, a2, a3
+      real(double), shared, dimension(blockdim%x) :: energ
 
       i = (blockidx%x - 1)*blockdim%x + threadidx%x
+      energ(threadidx%x) = 0.0
+      if (i <= natoms) then
+         iti = itype_d(i)
+         xi = r_d(1, i)
+         yi = r_d(2, i)
+         do j = 1, natoms
+            if (i /= j) then
+               itj = itype_d(j)
+               ij = rdf_fij(iti, itj, nsp)
+               xd = r_d(1, j) - xi
+               yd = r_d(2, j) - yi
+               xd = xd - sidel_d(1)*nint(xd/sidel_d(1))
+               yd = yd - sidel_d(2)*nint(yd/sidel_d(2))
+               rr2 = xd*xd + yd*yd
+               If (rr2 .Lt. rc2pot_d(ij)) Then
+                  xmu = rr2/dr2pot
+                  ir = int(xmu)
+                  mu = xmu - ir
+                  mu2 = mu*mu
+                  y0 = pottable_d(ir - 1, ij)
+                  y1 = pottable_d(ir, ij)
+                  y2 = pottable_d(ir + 1, ij)
+                  y3 = pottable_d(ir + 2, ij)
+                  a0 = -0.5d0*y0 + 1.5d0*y1 - 1.5d0*y2 + 0.5d0*y3
+                  a1 = y0 - 2.5d0*y1 + 2*y2 - 0.5d0*y3
+                  a2 = -0.5d0*y0 + 0.5d0*y2
+                  a3 = y1
+                  energ(threadidx%x) = energ(threadidx%x) + a0*mu*mu2 + a1*mu2 + a2*mu + a3
+               end if
+            end if
+         end do
+      end if
+      call syncthreads()
+      if (threadidx%x == 1) eng_d(blockidx%x) = sum(energ(:))
 
    end subroutine poteng2d
 
