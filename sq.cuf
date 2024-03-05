@@ -59,13 +59,13 @@ contains
         integer, intent(IN) :: Nmol, nsp, nbcuda
         integer :: i, j, k, ind, indm
         real :: rr
-        if (idir > 0) then
-            width = nint((pwallp - pwall)/(2*deltar))
-            allocate (densprof(0:width, nsp), densprofi(0:width, nsp))
-            allocate (densprof_d(0:width, nsp))
-            densprof(:, :) = 0.0d0
-            densprof_d(:, :) = 0.0d0
-        end if
+        ! if (idir > 0) then
+        !     width = nint((pwallp - pwall)/(2*deltar))
+        !     allocate (densprof(0:width, nsp), densprofi(0:width, nsp))
+        !     allocate (densprof_d(0:width, nsp))
+        !     densprof(:, :) = 0.0d0
+        !     densprof_d(:, :) = 0.0d0
+        ! end if
         dq = 2*pi/sidel(1)
         nqmax = nint(qmax/dq)
         lmaxx = nint(qmin/(2*pi/sidel(1)))

@@ -67,7 +67,7 @@ contains
       write (io_log_file, '(A)') 'Modules to run:'
       write (io_log_file, '(/,A)') '**** Analyzing configurations:'
    end subroutine log_01
-   
+
 
    subroutine print_output(iconf)
       integer, intent(in) :: iconf
@@ -75,7 +75,7 @@ contains
       If (Mod(Iconf - 1, 5) .Eq. 0) Then
          call cpu_time(cpu1)
          Write (*, "(/' ** Working on MD step no. ',i8,' time =',f10.5,' ns, cpu time=',f15.2&
-              &/)") nstep, nstep*tstep, cpu1 - cpu0
+              &/)") nstep, nstep*tstep/1000.0, cpu1 - cpu0
          cpu0 = cpu1
          if (run_thermo) then
             write (*, "(' ** Potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epot, epot/natoms
