@@ -1,0 +1,53 @@
+# 3d Lennard-Jones melt
+#dimension 2
+units		real
+atom_style	charge
+
+# Define initial configuration 
+region          mybox block 0 21.54 0 21.54 -0.5 0.5
+create_box      1 mybox
+create_atoms    1 random 449 234789761 NULL
+# define atom properties 
+mass		1 1.0
+#mass		2 1.0
+
+set atom 1 charge		0.0
+#set atom 2 charge		0.0
+
+reset_timestep 0
+timestep 0.5
+
+
+
+group A type 1
+#group B type 2
+
+
+
+# Define force field
+variable Rc equal 100
+variable Nint equal 100000
+#pair_style      python ${Rc}
+#pair_coeff      * * py_pot.SALR sl
+#pair_coeff      * * py_pot.LJCutReal lj
+#shell rm -f potsalr.dat
+#pair_write 1 1 ${Nint} rsq 0.000001 ${Rc} potsalr.dat SALR
+pair_style  table linear ${Nint} 
+pair_coeff 1 1 potsalr.dat SALR ${Rc}
+#include forcefield.lj
+
+neighbor	0.1 multi
+neigh_modify	every 20 delay 0 check no
+
+
+thermo		50
+
+
+
+compute msd A msd com yes
+fix msd A ave/time 1 1 500 c_msd[4] file A.msd
+
+
+
+dump trj1 all netcdf 400 centers.nc  id type x y z vx vy vz
+rerun centers_atl.lammpstrj  first 510000 last 709600 every 400 dump x y z vx vy vz
