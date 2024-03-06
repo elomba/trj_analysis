@@ -54,7 +54,7 @@ program trj_analysis
                 & input file\r\nexample: analisys.exe input_file.nml'
     end if
     call get_command_argument(1, input_filename)
-    ! Load JSON input file & init log system
+    ! Load namelist input file & init log system
     call read_input_file()
     call log_init()
     ! Check that maximum number of threads is not surpassed
@@ -73,16 +73,16 @@ program trj_analysis
     call check(nf90_open(path=trj_input_file, mode=NF90_WRITE, ncid=ncid_in), ioerr)
     call read_nc_cfg(ncid_in, 1, io, io_log_file)
 
-    ! Set number of species from netcdf file or from selected species from JSON
+    ! Set number of species from netcdf file or from selected species from namelist
     if (selectall) then
         nsp = ntypes ! from netcdf
     else
-        nsp = size(sp_types_selected) ! from JSON
+        nsp = size(sp_types_selected) ! from namelist
     end if
     ! If number of species is not equal to size of list's properties, print error
     if (nsp /= size(sp_labels) .and. nsp /= size(mat) .and. nsp /= size(bsc)) then
         print *, 'ERROR: nsp not equal to size of sp_labels/sp_atomic_weight/sp_scattering'
-        print *, 'Check your JSON input file!'
+        print *, 'Check your namelist input file!'
         stop
     end if
     nit = nsp*(nsp + 1)/2

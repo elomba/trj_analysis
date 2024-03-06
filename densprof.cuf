@@ -30,6 +30,8 @@ contains
         logical :: found
         found = .false.
         i = 0
+        low = pwall
+        high = pwallp
         do while (.not. found)
             if (maxval(densprof(i, 1:nsp)) < 1.0e-6) then
                 low = (2*i + 1)*deltar + pwall
