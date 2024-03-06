@@ -124,6 +124,7 @@ program trj_analysis
         use_cell = .false.
     endif
     if (rdf_sq_cl_dyn_thermo_conf(5) == .true.) run_thermo = .true. 
+    if (rdf_sq_cl_dyn_thermo_conf(6) == .true.) run_rdf = .true. 
 
     ! Init common variables & print log_01
     call common_init(natoms, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)

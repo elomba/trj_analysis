@@ -82,7 +82,7 @@ program read_nc
      Write(*,"(10x,'Cell lengths ',3f15.7)") cell
      Write(*,"(10x,'Cell angles ',3f15.7)") cell_a
      do i=atom, atom
-        write(*,"(10x,' Frame=',i3)") ncstart
+        write(*,"(10x,' Frame=',i10)") ncstart
         write(*,"(10x,' atom id=',i10)") idi(i,1)
         write(*,"(10x,' atom type=',i2)") ity(i,1)
         if(ex_mol) write(*,"(10x,' molecule id=',i10)") imol(i,1)
