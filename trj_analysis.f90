@@ -74,15 +74,20 @@ program trj_analysis
     call read_nc_cfg(ncid_in, 1, io, io_log_file)
 
     ! Set number of species from netcdf file or from selected species from namelist
+    if (nsp > ntypes) then 
+        print *, ' ERROR: number of species in input file is',nsp,' larger than that in netcdf file ',ntypes
+        STOP
+    end if 
     if (selectall) then
         nsp = ntypes ! from netcdf
     else
         nsp = size(sp_types_selected) ! from namelist
     end if
     ! If number of species is not equal to size of list's properties, print error
-    if (nsp /= size(sp_labels) .and. nsp /= size(mat) .and. nsp /= size(bsc)) then
+    if (nsp /= size(sp_labels) .or. nsp /= size(mat) .or. nsp /= size(bsc)) then
         print *, 'ERROR: nsp not equal to size of sp_labels/sp_atomic_weight/sp_scattering'
         print *, 'Check your namelist input file!'
+        print *, nsp, size(sp_labels), size(mat),   size(bsc)
         stop
     end if
     nit = nsp*(nsp + 1)/2
