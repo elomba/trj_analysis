@@ -71,6 +71,10 @@ program trj_analysis
 
     ! First load from netcdf input file. Load global attributes
     call check(nf90_open(path=trj_input_file, mode=NF90_WRITE, ncid=ncid_in), ioerr)
+    if (ioerr .ne. 0) then
+        stop("** UNRECOVERABLE ERROR: cannot open NetCDF trajectory file !")
+    endif 
+
     call read_nc_cfg(ncid_in, 1, io, io_log_file)
 
     ! Set number of species from netcdf file or from selected species from namelist
