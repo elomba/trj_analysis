@@ -12,7 +12,7 @@ program trj_analysis
     !
     !   Programmed in NVIDIA CUDA Fortran
     !
-    !   A. Diaz-Pozuelo & E. Lomba, Madrid February 2024 
+    !   A. Diaz-Pozuelo & E. Lomba, Madrid, spring 2024 
     !
     !
     use mod_precision
