@@ -104,9 +104,9 @@ module mod_dyn
             !
             ! transform from w(wavenumber) to f (frequency) in THz and meV
             !
-             write(55,"(f8.3,8f15.5)")t(i), r2t(i),v2t(i),w(i)/(2*pi),fconv*w(i)/(2*pi),ftv(i)
+             write(55,"(f10.3,8f15.5)"), r2t(i),v2t(i),w(i)/(2*pi),fconv*w(i)/(2*pi),ftv(i)
          else
-            write(55,"(f8.3,8f15.5)")t(i), r2t(i)
+            write(55,"(f10.3,8f15.5)")t(i), r2t(i)
          endif 
       end do
       close(55)
