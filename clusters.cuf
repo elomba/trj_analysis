@@ -5,7 +5,6 @@ module mod_clusters
     use mod_sq
     use mod_rdf
     use mod_densprof
-    use mod_thermo
     use cudafor
     use mod_nc_conf, only : conf
     implicit none
@@ -210,8 +209,6 @@ contains
                      &, side2, gcluster, lsmax, deltar, densav(i), cmin)
                 call denspcl(ndim, cluster(i)%members(:), cluster(i)%clsize, sidel&
                      &, side2, rhoclus(0:lsmax), lsmax, deltar, cluster(i)%center(1:ndim))
-                call potengcl(ndim, cluster(i)%members(:), cluster(i)%clsize, sidel&
-                    &, side2, gcluster, lsmax, deltar, densav(i), cmin)
             end if
         end do
         gclustav(:) = gclustav(:) + gcluster(:)/nbigcl
