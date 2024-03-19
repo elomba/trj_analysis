@@ -138,7 +138,7 @@ program trj_analysis
 
     ! Init common variables & print log_01
     call common_init(natoms, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)
-    if (run_thermo) call thermo_init()
+    if (run_thermo) call thermo_init(natoms)
     ! call log_01()
 
     if (idir > 0) then
@@ -197,6 +197,9 @@ program trj_analysis
         ! Thermodynamics calculus
         call thermo_kin(i, ndim)
 
+        ! Compute potential energy
+        if (run_thermo) call poteng(natoms, nbcuda, nthread)
+
         ! Run RDF
         if (run_rdf) call RDFcomp(Nmol, i, nbcuda, nthread)
 
@@ -213,9 +216,6 @@ program trj_analysis
         if (run_dyn) then
             call rtcorr(i)
         end if 
-
-        ! Compute potential energy
-        if (run_thermo) call poteng(natoms, nbcuda, nthread)
 
         ! Print periodic output
         call print_output(i)
