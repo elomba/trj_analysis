@@ -10,7 +10,7 @@ module mod_common
                                rgas = 8.3144d7, aunit = 1.0d-8, tunit = 1.0d-12, &
                                kelvintokcal = 0.00198717
     real(myprec) :: time_cpu_start, time_cpu_stop, time_total = 0_sp
-    real(double) :: ekin, suma, epot
+    real(double) :: ekin, suma
     type(cudaEvent) :: startEvent, stopEvent
     type(cudaDeviceProp) :: gpu_properties
     type(dim3) :: bl2, thr2, grid, tBlock
@@ -40,6 +40,7 @@ module mod_common
                run_sq = .false., run_dyn = .false., run_thermo = .false.
     character :: fname99*18
     character, dimension(:), allocatable :: atoms*8
+    real(myprec) :: epotperatom, epot
 
     type clus
         sequence

@@ -197,9 +197,6 @@ program trj_analysis
         ! Thermodynamics calculus
         call thermo_kin(i, ndim)
 
-        ! Compute potential energy
-        if (run_thermo) call poteng(natoms, nbcuda, nthread)
-
         ! Run RDF
         if (run_rdf) call RDFcomp(Nmol, i, nbcuda, nthread)
 
@@ -210,6 +207,10 @@ program trj_analysis
 
         ! Compute SQ
         if (run_sq) call SQcalc()
+
+        ! Compute potential energy
+        if (run_thermo) call poteng(natoms, nbcuda, nthread)
+
         ! Compute cluster properties
         if (run_clusters) call cluster_analysis(i)
         ! Compute dynamics

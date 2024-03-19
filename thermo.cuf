@@ -88,6 +88,7 @@ contains
       eng(:) = eng_d(:)
       time_gpu = gptime(stopEvent, startEvent)
       epot = sum(eng)/2.0
+      epotperatom = epot/natoms
       tpoteng = tpoteng + time_gpu
 
    end subroutine poteng
