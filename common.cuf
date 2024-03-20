@@ -16,7 +16,7 @@ module mod_common
     type(dim3) :: bl2, thr2, grid, tBlock
     integer, save :: nstep = 0
     integer :: nbcuda, natms, nmol, keytrj, width, nqmax, lmaxx, lmaxy, lmaxz, &
-               lsmax, nqmin, ndr, shmsize, maxthread, nit, nconf, nmzero = 0
+               lsmax, nqmin, ndr, shmsize, maxthread, nit, nconf, nmzero = 0, maxcln
     integer, allocatable, dimension(:) :: ntype, itype, lty, list, done, nq
     integer, allocatable, dimension(:, :) :: ipos, densprofi, histomixi
     integer, device, allocatable, dimension(:) :: itype_d, ntype_d, gdone
@@ -40,9 +40,7 @@ module mod_common
                run_sq = .false., run_dyn = .false., run_thermo = .false.
     character :: fname99*18
     character, dimension(:), allocatable :: atoms*8
-    real(myprec) :: epotperatom, epot, epotperatom_from, epotperatom_to
-    integer :: epotperatom_bins
-    integer, allocatable, dimension(:) :: epot_histomix
+    real(myprec) :: epotperatom, epot
 
     type clus
         sequence
@@ -52,6 +50,7 @@ module mod_common
         real(myprec) :: radio
         real(myprec) :: cldens
         real(myprec) :: mass
+        real(myprec) :: poteng
         Integer :: clsize
         integer, allocatable :: members(:)
     end type clus

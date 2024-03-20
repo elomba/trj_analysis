@@ -22,7 +22,7 @@ contains
         !
         implicit none
         integer, intent(IN) :: Iconf
-        integer :: i, j, k, cluster_id, icl, ip, ind, indr, maxcln, maxcl,&
+        integer :: i, j, k, cluster_id, icl, ip, ind, indr, maxcl,&
              & imaxcl, clsz, nbigcl, clussize, cmin
         Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
         Real(myprec) :: denscl
@@ -210,7 +210,6 @@ contains
                      &, side2, gcluster, lsmax, deltar, densav(i), cmin)
                 call denspcl(ndim, cluster(i)%members(:), cluster(i)%clsize, sidel&
                      &, side2, rhoclus(0:lsmax), lsmax, deltar, cluster(i)%center(1:ndim))
-                if (run_thermo) call potengcl()
             end if
         end do
         gclustav(:) = gclustav(:) + gcluster(:)/nbigcl
@@ -221,6 +220,10 @@ contains
         call rdfclcl(ndim, rclxyz(1:ndim, 1:cluster_id), cluster_id, sidel&
              &, side2, gclcl, lsmax, deltar, volumen)
         NTclus = suma + NTclus
+        ! Intra-cluster Potential Energy
+        if (run_thermo) then
+            call potengcl(ndim, sidel, side2, maxcln, cluster)
+        end if
     end subroutine cluster_analysis
 
     subroutine cluster_search()

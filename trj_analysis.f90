@@ -193,7 +193,9 @@ program trj_analysis
         ! BFS cluster search
         if (run_clusters) then
             call cluster_search()
+            if (i == 1 .and. run_thermo) call thermo_init_cluster(ndim, sidel, side2, maxcln, cluster)
         end if
+        
         ! Thermodynamics calculus
         call thermo_kin(i, ndim)
 
@@ -209,10 +211,7 @@ program trj_analysis
         if (run_sq) call SQcalc()
 
         ! Compute potential energy
-        if (run_thermo) then 
-            call poteng(natoms, nbcuda, nthread)
-            if (i == 1) call thermo_init_post()
-        end if
+        if (run_thermo) call poteng(natoms, nbcuda, nthread)
 
         ! Compute cluster properties
         if (run_clusters) call cluster_analysis(i)
