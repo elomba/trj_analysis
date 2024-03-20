@@ -4,8 +4,8 @@
   ndim=3
   nsp=2
   nthread=128
-  ncfs_from_to=0 0 0
-  rdf_sq_cl_dyn_thermo_conf=T T T F T F
+  ncfs_from_to=1 1 1
+  rdf_sq_cl_dyn_thermo_conf=T T F F T F
 /
 &INPUT_SP
   sp_types_selected=0 0
@@ -33,7 +33,7 @@
   tmax=2.5
 /
 &INPUT_THERMO
-  thermo_junk=1
+  deltapot=0.1
 /
 &INPUT_CONF
   idir=0

@@ -70,6 +70,14 @@ contains
       dr2pot = rr2table(3, 1) - rr2table(2, 1)
    end subroutine thermo_init
 
+   subroutine thermo_init_post()
+      epotperatom_from = epotperatom * 0.5
+      epotperatom_to = epotperatom * 1.5
+      epotperatom_bins = nint((abs(epotperatom_to) - abs(epotperatom_from))/deltapot) + 1
+      allocate (epot_histomix(epotperatom_bins))
+   
+   end subroutine thermo_init_post
+
    subroutine poteng(natoms, nbcuda, nthread)
       !
       ! Main call to compute potential energy and move data back and forth from device
@@ -196,6 +204,7 @@ contains
       deallocate (rr2table)
       deallocate (eng)
       deallocate (eng_d)
+      deallocate (epot_histomix)
    end subroutine thermo_clear
 
    attributes(device) integer function rdf_fij(i, j, nsp)

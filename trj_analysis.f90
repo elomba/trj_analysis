@@ -209,7 +209,10 @@ program trj_analysis
         if (run_sq) call SQcalc()
 
         ! Compute potential energy
-        if (run_thermo) call poteng(natoms, nbcuda, nthread)
+        if (run_thermo) then 
+            call poteng(natoms, nbcuda, nthread)
+            if (i == 1) call thermo_init_post()
+        end if
 
         ! Compute cluster properties
         if (run_clusters) call cluster_analysis(i)

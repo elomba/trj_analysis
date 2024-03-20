@@ -40,7 +40,9 @@ module mod_common
                run_sq = .false., run_dyn = .false., run_thermo = .false.
     character :: fname99*18
     character, dimension(:), allocatable :: atoms*8
-    real(myprec) :: epotperatom, epot
+    real(myprec) :: epotperatom, epot, epotperatom_from, epotperatom_to
+    integer :: epotperatom_bins
+    integer, allocatable, dimension(:) :: epot_histomix
 
     type clus
         sequence
