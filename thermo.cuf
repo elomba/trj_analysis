@@ -78,6 +78,10 @@ contains
    
    end subroutine thermo_init_post
 
+   subroutine potengcl()
+      
+   end subroutine potengcl
+
    subroutine poteng(natoms, nbcuda, nthread)
       !
       ! Main call to compute potential energy and move data back and forth from device
