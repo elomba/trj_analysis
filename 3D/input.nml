@@ -4,7 +4,7 @@
   ndim=3
   nsp=2
   nthread=128
-  ncfs_from_to=0 0 0
+  ncfs_from_to=10 1 500
   rdf_sq_cl_dyn_thermo_conf=T T T F T F
 /
 &INPUT_SP

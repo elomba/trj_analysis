@@ -139,7 +139,6 @@ program trj_analysis
     ! Init common variables & print log_01
     call common_init(natoms, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)
     if (run_thermo) call thermo_init(natoms)
-    ! call log_01()
 
     if (idir > 0) then
         call prof_init()
@@ -246,6 +245,7 @@ program trj_analysis
     endif
     if (run_clusters) then
         call print_clusinfo(nqmin, Nmol)
+        if (run_thermo) call printPotEngCl()
     end if
 
     ! Cleaning house

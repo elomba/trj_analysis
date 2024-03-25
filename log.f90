@@ -17,58 +17,6 @@ contains
       close (io_log_file)
    end subroutine log_clear
 
-   subroutine log_01()
-      integer :: i
-
-      write (io_log_file, '(/,A)') '**** GPU device properties:'
-      write (io_log_file, '(2A)') 'Device name: ', trim(gpu_properties%name)
-      write (io_log_file, '(2(A,I0))') 'Compute capability: ', gpu_properties%major, '.', gpu_properties%minor
-      write (io_log_file, '(/,A)') '**** Simulation data:'
-      write (io_log_file, '(2A)') 'input_filename: ', input_filename
-      write (io_log_file, '(2A)') 'trj_input_file: ', trj_input_file
-      write (io_log_file, '(A,I0)') 'nconf: ', nconf
-      write (io_log_file, '(A,3I)') 'ncfs_from_to: ', ncfs_from_to
-      write (io_log_file, '(A,I)'), 'ntypes: ', ntypes
-      if (sp_types_selected(1) == 0) then
-         write (io_log_file, '(A)') 'sp_types_selected: ALL'
-      else
-         write (io_log_file, '(A,8I)') 'sp_types_selected: ', sp_types_selected
-      end if
-      write (io_log_file, '(A,I0)') 'nsp: ', nsp
-      write (io_log_file, '(A,10A2)') 'sp_labels: ', sp_labels
-      write (io_log_file, '(A,10F15.7)') 'sp_atomic_weight: ', mat
-      write (io_log_file, '(A,10F15.7)') 'sp_scattering: ', bsc
-      write (io_log_file, '(A,I)') 'ndim: ', ndim
-      write (io_log_file, '(A,I)') 'natoms: ', natoms
-      write (io_log_file, '(A,I0)') 'nthread: ', nthread
-      write (io_log_file, '(A,I0)'), 'nbcuda: ', nbcuda
-      write (io_log_file, *), 'bl2: ', bl2
-      write (io_log_file, *), 'thr2: ', thr2
-      write (io_log_file, '(A,F15.7)') 'deltar: ', deltar
-      write (io_log_file, '(A,ES8.2)') 'tuniti: ', tuniti
-      write (io_log_file, '(A,F15.7)') 'tstep: ', tstep
-      write (io_log_file, '(A,F15.7)') 'rcl: ', rcl
-      write (io_log_file, '(A,F15.7)') 'dcl: ', dcl
-      write (io_log_file, '(A,I)') 'jmin: ', jmin
-      write (io_log_file, '(A,I)') 'minclsize: ', minclsize
-      write (io_log_file, '(A,F15.7)') 'qmin: ', qmin
-      write (io_log_file, '(A,F15.7)') 'qmax: ', qmax
-      write (io_log_file, '(A,F15.7)') 'sigma: ', sigma
-      write (io_log_file, '(A,I)') 'idir: ', idir
-      write (io_log_file, '(A,F15.7)') 'pwall: ', pwall
-      write (io_log_file, '(A,F15.7)') 'pwallp: ', pwallp
-      write (io_log_file, '(A,I)') 'keytrj: ', keytrj
-      write (io_log_file, '(2A)') 'log_output_file: ', log_output_file
-      if (use_cell) then
-         write (io_log_file, '(A)'), 'use_cell: TRUE'
-      else
-         write (io_log_file, '(A)'), 'use_cell: FALSE'
-      end if
-      write (io_log_file, '(A)') 'Modules to run:'
-      write (io_log_file, '(/,A)') '**** Analyzing configurations:'
-   end subroutine log_01
-
-
    subroutine print_output(iconf)
       integer, intent(in) :: iconf
 
@@ -122,6 +70,20 @@ contains
       End if
 
    end subroutine print_output
+
+   subroutine printPotEngCl()
+      implicit none
+      !
+      ! Printout Potential's Energy IntraCluster
+      !
+      integer :: i
+      open (100, file='potengcl.dat')
+      write (100, "('#     poteng           histo(poteng)')")
+      do i = 1, epotperatomcl_bins
+         Write (100, '(2f16.7)') (i-1)*deltapot+epotperatomcl_min, epothistomixcl(i)/real(nconf)
+      end do
+      close (100)
+   end subroutine printPotEngCl
 
    subroutine printSQ(Nmol)
       implicit none
