@@ -51,6 +51,7 @@ module mod_common
         real(myprec) :: cldens
         real(myprec) :: mass
         real(myprec) :: poteng
+        real(myprec) :: potengperatom
         Integer :: clsize
         integer, allocatable :: members(:)
     end type clus
