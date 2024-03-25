@@ -13,9 +13,6 @@ module mod_thermo
    real(myprec) :: dr2pot
    real(double), allocatable, dimension(:) :: eng
    real(double), device, allocatable, dimension(:) :: eng_d
-   real(myprec) epotperatomcl_min, epotperatomcl_max
-   integer :: epotperatomcl_bins
-   integer, allocatable, dimension(:) :: epothistomixcl
 
 contains
 
