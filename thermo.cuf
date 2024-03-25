@@ -13,9 +13,9 @@ module mod_thermo
    real(myprec) :: dr2pot
    real(double), allocatable, dimension(:) :: eng
    real(double), device, allocatable, dimension(:) :: eng_d
-   real(myprec) epotperatom_from, epotperatom_to, epotclmin, epotclmax
-   integer :: epotperatom_bins
-   integer, allocatable, dimension(:) :: epot_histomix
+   real(myprec) epotperatomcl_min, epotperatomcl_max
+   integer :: epotperatomcl_bins
+   integer, allocatable, dimension(:) :: epothistomixcl
 
 contains
 
@@ -79,62 +79,72 @@ contains
       type(clus), dimension(maxcln), intent(inout) :: cluster
       real :: rv(3), rr2, rr, fact
       integer :: k, i, j, ind, iti, itj, ij, ir, c, jmin
-      real(myprec) :: mu, mu2, xmu
+      real(myprec) :: mu, mu2, xmu, epotperatomcltmp
       real(myprec) :: y0, y1, y2, y3, a0, a1, a2, a3
       real(double) :: eng
 
+      epotperatomcl_min = 1.0e10
+      epotperatomcl_max = -1.0e10
       do c = 1, maxcln
-         eng = 0.0
-         jmin = minj(ndim, cluster(c)%members, cluster(c)%clsize&
-                     &, cluster(c)%center, sidel, side2)
-         do k = 1, cluster(c)%clsize
-            i = cluster(c)%members(k)
-            iti = itype(i)
-            if (k .ne. jmin) then
-               j = cluster(c)%members(jmin)
-               itj = itype(j)
-               ij = thermo_fij(iti, itj, nsp)
-               rv(1:dim) = r(1:dim, i) - r(1:dim, j)
-               ! PBC (unwrap if necessary)
-               rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
-               rr2 = Dot_product(rv(1:dim), rv(1:dim))
-               If (rr2 .Lt. rc2pot(ij)) Then
-                  xmu = rr2/dr2pot
-                  ir = int(xmu)
-                  mu = xmu - ir
-                  mu2 = mu*mu
-                  y0 = pottable(ir - 1, ij)
-                  y1 = pottable(ir, ij)
-                  y2 = pottable(ir + 1, ij)
-                  y3 = pottable(ir + 2, ij)
-                  a0 = -0.5d0*y0 + 1.5d0*y1 - 1.5d0*y2 + 0.5d0*y3
-                  a1 = y0 - 2.5d0*y1 + 2*y2 - 0.5d0*y3
-                  a2 = -0.5d0*y0 + 0.5d0*y2
-                  a3 = y1
-                  eng = eng + a0*mu*mu2 + a1*mu2 + a2*mu + a3
-               end If
-            end if
-         end do
-         cluster(c)%poteng = eng/2.0
+         if (cluster(c)%clsize > minclsize) then
+            eng = 0.0
+            jmin = minj(ndim, cluster(c)%members, cluster(c)%clsize&
+                        &, cluster(c)%center, sidel, side2)
+            do k = 1, cluster(c)%clsize
+               i = cluster(c)%members(k)
+               iti = itype(i)
+               if (k .ne. jmin) then
+                  j = cluster(c)%members(jmin)
+                  itj = itype(j)
+                  ij = thermo_fij(iti, itj, nsp)
+                  rv(1:dim) = r(1:dim, i) - r(1:dim, j)
+                  ! PBC (unwrap if necessary)
+                  rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+                  rr2 = Dot_product(rv(1:dim), rv(1:dim))
+                  If (rr2 .Lt. rc2pot(ij)) Then
+                     xmu = rr2/dr2pot
+                     ir = int(xmu)
+                     mu = xmu - ir
+                     mu2 = mu*mu
+                     y0 = pottable(ir - 1, ij)
+                     y1 = pottable(ir, ij)
+                     y2 = pottable(ir + 1, ij)
+                     y3 = pottable(ir + 2, ij)
+                     a0 = -0.5d0*y0 + 1.5d0*y1 - 1.5d0*y2 + 0.5d0*y3
+                     a1 = y0 - 2.5d0*y1 + 2*y2 - 0.5d0*y3
+                     a2 = -0.5d0*y0 + 0.5d0*y2
+                     a3 = y1
+                     eng = eng + a0*mu*mu2 + a1*mu2 + a2*mu + a3
+                  end If
+               end if
+            end do
+            cluster(c)%poteng = eng
+            epotperatomcltmp = cluster(c)%poteng/cluster(c)%clsize
+            ! print *, c, cluster(c)%clsize, cluster(c)%poteng, epotperatomcltmp
+            if (epotperatomcltmp < epotperatomcl_min) epotperatomcl_min = epotperatomcltmp
+            if (epotperatomcltmp > epotperatomcl_max) epotperatomcl_max = epotperatomcltmp
+         end if
       end do
-
-      epotperatom_from = epotperatom/100
-      epotperatom_to = epotperatom*100
-      epotperatom_bins = nint((abs(epotperatom_to) - abs(epotperatom_from))/deltapot) + 1
-      allocate (epot_histomix(epotperatom_bins))
-      epot_histomix = 0
-
+      epotperatomcl_bins = nint((epotperatomcl_max - epotperatomcl_min)/deltapot) + 1
+      allocate (epothistomixcl(epotperatomcl_bins))
+      epothistomixcl = 0
+      ! print *, epotperatomcl_max, epotperatomcl_min, epotperatomcl_bins
    end subroutine thermo_init_cluster
 
-   subroutine potengcl(dim, sidel, side2, maxcln, cluster)
-      integer, intent(IN) :: dim, maxcln
+   subroutine potengcl(iconf, dim, sidel, side2, maxcln, cluster)
+      integer, intent(IN) :: iconf, dim, maxcln
       real, intent(IN) :: sidel(3), side2
       type(clus), dimension(maxcln), intent(inout) :: cluster
       real :: rv(3), rr2, rr, fact
       integer :: k, i, j, ind, iti, itj, ij, ir, c, jmin
-      real(myprec) :: mu, mu2, xmu
+      real(myprec) :: mu, mu2, xmu, epotperatomcltmp
       real(myprec) :: y0, y1, y2, y3, a0, a1, a2, a3
       real(double) :: eng
+
+      ! if (iconf == 1) then
+      !    else
+      ! end if
+
       ! do c = 1, maxcln
       !    eng = 0.0
       !    jmin = minj(ndim, cluster(c)%members, cluster(c)%clsize&
@@ -308,7 +318,7 @@ contains
       deallocate (rr2table)
       deallocate (eng)
       deallocate (eng_d)
-      deallocate (epot_histomix)
+      deallocate (epothistomixcl)
    end subroutine thermo_clear
 
    attributes(device) integer function rdf_fij(i, j, nsp)

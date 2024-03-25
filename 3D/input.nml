@@ -33,7 +33,7 @@
   tmax=2.5
 /
 &INPUT_THERMO
-  deltapot=0.1
+  deltapot=0.001
 /
 &INPUT_CONF
   idir=0

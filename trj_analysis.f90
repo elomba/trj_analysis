@@ -191,10 +191,7 @@ program trj_analysis
         call transfer_cpu_gpu(ndim)
 
         ! BFS cluster search
-        if (run_clusters) then
-            call cluster_search()
-            if (i == 1 .and. run_thermo) call thermo_init_cluster(ndim, sidel, side2, maxcln, cluster)
-        end if
+        if (run_clusters) call cluster_search()
         
         ! Thermodynamics calculus
         call thermo_kin(i, ndim)
@@ -215,6 +212,7 @@ program trj_analysis
 
         ! Compute cluster properties
         if (run_clusters) call cluster_analysis(i)
+        
         ! Compute dynamics
         if (run_dyn) then
             call rtcorr(i)

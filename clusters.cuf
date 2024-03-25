@@ -222,7 +222,8 @@ contains
         NTclus = suma + NTclus
         ! Intra-cluster Potential Energy
         if (run_thermo) then
-            call potengcl(ndim, sidel, side2, maxcln, cluster)
+            if (iconf == 1) call thermo_init_cluster(ndim, sidel, side2, maxcln, cluster)
+            call potengcl(iconf, ndim, sidel, side2, maxcln, cluster)
         end if
     end subroutine cluster_analysis
 
