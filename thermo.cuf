@@ -82,6 +82,8 @@ contains
 
       epotperatomcl_min = 1.0e10
       epotperatomcl_max = -1.0e10
+      epotcl_min = 1.0e10
+      epotcl_max = -1.0e10
       do c = 1, maxcln
          if (cluster(c)%clsize > minclsize) then
             eng = 0.0
@@ -116,23 +118,32 @@ contains
                end if
             end do
             cluster(c)%poteng = eng
+            if (cluster(c)%poteng < epotcl_min) epotcl_min = cluster(c)%poteng
+            if (cluster(c)%poteng > epotcl_max) epotcl_max = cluster(c)%poteng
             cluster(c)%potengperatom = cluster(c)%poteng/cluster(c)%clsize
             if (cluster(c)%potengperatom < epotperatomcl_min) epotperatomcl_min = cluster(c)%potengperatom
             if (cluster(c)%potengperatom > epotperatomcl_max) epotperatomcl_max = cluster(c)%potengperatom
          end if
       end do
       if ( epotperatomcl_min < 0.0 ) then
+         epotcl_min = epotcl_min * (1+potengmargin)
          epotperatomcl_min = epotperatomcl_min * (1+potengmargin)
       else
+         epotcl_min = epotcl_min * (1-potengmargin)
          epotperatomcl_min = epotperatomcl_min * (1-potengmargin)
       end if
       if ( epotperatomcl_max < 0.0 ) then
+         epotcl_max = epotcl_max * (1-potengmargin)
          epotperatomcl_max = epotperatomcl_max * (1-potengmargin)
       else
+         epotcl_max = epotcl_max * (1+potengmargin)
          epotperatomcl_max = epotperatomcl_max * (1+potengmargin)
       end if
-      epotperatomcl_bins = nint((epotperatomcl_max - epotperatomcl_min)/deltapot) + 1
+      epotcl_bins = nint((epotcl_max - epotcl_min)/deltapot) + 1
+      allocate(epothistomixcl(epotcl_bins))
+      epotperatomcl_bins = nint((epotperatomcl_max - epotperatomcl_min)/deltapotperatom) + 1
       allocate (epotperatomhistomixcl(epotperatomcl_bins))
+      epothistomixcl = 0
       epotperatomhistomixcl = 0
    end subroutine thermo_init_cluster
 
@@ -148,7 +159,9 @@ contains
 
       if (iconf == 1) then
          do c = 1, maxcln
-            ind = nint((cluster(c)%potengperatom-epotperatomcl_min)/deltapot) + 1
+            ind = nint((cluster(c)%poteng-epotcl_min)/deltapot) + 1
+            if (ind > 0 .and. ind <= epotcl_bins) epothistomixcl(ind) = epothistomixcl(ind) + 1
+            ind = nint((cluster(c)%potengperatom-epotperatomcl_min)/deltapotperatom) + 1
             if (ind > 0 .and. ind <= epotperatomcl_bins) epotperatomhistomixcl(ind) = epotperatomhistomixcl(ind) + 1
          end do
       else
@@ -186,8 +199,10 @@ contains
                   end if
                end do
                cluster(c)%poteng = eng
+               ind = nint((cluster(c)%poteng-epotcl_min)/deltapot) + 1
+               if (ind > 0 .and. ind <= epotcl_bins) epothistomixcl(ind) = epothistomixcl(ind) + 1
                cluster(c)%potengperatom = cluster(c)%poteng/cluster(c)%clsize
-               ind = nint((cluster(c)%potengperatom-epotperatomcl_min)/deltapot) + 1
+               ind = nint((cluster(c)%potengperatom-epotperatomcl_min)/deltapotperatom) + 1
                if (ind > 0 .and. ind <= epotperatomcl_bins) epotperatomhistomixcl(ind) = epotperatomhistomixcl(ind) + 1
             end if
          end do

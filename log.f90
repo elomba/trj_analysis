@@ -77,10 +77,16 @@ contains
       ! Printout Potential's Energy IntraCluster
       !
       integer :: i
-      open (100, file='potengcl.dat')
+      open (100, file='potengperatomcl.dat')
       write (100, "('#     poteng           histo(poteng)')")
       do i = 1, epotperatomcl_bins
-         Write (100, '(2f16.7)') (i-1)*deltapot+epotperatomcl_min, epotperatomhistomixcl(i)/real(nconf)
+         Write (100, '(2f16.7)') (i-1)*deltapotperatom+epotperatomcl_min, epotperatomhistomixcl(i)/real(nconf)
+      end do
+      close (100)
+      open (100, file='potengcl.dat')
+      write (100, "('#     poteng           histo(poteng)')")
+      do i = 1, epotcl_bins
+         Write (100, '(2f16.7)') (i-1)*deltapot+epotcl_min, epothistomixcl(i)/real(nconf)
       end do
       close (100)
    end subroutine printPotEngCl

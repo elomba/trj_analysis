@@ -41,9 +41,9 @@ module mod_common
     character :: fname99*18
     character, dimension(:), allocatable :: atoms*8
     real(myprec) :: epotperatom, epot
-    integer, allocatable, dimension(:) :: epotperatomhistomixcl
-    integer :: epotperatomcl_bins
-    real(myprec) epotperatomcl_min, epotperatomcl_max
+    integer, allocatable, dimension(:) :: epotperatomhistomixcl, epothistomixcl
+    integer :: epotperatomcl_bins, epotcl_bins
+    real(myprec) epotperatomcl_min, epotperatomcl_max, epotcl_min, epotcl_max
 
     type clus
         sequence
