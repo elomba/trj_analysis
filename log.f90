@@ -80,7 +80,7 @@ contains
       open (100, file='potengcl.dat')
       write (100, "('#     poteng           histo(poteng)')")
       do i = 1, epotperatomcl_bins
-         Write (100, '(2f16.7)') (i-1)*deltapot+epotperatomcl_min, epothistomixcl(i)/real(nconf)
+         Write (100, '(2f16.7)') (i-1)*deltapot+epotperatomcl_min, epotperatomhistomixcl(i)/real(nconf)
       end do
       close (100)
    end subroutine printPotEngCl

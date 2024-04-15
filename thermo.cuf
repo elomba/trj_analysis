@@ -132,8 +132,8 @@ contains
          epotperatomcl_max = epotperatomcl_max * (1+potengmargin)
       end if
       epotperatomcl_bins = nint((epotperatomcl_max - epotperatomcl_min)/deltapot) + 1
-      allocate (epothistomixcl(epotperatomcl_bins))
-      epothistomixcl = 0
+      allocate (epotperatomhistomixcl(epotperatomcl_bins))
+      epotperatomhistomixcl = 0
    end subroutine thermo_init_cluster
 
    subroutine potengcl(iconf, dim, sidel, side2, maxcln, cluster)
@@ -149,7 +149,7 @@ contains
       if (iconf == 1) then
          do c = 1, maxcln
             ind = nint((cluster(c)%potengperatom-epotperatomcl_min)/deltapot) + 1
-            if (ind > 0 .and. ind <= epotperatomcl_bins) epothistomixcl(ind) = epothistomixcl(ind) + 1
+            if (ind > 0 .and. ind <= epotperatomcl_bins) epotperatomhistomixcl(ind) = epotperatomhistomixcl(ind) + 1
          end do
       else
          do c = 1, maxcln
@@ -188,7 +188,7 @@ contains
                cluster(c)%poteng = eng
                cluster(c)%potengperatom = cluster(c)%poteng/cluster(c)%clsize
                ind = nint((cluster(c)%potengperatom-epotperatomcl_min)/deltapot) + 1
-               if (ind > 0 .and. ind <= epotperatomcl_bins) epothistomixcl(ind) = epothistomixcl(ind) + 1
+               if (ind > 0 .and. ind <= epotperatomcl_bins) epotperatomhistomixcl(ind) = epotperatomhistomixcl(ind) + 1
             end if
          end do
       end if
@@ -320,7 +320,7 @@ contains
       deallocate (rr2table)
       deallocate (eng)
       deallocate (eng_d)
-      deallocate (epothistomixcl)
+      deallocate (epotperatomhistomixcl)
    end subroutine thermo_clear
 
    attributes(device) integer function rdf_fij(i, j, nsp)

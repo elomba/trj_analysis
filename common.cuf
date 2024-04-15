@@ -41,7 +41,7 @@ module mod_common
     character :: fname99*18
     character, dimension(:), allocatable :: atoms*8
     real(myprec) :: epotperatom, epot
-    integer, allocatable, dimension(:) :: epothistomixcl
+    integer, allocatable, dimension(:) :: epotperatomhistomixcl
     integer :: epotperatomcl_bins
     real(myprec) epotperatomcl_min, epotperatomcl_max
 
