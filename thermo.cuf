@@ -121,8 +121,16 @@ contains
             if (cluster(c)%potengperatom > epotperatomcl_max) epotperatomcl_max = cluster(c)%potengperatom
          end if
       end do
-      epotperatomcl_min = epotperatomcl_min * 0.8
-      epotperatomcl_max = epotperatomcl_max * 1.2
+      if ( epotperatomcl_min < 0.0 ) then
+         epotperatomcl_min = epotperatomcl_min * (1+potengmargin)
+      else
+         epotperatomcl_min = epotperatomcl_min * (1-potengmargin)
+      end if
+      if ( epotperatomcl_max < 0.0 ) then
+         epotperatomcl_max = epotperatomcl_max * (1-potengmargin)
+      else
+         epotperatomcl_max = epotperatomcl_max * (1+potengmargin)
+      end if
       epotperatomcl_bins = nint((epotperatomcl_max - epotperatomcl_min)/deltapot) + 1
       allocate (epothistomixcl(epotperatomcl_bins))
       epothistomixcl = 0
