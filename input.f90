@@ -5,10 +5,10 @@ module mod_input
    integer, allocatable, dimension(:) :: sp_types_selected
    integer, dimension(3) :: ncfs_from_to
    character(len=2), allocatable, dimension(:) :: sp_labels
-   integer :: nthread, ndim, jmin, minclsize, idir, nsp, nbuffer
+   integer :: nthread, ndim, jmin, minclsize, idir, nsp, nbuffer, potnbins
    logical :: use_cell = .true.
    logical, dimension(6) :: rdf_sq_cl_dyn_thermo_conf
-   real(myprec) :: deltar, rcl, dcl, qmin, qmax, sigma, pwall, pwallp, rcrdf, tmax=100.0, deltapotperatom, potengmargin, deltapot
+   real(myprec) :: deltar, rcl, dcl, qmin, qmax, sigma, pwall, pwallp, rcrdf, tmax=100.0, potengmargin
    real(myprec), allocatable, dimension(:) :: mat, bsc
    character(len=128) :: input_filename, log_output_file, trj_input_file
    namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread, &
@@ -19,7 +19,7 @@ module mod_input
    namelist /INPUT_CL/ rcl, dcl, jmin, minclsize, sigma
    namelist /INPUT_CONF/ idir, pwall, pwallp
    namelist /INPUT_DYN/ nbuffer, tmax
-   namelist /INPUT_THERMO/ deltapotperatom, potengmargin, deltapot
+   namelist /INPUT_THERMO/ potengmargin, potnbins
 contains
 
    subroutine read_input_file()

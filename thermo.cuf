@@ -139,10 +139,10 @@ contains
          epotcl_max = epotcl_max * (1+potengmargin)
          epotperatomcl_max = epotperatomcl_max * (1+potengmargin)
       end if
-      epotcl_bins = nint((epotcl_max - epotcl_min)/deltapot) + 1
-      allocate(epothistomixcl(epotcl_bins))
-      epotperatomcl_bins = nint((epotperatomcl_max - epotperatomcl_min)/deltapotperatom) + 1
-      allocate (epotperatomhistomixcl(epotperatomcl_bins))
+      deltapot=(epotcl_max - epotcl_min)/potnbins
+      deltapotperatom=(epotperatomcl_max - epotperatomcl_min)/potnbins
+      allocate(epothistomixcl(potnbins))
+      allocate(epotperatomhistomixcl(potnbins))
       epothistomixcl = 0
       epotperatomhistomixcl = 0
    end subroutine thermo_init_cluster
@@ -160,9 +160,9 @@ contains
       if (iconf == 1) then
          do c = 1, maxcln
             ind = nint((cluster(c)%poteng-epotcl_min)/deltapot) + 1
-            if (ind > 0 .and. ind <= epotcl_bins) epothistomixcl(ind) = epothistomixcl(ind) + 1
+            if (ind > 0 .and. ind <= potnbins) epothistomixcl(ind) = epothistomixcl(ind) + 1
             ind = nint((cluster(c)%potengperatom-epotperatomcl_min)/deltapotperatom) + 1
-            if (ind > 0 .and. ind <= epotperatomcl_bins) epotperatomhistomixcl(ind) = epotperatomhistomixcl(ind) + 1
+            if (ind > 0 .and. ind <= potnbins) epotperatomhistomixcl(ind) = epotperatomhistomixcl(ind) + 1
          end do
       else
          do c = 1, maxcln
@@ -200,10 +200,10 @@ contains
                end do
                cluster(c)%poteng = eng
                ind = nint((cluster(c)%poteng-epotcl_min)/deltapot) + 1
-               if (ind > 0 .and. ind <= epotcl_bins) epothistomixcl(ind) = epothistomixcl(ind) + 1
+               if (ind > 0 .and. ind <= potnbins) epothistomixcl(ind) = epothistomixcl(ind) + 1
                cluster(c)%potengperatom = cluster(c)%poteng/cluster(c)%clsize
                ind = nint((cluster(c)%potengperatom-epotperatomcl_min)/deltapotperatom) + 1
-               if (ind > 0 .and. ind <= epotperatomcl_bins) epotperatomhistomixcl(ind) = epotperatomhistomixcl(ind) + 1
+               if (ind > 0 .and. ind <= potnbins) epotperatomhistomixcl(ind) = epotperatomhistomixcl(ind) + 1
             end if
          end do
       end if
