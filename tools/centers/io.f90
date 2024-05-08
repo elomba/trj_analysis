@@ -48,7 +48,7 @@ contains
          end do
       end do
       rewind (unit=io)
-      max_3n_centers = 10*max_n_centers
+      max_3n_centers = 500*max_n_centers
       allocate (host_trajectories(max_3n_centers, time_steps))
       do i = 1, time_steps
          do j = 1, max_3n_centers
