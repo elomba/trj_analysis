@@ -1,0 +1,239 @@
+module mod_cellsp
+    use mod_precision
+    use mod_common
+    use mod_input
+    use cudafor
+    implicit none
+
+contains
+
+    subroutine cells_buildp()
+        implicit none
+        integer :: n, i, j, k, icell
+        headp(:) = 0
+        listap(:) = 0
+
+        do n = 1, natms
+            i = int((R(1, n))/cellpx)
+            if (i < 0 .or. i >= maxpi) then
+                print *, ' error in cells in x direction for ', n, R(1, n), cellx
+                stop
+            end if
+            j = int((R(2, n))/cellpy)
+            if (j < 0 .or. j >= maxpj) then
+                print *, ' error in cells in y direction for ', n, R(2, n), celly
+                stop
+            end if
+            if (ndim == 3) then
+                k = int((R(3, n))/cellpz)
+                if (k < 0 .or. k >= maxpk) then
+                    print *, ' error in cells in z direction for ', n, R(3, n), cellz
+                    stop
+                end if
+                icell = (i*maxpj + j)*maxpk + k
+            else
+                icell = i*maxpj + j
+            end if
+            listap(n) = headp(icell)
+            headp(icell) = n
+        end do
+        listapd(1:natms) = listap(1:natms)
+        headpd(0:ncellp - 1) = headp(0:ncellp - 1)
+    end subroutine cells_buildp
+
+    Subroutine cellsp_init_post_nc_read()
+        Implicit None
+        !
+        !   Only for orthogonal cells
+        !
+        Integer :: i, j, k, ii, jj, kk, l, in
+        !
+        ! Cell size extends up to rcut
+        !
+        maxpi = Int(sidel(1)/rclp)
+        maxpj = int(sidel(2)/rclp)
+        maxpk = 1
+        if (ndim == 3) maxpk = Int(sidel(3)/rclp)
+        ncellp = maxpi*maxpj*maxpk
+        nn = 3**ndim
+        maxid = maxpi
+        maxjd = maxpj
+        maxkd = maxpk
+        ncellpd = ncellp
+        nnd = nn
+        Allocate (neighp(0:ncellp - 1, nn), head(0:ncellp - 1), listap(natms))
+        Allocate (neighpd(0:ncell - 1, nn), headpd(0:ncell - 1), listapd(natms))
+        cellpx = sidel(1)/maxpi
+        cellpy = sidel(2)/maxpj
+        cellpz = sidel(3)/maxpk
+        cellxpd = cellpx
+        cellypd = cellpy
+        cellzpd = cellpz
+        if (ndim == 3) then
+            if (min(maxpi, maxpj, maxpk) < 3) then
+                print *, " *** Error: box too small for link cell method "
+                use_cellp = .false.
+                return
+            end if
+        else
+            if (min(maxpi, maxpj) < 3) then
+                print *, " *** Error: box too small for link cell method "
+                use_cellp = .false.
+                return
+            End if
+        end if
+
+        l = 0
+        if (ndim == 3) then
+            Do i = 0, maxpi - 1
+                Do j = 0, maxpj - 1
+                    Do k = 0, maxpk - 1
+                        in = 1
+                        Do ii = -1, 1
+                            Do jj = -1, 1
+                                Do kk = -1, 1
+                                    neighp(l, in) = fijk(i + ii, j + jj, k + kk)
+                                    in = in + 1
+                                End Do
+                            End Do
+                        End Do
+                        l = l + 1
+                    End Do
+                End Do
+            End Do
+        else
+            Do i = 0, maxpi - 1
+                Do j = 0, maxpj - 1
+                    in = 1
+                    Do ii = -1, 1
+                        Do jj = -1, 1
+                            neighp(l, in) = fij(i + ii, j + jj)
+                            in = in + 1
+                        End Do
+                    End Do
+                    l = l + 1
+                End Do
+            End Do
+        end if
+        neighpd(:, :) = neighp(:, :)
+    end Subroutine cellsp_init_post_nc_read
+
+    subroutine cellsp_clear()
+        implicit none
+
+        ! Clean house
+        deallocate (neighpd)
+        deallocate (headpd)
+        deallocate (listapd)
+
+    end subroutine cellsp_clear
+
+    Integer Function fijk(ix, jx, kx)
+        Implicit None
+        Integer :: ix, jx, kx, i, j, k
+        i = ix
+        j = jx
+        k = kx
+        !
+        !  Use periodic boundary conditions
+        !
+        if (i < 0) i = i + maxpi
+        if (j < 0) j = j + maxpj
+        if (k < 0) k = k + maxpk
+        if (i >= maxpi) i = i - maxpi
+        if (j >= maxpj) j = j - maxpj
+        if (k >= maxpk) k = k - maxpk
+        fijk = (i*maxpj + j)*maxpk + k
+    end function fijk
+
+    Integer Function fij(ix, jx)
+        Implicit None
+        Integer :: ix, jx, i, j
+        i = ix
+        j = jx
+        !
+        !  Use periodic boundary conditions
+        !
+        if (i < 0) i = i + maxpi
+        if (j < 0) j = j + maxpj
+        if (i >= maxpi) i = i - maxpi
+        if (j >= maxpj) j = j - maxpj
+        fij = (i*maxpj + j)
+    end function fij
+
+    attributes(device) Integer Function fijkd(ix, jx, kx)
+        Implicit None
+        Integer :: ix, jx, kx, i, j, k
+        i = ix
+        j = jx
+        k = kx
+        !
+        !  Use periodic boundary conditions
+        !
+        if (i < 0) i = i + maxipd
+        if (j < 0) j = j + maxjpd
+        if (k < 0) k = k + maxkpd
+        if (i >= maxipd) i = i - maxipd
+        if (j >= maxjpd) j = j - maxjpd
+        if (k >= maxkpd) k = k - maxkpd
+        fijkd = (i*maxjpd + j)*maxkpd + k
+    end function fijkd
+
+    attributes(device) Integer Function fijd(ix, jx)
+        Integer :: ix, jx, i, j
+        i = ix
+        j = jx
+        !
+        !  Use periodic boundary conditions
+        !
+        if (i < 0) i = i + maxipd
+        if (j < 0) j = j + maxjpd
+        if (i >= maxipd) i = i - maxipd
+        if (j >= maxjpd) j = j - maxjpd
+        fijd = (i*maxjpd + j)
+    end function fijd
+
+    ! attributes(global) subroutine gpu_graph_cell(Nmol, dim, rcl2, jmin)
+    attributes(global) subroutine gpu_utotal(r, Nmol, dim, rcl2, sidel, jmin)
+        integer, value, intent(IN) :: Nmol, dim, jmin
+        real(myprec), value :: rcl2
+        real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
+        real(myprec)  :: rv(3), rr2
+        real(double) :: usum
+        integer :: i, j, counter, ia, ix, jy, kz, cell, icell
+        i = (blockidx%x - 1)*blockdim%x + threadidx%x
+        usum = 0
+        if (i <= Nmol) then
+            counter = 0
+            !
+            ! Locate cell
+            !
+            ix = int((r(1, i))/cellxpd)
+            jy = int((r(2, i))/cellypd)
+            if (dim == 3) then
+                kz = int((r(3, i))/cellzpd)
+                cell = (ix*maxjpd + jy)*maxkpd + kz
+            else
+                cell = ix*maxjpd + jy
+            end if
+            !
+            ! Loop over neighbouring cells
+            !
+            do icell = 1, nnd
+                j = headpd(neighpd(cell, icell))
+                do while (j .ne. 0)
+                    if (j .ne. i) then
+                        rv(1:dim) = r(1:dim, i) - r(1:dim, j)
+                        rv = rv - sidel*nint(rv/sidel)
+                        rr2 = Dot_product(rv, rv)
+
+                        if (rr2 < rcl2) then
+                           usum = usum + ... 
+                        end if
+                    end if
+                    j = listad(j)
+                end do
+            end do
+        end if
+    end subroutine gpu_utotal
+end module mod_cellsp
