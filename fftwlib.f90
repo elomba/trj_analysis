@@ -11,8 +11,8 @@ subroutine fftw1d(fin,fout,w,nin,dtin, tmax)
    !
    Implicit None
    integer, intent(IN) :: nin
-   real(float), intent(IN) :: fin(nin), dtin, tmax
-   real(float), intent(OUT) :: fout(nin), w(nin)
+   real(float), intent(IN) :: fin(nin), dtin
+   real(float), intent(OUT) :: fout(nin), w(nin), tmax
    real(float), allocatable, dimension(:) :: tx
    Complex(double), allocatable, Dimension(:) :: out, in
    Real(float) :: alpha=1.0
