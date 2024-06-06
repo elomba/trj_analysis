@@ -245,7 +245,10 @@ program trj_analysis
     endif
     if (run_clusters) then
         call print_clusinfo(nqmin, Nmol)
-        if (run_thermo) call printPotEngCl()
+        if (run_thermo) then
+            call printPotEngCl()
+            call printPotEngClCl()
+        end if
     end if
 
     ! Cleaning house

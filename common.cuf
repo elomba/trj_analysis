@@ -42,7 +42,9 @@ module mod_common
     character, dimension(:), allocatable :: atoms*8
     real(myprec) :: epotperatom, epot
     integer, allocatable, dimension(:) :: epotperatomhistomixcl, epothistomixcl
-    real(myprec) epotperatomcl_min, epotperatomcl_max, epotcl_min, epotcl_max, deltapot, deltapotperatom
+    real(myprec) epotperatomcl_min, epotperatomcl_max, epotcl_min, epotcl_max, deltapotcl, deltapotperatomcl
+    real(myprec), allocatable, dimension(:) :: epotclcldata
+    real(myprec) :: epotclclmean, epotclclstdv
 
     type clus
         sequence

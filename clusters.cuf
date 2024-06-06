@@ -220,10 +220,13 @@ contains
         call rdfclcl(ndim, rclxyz(1:ndim, 1:cluster_id), cluster_id, sidel&
              &, side2, gclcl, lsmax, deltar, volumen)
         NTclus = suma + NTclus
-        ! Intra-cluster Potential Energy
+        ! Potential Energy
         if (run_thermo) then
             if (iconf == 1) call thermo_init_cluster(ndim, sidel, side2, maxcln, cluster)
+            ! Intra-cluster Potential Energy
             call potengcl(iconf, ndim, sidel, side2, maxcln, cluster)
+            ! Inter-cluster Potential Energy
+            call potengclcl(iconf, ndim, sidel, side2, maxcln, cluster)
         end if
     end subroutine cluster_analysis
 

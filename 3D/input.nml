@@ -34,7 +34,7 @@
 /
 &INPUT_THERMO
   potnbins=100
-  potengmargin=0.40
+  potengmargin=0.9
 /
 &INPUT_CONF
   idir=0
