@@ -1,7 +1,8 @@
 module mod_cellsp
     use mod_precision
-    use mod_common
+    use mod_common, only: R, sidel
     use mod_input
+    use cellp_props
     use cudafor
     implicit none
 
@@ -61,7 +62,7 @@ contains
         maxkd = maxpk
         ncellpd = ncellp
         nnd = nn
-        Allocate (neighp(0:ncellp - 1, nn), head(0:ncellp - 1), listap(natms))
+        Allocate (neighp(0:ncellp - 1, nn), headp(0:ncellp - 1), listap(natms))
         Allocate (neighpd(0:ncell - 1, nn), headpd(0:ncell - 1), listapd(natms))
         cellpx = sidel(1)/maxpi
         cellpy = sidel(2)/maxpj
@@ -228,7 +229,7 @@ contains
                         rr2 = Dot_product(rv, rv)
 
                         if (rr2 < rcl2) then
-                           usum = usum + ... 
+                           usum = usum  
                         end if
                     end if
                     j = listad(j)
