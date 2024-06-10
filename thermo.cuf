@@ -3,6 +3,7 @@ module mod_thermo
    use mod_common
    use mod_input
    use cudafor
+   use cellp_props
    implicit none
    real(myprec), allocatable, dimension(:, :) :: rr2table
    real(myprec), allocatable, dimension(:) :: rc2pot
@@ -29,11 +30,10 @@ contains
 
       allocate (eng(natoms))
       allocate (eng_d(natoms))
-
-      do i = 1, nit - 1
-         do j = i, nit - 1
+      do i = 1, nsp
+         do j = i, nsp
             write (filename, "(A1,2I1,A4)") 'u', i, j, '.dat'
-            open (newunit=io_input_file, file=filename, action='read')
+            open (newunit=io_input_file, file=filename, action='read',status='old')
             do k = 1, 4
                read (io_input_file, *)
             end do
@@ -66,6 +66,7 @@ contains
          end do
       end do
       rc2pot_d(:) = rc2pot(:)
+      rclp = sqrt(maxval(rc2pot(1:nsp)))
       pottable_d(:, :) = pottable(:, :)
       dr2pot = rr2table(3, 1) - rr2table(2, 1)
    end subroutine thermo_init

@@ -152,7 +152,6 @@ program trj_analysis
             if (run_clusters) call clusters_init(nmol)
             if (run_dyn) call dyn_init()
         end if
-
         ! Read i configuration from netcdf input file
         call cpu_time(t0)
         ncstart = ncfs_from_to(2) + (i - 1)*(ncfs_from_to(3) - ncfs_from_to(2))/ncfs_from_to(1)

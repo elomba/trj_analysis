@@ -3,7 +3,7 @@ module cellp_props
     use cudafor
     implicit none
     integer :: maxpi, maxpj, maxpk, ncellp
-    integer, device :: maxipd,maxjpd,maxkpd,ncellpd
+    integer, device :: maxipd,maxjpd,maxkpd,ncellpd, nnd
     integer, dimension(:), allocatable :: headp, listap
     integer, device, dimension(:), allocatable :: headpd, listapd
     integer, dimension(:,:), allocatable :: neighp

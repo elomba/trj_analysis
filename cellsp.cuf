@@ -1,11 +1,11 @@
 module mod_cellsp
     use mod_precision
-    use mod_common, only: R, sidel
-    use mod_input
+    use mod_input, only: natms, r, ndim, sidel
     use cellp_props
     use cudafor
+    use mod_thermo
     implicit none
-
+    integer, device :: nnpd
 contains
 
     subroutine cells_buildp()
@@ -17,18 +17,18 @@ contains
         do n = 1, natms
             i = int((R(1, n))/cellpx)
             if (i < 0 .or. i >= maxpi) then
-                print *, ' error in cells in x direction for ', n, R(1, n), cellx
+                print *, ' error in cells in x direction for ', n, R(1, n), cellpx
                 stop
             end if
             j = int((R(2, n))/cellpy)
             if (j < 0 .or. j >= maxpj) then
-                print *, ' error in cells in y direction for ', n, R(2, n), celly
+                print *, ' error in cells in y direction for ', n, R(2, n), cellpy
                 stop
             end if
             if (ndim == 3) then
                 k = int((R(3, n))/cellpz)
                 if (k < 0 .or. k >= maxpk) then
-                    print *, ' error in cells in z direction for ', n, R(3, n), cellz
+                    print *, ' error in cells in z direction for ', n, R(3, n), cellpz
                     stop
                 end if
                 icell = (i*maxpj + j)*maxpk + k
@@ -47,7 +47,7 @@ contains
         !
         !   Only for orthogonal cells
         !
-        Integer :: i, j, k, ii, jj, kk, l, in
+        Integer :: i, j, k, ii, jj, kk, l, in, nn
         !
         ! Cell size extends up to rcut
         !
@@ -56,14 +56,14 @@ contains
         maxpk = 1
         if (ndim == 3) maxpk = Int(sidel(3)/rclp)
         ncellp = maxpi*maxpj*maxpk
-        nn = 3**ndim
-        maxid = maxpi
-        maxjd = maxpj
-        maxkd = maxpk
+        maxipd = maxpi
+        maxjpd = maxpj
+        maxkpd = maxpk
         ncellpd = ncellp
-        nnd = nn
+        nn = 3**ndim
+        nnpd = nn
         Allocate (neighp(0:ncellp - 1, nn), headp(0:ncellp - 1), listap(natms))
-        Allocate (neighpd(0:ncell - 1, nn), headpd(0:ncell - 1), listapd(natms))
+        Allocate (neighpd(0:ncellp - 1, nn), headpd(0:ncellp - 1), listapd(natms))
         cellpx = sidel(1)/maxpi
         cellpy = sidel(2)/maxpj
         cellpz = sidel(3)/maxpk
@@ -220,7 +220,7 @@ contains
             !
             ! Loop over neighbouring cells
             !
-            do icell = 1, nnd
+            do icell = 1, nnpd
                 j = headpd(neighpd(cell, icell))
                 do while (j .ne. 0)
                     if (j .ne. i) then
@@ -232,7 +232,7 @@ contains
                            usum = usum  
                         end if
                     end if
-                    j = listad(j)
+                    j = listapd(j)
                 end do
             end do
         end if
