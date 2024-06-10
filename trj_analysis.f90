@@ -27,6 +27,7 @@ program trj_analysis
     use mod_densprof
     use mod_log
     use mod_thermo
+    use cellsp_props
     use mod_dyn, only : dyn_init, dyn_clear, rtcorr, print_rtcor
     use cudafor
     implicit none
@@ -138,7 +139,12 @@ program trj_analysis
 
     ! Init common variables & print log_01
     call common_init(natoms, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)
-    if (run_thermo) call thermo_init(natoms)
+    if (run_thermo) then 
+        call thermo_init(natoms)
+        if (use_cellp) then
+
+        endif
+    endif
 
     if (idir > 0) then
         call prof_init()
@@ -149,6 +155,7 @@ program trj_analysis
         ! In the first configuration init modules
         if (i == 1) then
             if (use_cell) call cells_init_pre_nc_read(nmol)
+            if (use_cellp) call cellsp_init_pre_nc_read(nmol)
             if (run_clusters) call clusters_init(nmol)
             if (run_dyn) call dyn_init()
         end if
@@ -169,7 +176,7 @@ program trj_analysis
         ! In each configuration run modules
         if (run_clusters) then
             if (use_cell) then
-                if (i == 1) call cells_init_post_nc_read()
+                ! if (i == 1) call cells_init_post_nc_read()
                 call cells_build()
             end if
         end if
@@ -206,7 +213,14 @@ program trj_analysis
         if (run_sq) call SQcalc()
 
         ! Compute potential energy
-        if (run_thermo) call poteng(natoms, nbcuda, nthread)
+        if (run_thermo) then 
+            if (use_cellp) then
+                call cells_buildp()
+                call poteng_cell(natoms, nbcuda, nthread)
+            else
+                call poteng(natoms, nbcuda, nthread)
+            endif
+        endif
 
         ! Compute cluster properties
         if (run_clusters) call cluster_analysis(i)

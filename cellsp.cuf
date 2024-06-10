@@ -194,9 +194,8 @@ contains
         fijd = (i*maxjpd + j)
     end function fijd
 
-    ! attributes(global) subroutine gpu_graph_cell(Nmol, dim, rcl2, jmin)
-    attributes(global) subroutine gpu_utotal(r, Nmol, dim, rcl2, sidel, jmin)
-        integer, value, intent(IN) :: Nmol, dim, jmin
+    attributes(global) subroutine gpu_utotal(r, Nmol, dim, rcl2, sidel)
+        integer, value, intent(IN) :: Nmol, dim
         real(myprec), value :: rcl2
         real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
         real(myprec)  :: rv(3), rr2
