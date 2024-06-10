@@ -66,7 +66,9 @@ contains
          end do
       end do
       rc2pot_d(:) = rc2pot(:)
-      rclp = sqrt(maxval(rc2pot(1:nsp)))
+      ! Increase the maximum potential cutoff by 0.1A to avoid round off errors in
+      ! particles being outside neighboring cells
+      rclp = sqrt(maxval(rc2pot(1:nsp)))+0.1
       pottable_d(:, :) = pottable(:, :)
       dr2pot = rr2table(3, 1) - rr2table(2, 1)
    end subroutine thermo_init
@@ -318,7 +320,7 @@ attributes(global) subroutine poteng3d_cell(natoms, nsp, dr2pot)
       integer i, j, ind, ia, fact, iti, itj, istart, ij, ir, tid
       real(myprec) :: rr2, xi, yi, zi, xd, yd, zd, mu, mu2, xmu
       real(myprec) :: y0, y1, y2, y3, a0, a1, a2, a3
-
+      integer :: ix, jy, kz, icell, jcell
       i = (blockidx%x - 1)*blockdim%x + threadidx%x
       eng_d(i) = 0.0
       if (i <= natoms) then
@@ -326,18 +328,14 @@ attributes(global) subroutine poteng3d_cell(natoms, nsp, dr2pot)
          xi = r_d(1, i)
          yi = r_d(2, i)
          zi = r_d(3, i)
-         ix = int((xi)/cellxpd)
-         jy = int((yi)/cellypd)
-         if (dim == 3) then
-               kz = int(zi)/cellzpd)
-               cell = (ix*maxjpd + jy)*maxkpd + kz
-         else
-               cell = ix*maxjpd + jy
-         end if
+         ix = int(xi/cellxpd)
+         jy = int(yi/cellypd)
+         kz = int(zi/cellzpd)
+         icell = (ix*maxjpd + jy)*maxkpd + kz
             !
             ! Loop over neighbouring cells
-         do icell = 1, nnpd
-            j = headpd(neighpd(cell, icell))
+         do jcell = 1, nnpd
+            j = headpd(neighpd(icell, jcell))
             do while (j .ne. 0)
                if (i /= j) then
                   itj = itype_d(j)

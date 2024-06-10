@@ -3,9 +3,8 @@ module mod_cellsp
     use mod_input, only: natms, r, ndim, sidel
     use cellp_props
     use cudafor
-    use mod_thermo
     implicit none
-    integer, device :: nnpd
+    public :: cells_buildp, cellsp_init_post_nc_read, cellsp_clear
 contains
 
     subroutine cells_buildp()

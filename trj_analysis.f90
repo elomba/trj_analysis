@@ -27,7 +27,8 @@ program trj_analysis
     use mod_densprof
     use mod_log
     use mod_thermo
-    use cellsp_props
+    use cellp_props
+    use mod_cellsp, only : cellsp_init_post_nc_read, cells_buildp, cellsp_clear
     use mod_dyn, only : dyn_init, dyn_clear, rtcorr, print_rtcor
     use cudafor
     implicit none
@@ -134,28 +135,29 @@ program trj_analysis
         rcl = -1.
         use_cell = .false.
     endif
-    if (rdf_sq_cl_dyn_thermo_conf(5) == .true.) run_thermo = .true. 
+    if (rdf_sq_cl_dyn_thermo_conf(5) == .true.) then
+        run_thermo = .true. 
+    else
+        use_cellp = .false.
+    endif 
     if (rdf_sq_cl_dyn_thermo_conf(6) == .true.) run_rdf = .true. 
 
     ! Init common variables & print log_01
     call common_init(natoms, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)
     if (run_thermo) then 
         call thermo_init(natoms)
-        if (use_cellp) then
-
-        endif
     endif
 
     if (idir > 0) then
         call prof_init()
     end if
 
-    ! Simulation begin, every configuration selected
+    ! Analysis begin,s every configuration selected
+!    use_cellp = .false.
     do i = 1, ncfs_from_to(1)
         ! In the first configuration init modules
         if (i == 1) then
             if (use_cell) call cells_init_pre_nc_read(nmol)
-            if (use_cellp) call cellsp_init_pre_nc_read(nmol)
             if (run_clusters) call clusters_init(nmol)
             if (run_dyn) call dyn_init()
         end if
@@ -176,7 +178,7 @@ program trj_analysis
         ! In each configuration run modules
         if (run_clusters) then
             if (use_cell) then
-                ! if (i == 1) call cells_init_post_nc_read()
+                if (i == 1) call cells_init_post_nc_read()
                 call cells_build()
             end if
         end if
@@ -214,12 +216,9 @@ program trj_analysis
 
         ! Compute potential energy
         if (run_thermo) then 
-            if (use_cellp) then
-                call cells_buildp()
-                call poteng_cell(natoms, nbcuda, nthread)
-            else
-                call poteng(natoms, nbcuda, nthread)
-            endif
+            if (i == 1) call cellsp_init_post_nc_read()
+            if (use_cellp) call cells_buildp()
+            call poteng(natoms, nbcuda, nthread)
         endif
 
         ! Compute cluster properties
@@ -272,6 +271,7 @@ program trj_analysis
     if (run_dyn) call dyn_clear()
     if (idir > 0) call prof_clear()
     if (run_thermo) call thermo_clear()
+    if (use_cellp) call cellsp_clear()
     call common_clear()
     call log_clear()
     call input_clear()
