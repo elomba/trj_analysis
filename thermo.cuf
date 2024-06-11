@@ -255,7 +255,7 @@ contains
             if (ind > 0 .and. ind <= potnbins) epotperatomhistomixcl(ind) = epotperatomhistomixcl(ind) + 1
          endif
       end do
-   end subroutine potcl_gpu
+   end subroutine potengcl_gpu
 
 attributes(global) subroutine potclgpu(natoms, nsp, dr2pot, minclsize)
       !
