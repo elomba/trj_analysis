@@ -214,6 +214,9 @@ program trj_analysis
         ! Compute SQ
         if (run_sq) call SQcalc()
 
+        ! Compute cluster properties
+        if (run_clusters) call cluster_analysis(i)
+        
         ! Compute potential energy
         if (run_thermo) then 
             if (i == 1) call cellsp_init_post_nc_read()
@@ -221,9 +224,7 @@ program trj_analysis
             call poteng(natoms, nbcuda, nthread)
         endif
 
-        ! Compute cluster properties
-        if (run_clusters) call cluster_analysis(i)
-        
+     
         ! Compute dynamics
         if (run_dyn) then
             call rtcorr(i)

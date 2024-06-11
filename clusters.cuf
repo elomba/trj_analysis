@@ -9,11 +9,7 @@ module mod_clusters
     use cudafor
     use mod_nc_conf, only : conf
     implicit none
-
     integer :: io_centers_file, io_clusevol_file
-    real(double), device, allocatable, dimension(:) :: engcl_d
-    real(double), allocatable, dimension(:) :: engcls
-
     character(len=17) :: centers_filename = 'centers.lammpstrj'
     character(len=12) :: clusevol_filename = 'clusevol.dat'
 
@@ -42,6 +38,9 @@ contains
                 deallocate(cluster_d, engcl_d)
                 deallocate(engcls)
             endif
+        else
+            allocate(clusid(1:nmol))
+            allocate(clusid_d(1:nmol))
         end if
         allocate (cluster(maxcln), contador(maxcln))
         if (run_thermo) then
@@ -59,6 +58,11 @@ contains
             end if
             cluster(i)%clsize = clsz
             allocate (cluster(i)%members(clsz))
+            !
+            !
+            if (run_thermo)  then
+                allocate (cluster_d(i)%members(clsz))
+            endif
         end do
         contador(:) = 0
         do i = 1, Nmol
@@ -69,9 +73,15 @@ contains
             end if
         end do
         nbigcl = 0
+        clusid(:) = 0
         do i = 1, cluster_id
             if (cluster(i)%clsize >= minclsize) nbigcl = nbigcl + 1
+            ! identify to which cluster belongs each particle
+            do j = 1, cluster(i)%clsize
+                clusid(cluster(i)%members(j)) = I
+            end do
         end do
+        clusid_d(1:nmol) = clusid(1:nmol)
         !
         ! Write trajectory file with centers of mass of clusters with size > minclsize
         !
@@ -235,7 +245,8 @@ contains
         if (run_thermo) then
             if (iconf == 1) call thermo_init_cluster(ndim, sidel, side2, maxcln, cluster)
             ! Intra-cluster Potential Energy
-            call potengcl_gpu(iconf, ndim, sidel, side2, maxcln, cluster)
+            ! call potengcl_gpu(maxcln, cluster)
+            ! call potengcl(iconf, ndim, sidel, side2, maxcln, cluster)
             ! Inter-cluster Potential Energy
             ! call potengclcl(iconf, ndim, sidel, side2, maxcln, cluster)
         end if
