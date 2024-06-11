@@ -235,6 +235,82 @@ contains
       end do
    end subroutine potengcl
 
+   subroutine potengcl_gpu(iconf, dim, sidel, side2, maxcln, cluster)
+      integer, intent(IN) :: iconf, dim, maxcln
+      real, intent(IN) :: sidel(3), side2
+      type(clus), dimension(maxcln), intent(inout) :: cluster
+      integer, intent(IN) :: maxlc
+      integer :: ind, c
+      real(myprec) :: engcl
+      cluster_d(:) = cluster(1:maxcln)
+      call <<maxcln,2000>>potclgpu(natoms, nsp, dr2pot, minclsize)
+      engcls(1:maxcln) = engcl_d1(1:maxcln)
+      do c = 1, maxcln
+         engcl = engls(c)/2
+         cluster(c)%poteng = engcl
+         ind = nint((cluster(c)%poteng-epotcl_min)/deltapotcl) + 1
+         if (ind > 0 .and. ind <= potnbins) epothistomixcl(ind) = epothistomixcl(ind) + 1
+            cluster(c)%potengperatom = cluster(c)%poteng/cluster(c)%clsize
+            ind = nint((cluster(c)%potengperatom-epotperatomcl_min)/deltapotperatomcl) + 1
+            if (ind > 0 .and. ind <= potnbins) epotperatomhistomixcl(ind) = epotperatomhistomixcl(ind) + 1
+         endif
+      end do
+   end subroutine potcl_gpu
+
+attributes(global) subroutine potclgpu(natoms, nsp, dr2pot, minclsize)
+      !
+      ! Massively parallel potential energy calculation
+      !
+      integer, value, intent(IN) :: natoms, nsp
+      real, value, intent(in) :: dr2pot
+      integer i, j, ind, ia, fact, iti, itj, istart, ij, ir, tid, clsize
+      real(myprec) :: rr2, xi, yi, zi, xd, yd, zd, mu, mu2, xmu
+      real(myprec) :: y0, y1, y2, y3, a0, a1, a2, a3
+      c = threadidx%x+1
+      k = blockidx%x+1
+      clsize = cluster_d(c)%clsize
+      if (clsize > minclsize) then
+         engcl_d(c) = 0.0d0
+         if (k <= clsize) then 
+            i =  cluster_d(c)%members(k)
+            iti = itype_d(i)
+            xi = r_d(1, i)
+            yi = r_d(2, i)
+            zi = r_d(3, i)
+            do kk = 1, clsize
+               j = cluster_d(c)%members(kk)
+               if (i /= j) then
+                  itj = itype_d(j)
+                  ij = rdf_fij(iti, itj, nsp)
+                  xd = r_d(1, j) - xi
+                  yd = r_d(2, j) - yi
+                  zd = r_d(3, j) - zi
+                  xd = xd - sidel_d(1)*nint(xd/sidel_d(1))
+                  yd = yd - sidel_d(2)*nint(yd/sidel_d(2))
+                  zd = zd - sidel_d(3)*nint(zd/sidel_d(3))
+                  rr2 = xd*xd + yd*yd + zd*zd
+                  If (rr2 .Lt. rc2pot_d(ij)) Then
+                     xmu = rr2/dr2pot
+                     ir = int(xmu)
+                     mu = xmu - ir
+                     mu2 = mu*mu
+                     y0 = pottable_d(ir - 1, ij)
+                     y1 = pottable_d(ir, ij)
+                     y2 = pottable_d(ir + 1, ij)
+                     y3 = pottable_d(ir + 2, ij)
+                     a0 = -0.5d0*y0 + 1.5d0*y1 - 1.5d0*y2 + 0.5d0*y3
+                     a1 = y0 - 2.5d0*y1 + 2*y2 - 0.5d0*y3
+                     a2 = -0.5d0*y0 + 0.5d0*y2
+                     a3 = y1
+                     engcl_d(c) = engcl_d(c) + a0*mu*mu2 + a1*mu2 + a2*mu + a3
+                  end if
+               end if
+            end do
+         endif
+      end if
+
+   end subroutine potcl_gpu
+
    subroutine poteng(natoms, nbcuda, nthread)
       !
       ! Main call to compute potential energy and move data back and forth from device

@@ -11,6 +11,9 @@ module mod_clusters
     implicit none
 
     integer :: io_centers_file, io_clusevol_file
+    real(double), device, allocatable, dimension(:) :: engcl_d
+    real(double), allocatable, dimension(:) :: engcls
+
     character(len=17) :: centers_filename = 'centers.lammpstrj'
     character(len=12) :: clusevol_filename = 'clusevol.dat'
 
@@ -35,8 +38,16 @@ contains
         end if
         if (Iconf > 1) then
             deallocate (cluster, contador)
+            if (run_thermo) then
+                deallocate(cluster_d, engcl_d)
+                deallocate(engcls)
+            endif
         end if
         allocate (cluster(maxcln), contador(maxcln))
+        if (run_thermo) then
+            allocate(cluster_d(maxcln), engcl_d(maxcln))
+            allocate(engcls(maxcln))
+        endif
         Cluster_id = maxcln
         contador(:) = 0
         maxcl = 0
@@ -224,9 +235,9 @@ contains
         if (run_thermo) then
             if (iconf == 1) call thermo_init_cluster(ndim, sidel, side2, maxcln, cluster)
             ! Intra-cluster Potential Energy
-            call potengcl(iconf, ndim, sidel, side2, maxcln, cluster)
+            call potengcl_gpu(iconf, ndim, sidel, side2, maxcln, cluster)
             ! Inter-cluster Potential Energy
-            call potengclcl(iconf, ndim, sidel, side2, maxcln, cluster)
+            ! call potengclcl(iconf, ndim, sidel, side2, maxcln, cluster)
         end if
     end subroutine cluster_analysis
 

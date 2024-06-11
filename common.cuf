@@ -74,6 +74,7 @@ module mod_common
         integer, allocatable :: members(:)
     end type clus
     type(clus), Allocatable :: cluster(:)
+    type(clus), Allocatable :: cluster_d(:)
     Real(myprec), Dimension(:), Allocatable :: sizedist, densav
     Real(myprec), Dimension(:, :), Allocatable ::  rclxyz
     real(myprec) :: ekclaver, ekinclsav, ekincl, ekincls
