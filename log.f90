@@ -5,6 +5,7 @@ module mod_log
    use mod_nc
    use mod_nc_conf
    use cudafor
+   use mod_thermo, only : engclus, engclcl
    implicit none
    integer :: io_log_file
 contains
@@ -27,6 +28,10 @@ contains
          cpu0 = cpu1
          if (run_thermo) then
             write (*, "(' ** Potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epot, epotperatom
+            if (run_clusters) then
+               write (*, "(' ** Intracluster av. potential energy=',f15.4,' Kcal/mol')") engclus
+               write (*, "(' ** Intercluster potential energy=',f15.4,' Kcal/mol')") engclcl
+            endif 
          end if
          write (*, "(' ** Kinetic energy=',f15.4,' Kcal/mol, average=',f15.4,'Kcal/mol')") &
             kelvintokcal*ekin*(aunit/tunit)**2/Rgas, 0.00198717*ecaver*(aunit/tunit)**2/Rgas/Iconf

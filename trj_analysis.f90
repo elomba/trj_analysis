@@ -48,12 +48,19 @@ program trj_analysis
     maxthread = gpu_properties%maxThreadsPerBlock
     istat = cudaEventCreate(startEvent)
     istat = cudaEventCreate(stopEvent)
-
+    ! Print program header
+    write(*,"(/80('*')/'*',78(' '),'*')")
+    write(*,"('*    Program trj_analysis: analyzing LAMMPS trajectory in NETCDF format',t80,'*')")
+    write(*,"('*',t80,'*')")
+    write(*,"('*    Using GPU with CUDA nvfortran/nvcc >= 12.0',t80,'*')")
+    write(*,"('*',t80,'*')")
+    write(*,"('*    Version 0.2.9 June 2024',,t80,'*')")
+    write(*,"('*',78(' '),'*'/80('*')/)")
     ! Command line arguments control
     argc = command_argument_count()
     if (argc /= 1) then
-        stop 'analisys: You must specify only ONE argument: the name of the &
-                & input file\r\nexample: analisys.exe input_file.nml'
+        stop '!!! Error: You must specify only ONE argument: the name of the &
+                & input file\r\nexample: trj_analisys.exe input_file.nml'
     end if
     call get_command_argument(1, input_filename)
     ! Load namelist input file & init log system
@@ -213,17 +220,19 @@ program trj_analysis
 
         ! Compute SQ
         if (run_sq) call SQcalc()
-
+        !
+        !  Init and build cells for potential calculation
+        if (run_thermo) then 
+            if (use_cellp) then
+                if (i == 1) call cellsp_init_post_nc_read()
+                call cells_buildp()
+            endif
+        endif
         ! Compute cluster properties
         if (run_clusters) call cluster_analysis(i)
         
         ! Compute potential energy
-        if (run_thermo) then 
-            if (i == 1) call cellsp_init_post_nc_read()
-            if (use_cellp) call cells_buildp()
-            call poteng(natoms, nbcuda, nthread)
-        endif
-
+        if (run_thermo) call poteng(i, natoms, nbcuda, nthread) 
      
         ! Compute dynamics
         if (run_dyn) then

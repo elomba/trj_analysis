@@ -35,8 +35,8 @@ contains
         if (Iconf > 1) then
             deallocate (cluster, contador)
             if (run_thermo) then
-                deallocate(cluster_d, engcl_d)
-                deallocate(engcls)
+                deallocate(cluster_d,engcl_d,bigcl_d,engclcl_d)
+                deallocate(engcls,bigcl,engclclh)
             endif
         else
             allocate(clusid(1:nmol))
@@ -44,8 +44,8 @@ contains
         end if
         allocate (cluster(maxcln), contador(maxcln))
         if (run_thermo) then
-            allocate(cluster_d(maxcln), engcl_d(maxcln))
-            allocate(engcls(maxcln))
+            allocate(cluster_d(maxcln), engcl_d(maxcln), bigcl_d(maxcln),engclcl_d(1:nmol))
+            allocate(engclclh(1:nmol),engcls(maxcln),bigcl(maxcln))
         endif
         Cluster_id = maxcln
         contador(:) = 0
@@ -74,13 +74,18 @@ contains
         end do
         nbigcl = 0
         clusid(:) = 0
+        bigcl(:) = .false.
         do i = 1, cluster_id
-            if (cluster(i)%clsize >= minclsize) nbigcl = nbigcl + 1
+            if (cluster(i)%clsize > minclsize)then
+                 nbigcl = nbigcl + 1
+                 bigcl(i) = .true.
+            endif
             ! identify to which cluster belongs each particle
             do j = 1, cluster(i)%clsize
                 clusid(cluster(i)%members(j)) = I
             end do
         end do
+        bigcl_d(1:cluster_id) = bigcl(1:cluster_id)
         clusid_d(1:nmol) = clusid(1:nmol)
         !
         ! Write trajectory file with centers of mass of clusters with size > minclsize
@@ -242,14 +247,7 @@ contains
              &, side2, gclcl, lsmax, deltar, volumen)
         NTclus = suma + NTclus
         ! Potential Energy
-        if (run_thermo) then
-            if (iconf == 1) call thermo_init_cluster(ndim, sidel, side2, maxcln, cluster)
-            ! Intra-cluster Potential Energy
-            ! call potengcl_gpu(maxcln, cluster)
-            ! call potengcl(iconf, ndim, sidel, side2, maxcln, cluster)
-            ! Inter-cluster Potential Energy
-            ! call potengclcl(iconf, ndim, sidel, side2, maxcln, cluster)
-        end if
+        if (run_thermo .and. iconf ==1 ) call thermo_init_cluster(natms, ndim, sidel, side2, maxcln, cluster)
     end subroutine cluster_analysis
 
     subroutine cluster_search()

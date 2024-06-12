@@ -45,7 +45,10 @@ module mod_common
     real(myprec), allocatable, dimension(:, :) :: r, vel, force, densprof
     real, device, allocatable, dimension(:, :) :: r_d, v_d, rclxyzd, sqfp_d
     real(double), device, allocatable, dimension(:) :: engcl_d
+    logical, allocatable, dimension(:) :: bigcl
+    logical,  device, allocatable, dimension(:) :: bigcl_d
     real(double), allocatable, dimension(:) :: engcls
+    real(myprec), allocatable, dimension(:) :: engclclh
     real ::  qmin2, cpu0, cpu1
     real, dimension(3) :: fk
     real, allocatable, dimension(:) :: sqf, sqfcl, gcluster, gclustav, gclcl, rhoclus, &
