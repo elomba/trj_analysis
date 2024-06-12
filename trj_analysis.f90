@@ -8,6 +8,8 @@ program trj_analysis
     !                         size and radii distributions, and a trajectory file with the
     !                         evolution of cluster  com's 
     !     - Dynamics (position and velocity correlation functions)
+    !     - Kinetic energy (if velocities present in the trajectory file)
+    !     - Potential energy (unm.dat for each interaction must be present as a LAMMPS table file)
     !   The input is provided as a set of namelist (see attached example) 
     !
     !   Programmed in NVIDIA CUDA Fortran

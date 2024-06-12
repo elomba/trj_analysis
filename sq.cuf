@@ -129,7 +129,7 @@ contains
                         end do
                     end do
                 end do
-                write (*, "(' *** Using ',i4,'x',i4,'x',i4,' vectors **'/)") lmaxx, lmaxy, lmaxz
+                write (*, "(' *** S(Q) calculation using ',i4,'x',i4,'x',i4,' vectors **'/)") lmaxx, lmaxy, lmaxz
                 nq(indm + 1:nqmax) = 3
             else
                 do i = 0, lmaxx - 1
@@ -145,7 +145,7 @@ contains
                     end do
                 end do
                 nq(indm + 1:nqmax) = 2
-                write (*, "(' *** Using ',i4,'x',i4,' vectors **'/)") lmaxx, lmaxy
+                write (*, "(' *** S(Q) calculation using ',i4,'x',i4,' vectors **'/)") lmaxx, lmaxy
             end if
             qmin2 = qmin**2
             write (*, "(/' *** Averaging over all q-vectors for q <',f10.6,' A^-1 **')") qmin

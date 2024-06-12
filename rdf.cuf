@@ -180,7 +180,7 @@ contains
                     !
                     ! Use shared memory histogram to speed calculations
                     !
-                    ij = rdf_fij(iti, itj, nsp)
+                    ij = ind_ij(iti, itj, nsp)
                     ia = atomicadd(histomix_s(ind, ij), 1)
                     !   if (iti /= itj) ia = atomicadd(histomix_s(ind,ij),1)
                 end if
@@ -230,7 +230,7 @@ contains
                     itj = itype(j)
                     rr = __fsqrt_rn(rr2)
                     ind = Nint(rr/deltar)
-                    ij = rdf_fij(iti, itj, nsp)
+                    ij = ind_ij(iti, itj, nsp)
                     !
                     ! Use atomics over shared memory to minimize collisions
                     !
@@ -250,7 +250,7 @@ contains
         end if
     end subroutine rdf2_sh
 
-    attributes(device) integer function rdf_fij(i, j, nsp)
+    attributes(device) integer function ind_ij(i, j, nsp)
         implicit none
         integer, value :: i, j, nsp
         !
@@ -258,10 +258,10 @@ contains
         ! of a vector
         !
         if (i <= j) then
-            rdf_fij = (i - 1)*(nsp - 1) - (i - 1)*(i - 2)/2 + j
+            ind_ij = (i - 1)*(nsp - 1) - (i - 1)*(i - 2)/2 + j
         else
-            rdf_fij = (j - 1)*(nsp - 1) - (j - 1)*(j - 2)/2 + i
+            ind_ij = (j - 1)*(nsp - 1) - (j - 1)*(j - 2)/2 + i
         end if
-    end function rdf_fij
+    end function ind_ij
 
 end module mod_rdf
