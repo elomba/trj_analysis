@@ -82,16 +82,17 @@ contains
       ! Printout Potential's Energy IntraCluster
       !
       integer :: i
-      open (100, file='potengperatomcl.dat')
-      write (100, "('#     poteng           histo(potengperatomcl)')")
+      open (100, file='distUcltot.dat')
+      write (100, "('#     Ucl(Kcal/mol)           D(U_cl))')")
       do i = 1, potnbins
-         Write (100, '(2f16.7)') (i-1)*deltapotperatomcl+epotperatomcl_min, epotperatomhistomixcl(i)/real(nconf)
+          Write (100, '(2f16.7)') (i-1)*deltapotcl+epotcl_min, epothistomixcl(i)/real(nconf)
       end do
       close (100)
-      open (100, file='potengcl.dat')
-      write (100, "('#     poteng           histo(potengcl)')")
+      ! dstribution of intracluster configurational energy per atom
+      open (100, file='distUcl_N.dat')
+      write (100, "('#     U_cl(Kcal/mol)/N_cl           D(U_cl/N_cl)')")
       do i = 1, potnbins
-         Write (100, '(2f16.7)') (i-1)*deltapotcl+epotcl_min, epothistomixcl(i)/real(nconf)
+         Write (100, '(2f16.7)') (i-1)*deltapotperatomcl+epotperatomcl_min, epotperatomhistomixcl(i)/real(nconf)
       end do
       close (100)
    end subroutine printPotEngCl
@@ -102,12 +103,6 @@ contains
       ! Printout Potential's Energy InterCluster
       !
       integer :: i
-      open (100, file='potengclcl.dat')
-      write (100, "('#     nconf           poteng')")
-      do i = 1, nconf
-         Write (100, '(i,f16.7)') i, epotclcldata(i)
-      end do
-      close (100)
       epotclclmean = sum(epotclcldata) / nconf
       epotclcldata = epotclcldata - epotclclmean
       epotclcldata = epotclcldata * epotclcldata
