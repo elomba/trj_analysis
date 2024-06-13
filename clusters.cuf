@@ -70,18 +70,18 @@ contains
         end do
         nbigcl = 0
         clusid(:) = 0
-        bigcl(:) = .false.
+        if (run_thermo) bigcl(:) = .false.
         do i = 1, cluster_id
             if (cluster(i)%clsize > minclsize)then
                  nbigcl = nbigcl + 1
-                 bigcl(i) = .true.
+                 if (run_thermo) bigcl(i) = .true.
             endif
             ! identify to which cluster belongs each particle
             do j = 1, cluster(i)%clsize
                 clusid(cluster(i)%members(j)) = I
             end do
         end do
-        bigcl_d(1:cluster_id) = bigcl(1:cluster_id)
+        if (run_thermo) bigcl_d(1:cluster_id) = bigcl(1:cluster_id)
         clusid_d(1:nmol) = clusid(1:nmol)
         !
         ! Write trajectory file with centers of mass of clusters with size > minclsize
