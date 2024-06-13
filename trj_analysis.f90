@@ -9,7 +9,8 @@ program trj_analysis
     !                         evolution of cluster  com's 
     !     - Dynamics (position and velocity correlation functions)
     !     - Kinetic energy (if velocities present in the trajectory file)
-    !     - Potential energy (unm.dat for each interaction must be present as a LAMMPS table file)
+    !     - Potential energy (unm.dat for each interaction must be present as a
+    !       LAMMPS table file with RSQ tabulation -IMPORTANT!!-)
     !   The input is provided as a set of namelist (see attached example) 
     !
     !   Programmed in NVIDIA CUDA Fortran
@@ -169,7 +170,6 @@ program trj_analysis
     end if
 
     ! Analysis begin,s every configuration selected
-!    use_cellp = .false.
     do i = 1, ncfs_from_to(1)
         ! In the first configuration init modules
         if (i == 1) then

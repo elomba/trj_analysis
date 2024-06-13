@@ -24,7 +24,7 @@ contains
       character(len=128) :: filename, junkchar, interptype
       real(double) :: junkreal, potd
       real(myprec) :: test_prec = 0.0, rr
-
+      logical :: pot_exists
       allocate (rc2pot(nit))
       allocate (rc2pot_d(nit))
       rc2pot(:) = 1.0e-7
@@ -34,6 +34,12 @@ contains
       do i = 1, nsp
          do j = i, nsp
             write (filename, "(A1,2I1,A4)") 'u', i, j, '.dat'
+            inquire(file=filename,exist=pot_exists)
+            if (.not.pot_exists) Then
+               write(*,"('*** Unrecoverable error: table potential file '&
+               & ,A,' does not exist. Exiting !')")trim(adjustl(filename))
+               stop
+            endif
             open (newunit=io_input_file, file=filename, action='read',status='old')
             do k = 1, 4
                read (io_input_file, *)
