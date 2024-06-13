@@ -10,7 +10,7 @@ module cellp_props
     integer, device, dimension(:,:), allocatable :: neighpd
     real(myprec) :: cellpx, cellpy, cellpz, rclp
     real(myprec), device :: cellxpd, cellypd, cellzpd
-    logical :: use_cellp=.true.
+    logical :: use_cellp=.false.
 end module cellp_props
 module mod_common
     use mod_precision

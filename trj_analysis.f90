@@ -276,6 +276,7 @@ program trj_analysis
     end if
 
     ! Cleaning house
+
     if (run_sq) call sq_clear()
     if (run_rdf) call rdf_clear()
     if (run_clusters) call clusters_clear()

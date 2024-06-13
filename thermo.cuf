@@ -45,6 +45,7 @@ contains
                allocate (pottable_d(0:npots, nit))
                allocate (rr2table(0:npots, nit))
             end if
+            print *, allocated(pottable_d), npots, nit, size(pottable_d)
             do k = 0, npots - 1
                read (io_input_file, *) junkint, rr, potd, junkreal
                if (potd >= huge(test_prec)) then
@@ -97,6 +98,7 @@ contains
          endif
       else
          if (dim==3) then
+            print *, ' poteng con clusters'
             call potengcl3d<<<nbcuda, nthread>>>(natoms, nsp, dr2pot)
          endif
       endif
@@ -178,13 +180,21 @@ contains
          if (ndim == 3) then
             if (run_clusters) then
                engcl_d(:) = 0
+               print *, ' poteng con clusters'
                call potengcl3d<<<nbcuda, nthread>>>(natoms, nsp, dr2pot)
+               call clusener(iconf,maxcln, cluster)
             else
+               print *, ' poteng sin clusters'
                call poteng3d<<<nbcuda, nthread>>>(natoms, nsp, dr2pot)
             endif
-            call clusener(iconf,maxcln, cluster)
          else
-            call poteng2d<<<nbcuda, nthread>>>(natoms, nsp, dr2pot)
+            if (run_clusters) then 
+               engcl_d(:) = 0
+               call potengcl2d<<<nbcuda, nthread>>>(natoms, nsp, dr2pot)
+               call clusener(iconf,maxcln, cluster)
+            else
+               call poteng2d<<<nbcuda, nthread>>>(natoms, nsp, dr2pot)
+            endif
          end if
       endif
       eng(:) = eng_d(:)
@@ -229,6 +239,7 @@ contains
                   ir = int(xmu)
                   mu = xmu - ir
                   mu2 = mu*mu
+                  if (ir+2>100000) print *, ir
                   y0 = pottable_d(ir - 1, ij)
                   y1 = pottable_d(ir, ij)
                   y2 = pottable_d(ir + 1, ij)
@@ -281,6 +292,7 @@ contains
                   ir = int(xmu)
                   mu = xmu - ir
                   mu2 = mu*mu
+                   if (ir+2>100000) print *, ir
                   y0 = pottable_d(ir - 1, ij)
                   y1 = pottable_d(ir, ij)
                   y2 = pottable_d(ir + 1, ij)
@@ -623,6 +635,71 @@ attributes(global) subroutine potengcl2d_cell(natoms, nsp, dr2pot)
       end if
 
    end subroutine poteng2d
+ attributes(global) subroutine potengcl2d(natoms, nsp, dr2pot)
+      !
+      ! Massively parallel potential energy calculation including intracluster and intercluster contributions
+      ! 3D version
+      !
+      integer, value, intent(IN) :: natoms, nsp
+      real, value, intent(in) :: dr2pot
+      integer i, j, ind, ia, fact, iti, itj, istart, ij, ir, tid
+      real(myprec) :: rr2, xi, yi, zi, xd, yd, zd, mu, mu2, xmu
+      real(myprec) :: y0, y1, y2, y3, a0, a1, a2, a3
+      real(double) :: energ, sumenerg, engclcld
+      integer :: icl, jcl 
+      i = (blockidx%x - 1)*blockdim%x + threadidx%x
+      sumenerg = 0.0
+      engclcld = 0.0
+      if (i <= natoms) then
+         iti = itype_d(i)
+         xi = r_d(1, i)
+         yi = r_d(2, i)
+         do j = 1, natoms
+            if (i /= j) then
+               itj = itype_d(j)
+               ij = ind_ij(iti, itj, nsp)
+               xd = r_d(1, j) - xi
+               yd = r_d(2, j) - yi
+               zd = r_d(3, j) - zi
+               xd = xd - sidel_d(1)*nint(xd/sidel_d(1))
+               yd = yd - sidel_d(2)*nint(yd/sidel_d(2))
+               rr2 = xd*xd + yd*yd 
+               If (rr2 .Lt. rc2pot_d(ij)) Then
+                  xmu = rr2/dr2pot
+                  ir = int(xmu)
+                  mu = xmu - ir
+                  mu2 = mu*mu
+                  y0 = pottable_d(ir - 1, ij)
+                  y1 = pottable_d(ir, ij)
+                  y2 = pottable_d(ir + 1, ij)
+                  y3 = pottable_d(ir + 2, ij)
+                  a0 = -0.5d0*y0 + 1.5d0*y1 - 1.5d0*y2 + 0.5d0*y3
+                  a1 = y0 - 2.5d0*y1 + 2*y2 - 0.5d0*y3
+                  a2 = -0.5d0*y0 + 0.5d0*y2
+                  a3 = y1
+                  energ =  a0*mu*mu2 + a1*mu2 + a2*mu + a3
+                  sumenerg = sumenerg+ energ
+                  icl = clusid_d(i)
+                  jcl = clusid_d(j)
+                  if (icl*jcl>0) then
+                     if (bigcl_d(icl).and.bigcl_d(jcl)) then
+                        if (icl == jcl) then
+                           ia  = atomicadd(engcl_d(icl),energ)
+                        else
+                              engclcld = engclcld + energ
+                           end if
+                        end if
+                     endif
+                  eng_d(i) = eng_d(i) + a0*mu*mu2 + a1*mu2 + a2*mu + a3
+               end if
+            end if
+         end do
+         eng_d(i) = sumenerg
+         engclcl_d(i) = engclcld
+      end if
+
+   end subroutine potengcl2d
+
 
    subroutine thermo_clear()
       deallocate (rc2pot)
@@ -632,9 +709,11 @@ attributes(global) subroutine potengcl2d_cell(natoms, nsp, dr2pot)
       deallocate (rr2table)
       deallocate (eng)
       deallocate (eng_d)
-      deallocate (epothistomixcl)
-      deallocate (epotperatomhistomixcl)
-      deallocate (epotclcldata)
+      if (run_clusters)then
+         deallocate (epothistomixcl)
+         deallocate (epotperatomhistomixcl)
+         deallocate (epotclcldata)
+      endif
    end subroutine thermo_clear
 
    attributes(device) integer function ind_ij(i, j, nsp)
