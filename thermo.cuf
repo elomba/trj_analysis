@@ -21,7 +21,7 @@ contains
    subroutine thermo_init(natoms)
       integer, intent(in) :: natoms
       integer :: io_input_file, i, j, k, junkint, nitid = 1
-      character(len=128) :: filename, junkchar
+      character(len=128) :: filename, junkchar, interptype
       real(double) :: junkreal, potd
       real(myprec) :: test_prec = 0.0, rr
 
@@ -38,14 +38,18 @@ contains
             do k = 1, 4
                read (io_input_file, *)
             end do
-            read (io_input_file, *) junkchar, npots, junkchar, junkreal, junkint
+            read (io_input_file, *) junkchar, npots, interptype, junkreal, junkint
+            if (trim(adjustl(interptype))<> "RSQ") then
+               write(*,"('*** Unrecoverable error: potential table tabulated in',a2,', RSQ must be used !')")&
+               & trim(adjustl(interptype))
+               stop
+            endif
             read (io_input_file, *)
             if (.not. allocated(pottable)) then
                allocate (pottable(0:npots, nit))
                allocate (pottable_d(0:npots, nit))
                allocate (rr2table(0:npots, nit))
             end if
-            print *, allocated(pottable_d), npots, nit, size(pottable_d)
             do k = 0, npots - 1
                read (io_input_file, *) junkint, rr, potd, junkreal
                if (potd >= huge(test_prec)) then
@@ -98,7 +102,6 @@ contains
          endif
       else
          if (dim==3) then
-            print *, ' poteng con clusters'
             call potengcl3d<<<nbcuda, nthread>>>(natoms, nsp, dr2pot)
          endif
       endif
@@ -180,11 +183,9 @@ contains
          if (ndim == 3) then
             if (run_clusters) then
                engcl_d(:) = 0
-               print *, ' poteng con clusters'
                call potengcl3d<<<nbcuda, nthread>>>(natoms, nsp, dr2pot)
                call clusener(iconf,maxcln, cluster)
             else
-               print *, ' poteng sin clusters'
                call poteng3d<<<nbcuda, nthread>>>(natoms, nsp, dr2pot)
             endif
          else
@@ -239,7 +240,6 @@ contains
                   ir = int(xmu)
                   mu = xmu - ir
                   mu2 = mu*mu
-                  if (ir+2>100000) print *, ir
                   y0 = pottable_d(ir - 1, ij)
                   y1 = pottable_d(ir, ij)
                   y2 = pottable_d(ir + 1, ij)
@@ -292,7 +292,6 @@ contains
                   ir = int(xmu)
                   mu = xmu - ir
                   mu2 = mu*mu
-                   if (ir+2>100000) print *, ir
                   y0 = pottable_d(ir - 1, ij)
                   y1 = pottable_d(ir, ij)
                   y2 = pottable_d(ir + 1, ij)

@@ -43,9 +43,15 @@ program trj_analysis
     call cpu_time(time_cpu_start)
     call cpu_time(cpu0)
 
-    ! Get CUDA properties
+    ! Get CUDA properties from device 0 (can be set from environmente variable CUDA_VISIBLE_DEVICES)
+
     istat = cudaSetDevice(0)
-    istat = cudaGetDeviceProperties(gpu_properties, 0)
+    if (istat == 0) then
+        istat = cudaGetDeviceProperties(gpu_properties, 0)
+    else
+        write(*,"('*** Unrecoverable error: no GPU available !!')")
+        stop
+    end if
     shmsize = gpu_properties%sharedMemPerBlock
     maxthread = gpu_properties%maxThreadsPerBlock
     istat = cudaEventCreate(startEvent)
@@ -58,6 +64,7 @@ program trj_analysis
     write(*,"('*',t80,'*')")
     write(*,"('*    Version 0.2.10 June 2024',,t80,'*')")
     write(*,"('*',78(' '),'*'/80('*')/)")
+    call printDevPropShort(gpu_properties, 0)
     ! Command line arguments control
     argc = command_argument_count()
     if (argc /= 1) then
@@ -173,7 +180,7 @@ program trj_analysis
         ! Read i configuration from netcdf input file
         call cpu_time(t0)
         ncstart = ncfs_from_to(2) + (i - 1)*(ncfs_from_to(3) - ncfs_from_to(2))/ncfs_from_to(1)
-        write (io_log_file, '(/,A,I0)'), 'Reading configuration number: ', ncstart
+        ! write (io_log_file, '(/,A,I0)'), 'Reading configuration number: ', ncstart
         call read_nc_cfg(ncid_in, ncstart, io, io_log_file)
         if (io<0) then
             ncfs_from_to(1)=i-1
