@@ -19,7 +19,7 @@ The input is provided as a set of namelist directives (see attached example)
 ## Installation
 A Makefile is included (-mno-avx512f can be removed from compilation options if AVX512 instruction set present in the CPU)
 
-Requires NVIDIA CUDA SDK >= 12.0, netcdf v 4.9, FFTW3, source code distribution includes a Makefile
+Requires NVIDIA CUDA SDK >= 12.0, netcdf v 4.9, FFTW3.
 
 ## Authors and acknowledgment
  A. Diaz-Pozuelo & E. Lomba, Madrid June 2024 
