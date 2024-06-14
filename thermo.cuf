@@ -113,7 +113,7 @@ contains
       endif
       engcls(1:maxcln) = engcl_d(1:maxcln)
       do c = 1, maxcln
-         if (cluster(c)%clsize > minclsize) then
+         if (cluster(c)%clsize >= minclsize) then
             cluster(c)%poteng = engcls(c)/2
             if (cluster(c)%poteng < epotcl_min) epotcl_min = cluster(c)%poteng
             if (cluster(c)%poteng > epotcl_max) epotcl_max = cluster(c)%poteng

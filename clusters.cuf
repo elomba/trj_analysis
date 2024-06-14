@@ -72,7 +72,7 @@ contains
         clusid(:) = 0
         if (run_thermo) bigcl(:) = .false.
         do i = 1, cluster_id
-            if (cluster(i)%clsize > minclsize)then
+            if (cluster(i)%clsize >= minclsize)then
                  nbigcl = nbigcl + 1
                  if (run_thermo) bigcl(i) = .true.
             endif
@@ -84,7 +84,7 @@ contains
         if (run_thermo) bigcl_d(1:cluster_id) = bigcl(1:cluster_id)
         clusid_d(1:nmol) = clusid(1:nmol)
         !
-        ! Write trajectory file with centers of mass of clusters with size > minclsize
+        ! Write trajectory file with centers of mass of clusters with size >= minclsize
         !
         write (io_centers_file, "('ITEM: TIMESTEP'/I12/'ITEM: NUMBER OF ATOMS'/I12/'ITE&
              &M: BOX BOUNDS pp pp pp')") nstep, nbigcl
@@ -225,7 +225,7 @@ contains
         do i = 1, cluster_id
             densav(i) = cldens(ndim, cluster(i)%members(:), cluster(i)%clsize, sidel&
                  &, side2, cluster(i)%center(1:ndim), 0.8*cluster(i)%radio)
-            if (cluster(i)%clsize > minclsize) then
+            if (cluster(i)%clsize >= minclsize) then
                 cmin = minj(ndim, cluster(i)%members, cluster(i)%clsize&
                      &, cluster(i)%center, sidel, side2)
                 call rdfcl(ndim, cluster(i)%members(:), cluster(i)%clsize, sidel&
