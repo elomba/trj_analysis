@@ -33,18 +33,17 @@ contains
                write (*, "(' ** Intercluster potential energy=',f15.4,' Kcal/mol')") engclcl
             endif 
          end if
-         write (*, "(' ** Kinetic energy=',f15.4,' Kcal/mol, average=',f15.4,'Kcal/mol')") &
+
+         If (keytrj > 0) then
+            write (*, "(' ** Kinetic energy=',f15.4,' Kcal/mol, average=',f15.4,'Kcal/mol')") &
             kelvintokcal*ekin*(aunit/tunit)**2/Rgas, 0.00198717*ecaver*(aunit/tunit)**2/Rgas/Iconf
-         if (rcl > 0) then
-            write (*, "(' ** Cluster kinetic energy=',f15.4,' Kcal/mol, average=',f15.4,'Kcal/mol')") &
+            if (rcl > 0) then
+               write (*, "(' ** Cluster kinetic energy=',f15.4,' Kcal/mol, average=',f15.4,'Kcal/mol')") &
                kelvintokcal*ekincl*(aunit/tunit)**2/Rgas, 0.00198717*ekclaver*(aunit/tunit)**2/Rgas/Iconf
-            write (*, "(' ** Internal cluster kinetic energy=',f15.4,'&
+               write (*, "(' ** Internal cluster kinetic energy=',f15.4,'&
                  & Kcal/mol, average=',f15.4,'Kcal&
                  &/mol')") kelvintokcal*ekincls*(aunit/tunit)**2/Rgas,&
                  & kelvintokcal*ekinclsav*(aunit/tunit)**2/Rgas/Iconf
-         end if
-         If (keytrj > 0) then
-            if (rcl > 0) then
                Tfact = nint(sum(sizedist(:))/real(Iconf))*ndim
                Write (*, "(' ** Average cluster temperature =',f10.4&
                    &,' K')") 2*ekclaver*(aunit/tunit)**2/(Tfact*Rgas*Iconf)
@@ -59,6 +58,7 @@ contains
          if (rcl > 0) then
             write (*, "(' ** Average cluster radius',f8.3,' average &
               &cluster density ',f10.7)") avradio/iconf, averdens/iconf
+             write (*, "(' ** Average cluster gyration radius',f8.3)") avrg/iconf
             write (*, "(' ** Internal cluster density  ',f10.7)")&
                  & sum(densav(:))/Nu_clus
             write (*, "(' ** No. of clusters for this configuration :',i5)") Nu_clus

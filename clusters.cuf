@@ -25,7 +25,7 @@ contains
              & imaxcl, clsz, nbigcl, clussize, cmin
         Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
         Real(myprec) :: denscl
-        Real(kind=8) ::  mcl, ekcls, suma, rclus, rcluster, volcl, factorv=1.0
+        Real(kind=8) ::  mcl, ekcls, suma, rclus, rcluster, rgsum, averg, volcl, factorv=1.0
         if (conf(4)%units == 'femtosecond' ) factorv = 0.001
         if (Nu_clus < 1) then
             maxcln = 1
@@ -97,6 +97,7 @@ contains
         end if
         !        write(189,*) " iconf=", iconf
         icl = 0
+        averg = 0
         do I = 1, cluster_id
             j = cluster(i)%clsize
             ! Calculate cluster size distro
@@ -126,6 +127,14 @@ contains
                 ! Restore origin for centers of mass position to the original coordinate
                 !
                 cluster(i)%center(1:ndim) = sidel(1:ndim)*theta(1:ndim)/(2*pi) + rlow(1:ndim)
+                ! Compute radius of gyration
+                rgsum = 0.0
+                do k = 1, j
+                    ip = cluster(i)%members(k)
+                    rv(1:ndim) = r(1:ndim, ip)- cluster(i)%center(1:ndim)
+                    rgsum = rgsum + masa(ip)*dot_product(rv(1:ndim),rv(ndim))
+                enddo
+                cluster(i)%rg = sqrt(rgsum/mcl)
                 !
                 ! Store cluster's center of mass velocity and net mass
                 !
@@ -138,7 +147,9 @@ contains
                          &- cluster(i)%vl(:), vel(:, ip) - cluster(i)%vl(:))
                 end do
                 cluster(i)%ekin = ekcls
+                averg = averg +  cluster(i)%rg
             end if
+            avrg = avrg + averg/cluster_id
             if (j >= minclsize) then
                 icl = icl + 1
                 if (keytrj>0) then

@@ -73,6 +73,7 @@ module mod_common
         real(myprec) :: center(3)
         real(myprec) :: ekin
         real(myprec) :: radio
+        real(myprec) :: rg
         real(myprec) :: cldens
         real(myprec) :: mass
         real(myprec) :: poteng
@@ -86,7 +87,7 @@ module mod_common
     real(myprec) :: ekclaver, ekinclsav, ekincl, ekincls
     real(myprec) :: tadj = 0, tgraph = 0, tthrus = 0, tbfs = 0, tread = 0, &
                     & tsq = 0, tdyn=0, trdf = 0, tpoteng = 0
-    real(myprec) :: avradio = 0, averdens = 0, tconf0 = 0, tconf1 = 0, drho
+    real(myprec) :: avradio = 0, avrg=0, averdens = 0, tconf0 = 0, tconf1 = 0, drho
     integer, allocatable ::   radii(:), densclus(:), contador(:)
     integer :: Nu_clus, ndrho
     real(myprec) :: NTclus = 0
