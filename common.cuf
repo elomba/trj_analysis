@@ -131,6 +131,13 @@ module mod_common
             real(myprec), intent(IN) :: center(3), sidel(3)
         end function radius
 
+        function radiusRg(members, nm, center, sidel, masat)
+            use mod_precision
+            integer, intent(IN) :: nm
+            integer, intent(IN) :: members(nm)
+            real(myprec), intent(IN) :: center(3), sidel(3), masat
+        end function radiusRg
+
         function vector_product(a, b)
             use mod_precision
             real(myprec), dimension(:), intent(in) :: a, b
@@ -301,6 +308,25 @@ subroutine thermo_kin(iconf, ndim)
         radius = sqrt(radius)
     end function radius
 
+    function radiusRg(members, nm, center, sidel, masat)
+        ! Radius of gyration
+        implicit none
+        integer, intent(IN) :: nm
+        integer, intent(IN) :: members(nm)
+        real(myprec), intent(IN) :: center(3), sidel(3), masat
+        real(myprec) :: rr2, mt, rv(3)
+        integer :: i, ip
+        real(myprec) :: radius
+        radiusrg = 0
+        do i = 1, nm
+            ip = members(i)
+            rv(:) = r(:, ip) - center(:)
+            rv = rv - sidel*nint(rv/sidel)
+            rr2 = Dot_product(rv, rv)
+            radiusrg = radiusrg+masa(ip)*rr2
+        end do
+        radiusrg = sqrt(radiusrg/masat)
+    end function radiusRg
     function gptime(stopEvent, startEvent)
         type(cudaEvent), intent(IN) :: startEvent, stopEvent
         integer :: istat

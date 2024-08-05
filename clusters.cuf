@@ -97,7 +97,7 @@ contains
         end if
         !        write(189,*) " iconf=", iconf
         icl = 0
-        averg = 0
+        cluster(:)%rg = 0
         do I = 1, cluster_id
             j = cluster(i)%clsize
             ! Calculate cluster size distro
@@ -111,6 +111,7 @@ contains
                 vcl(:) = 0
                 mcl = 0
                 ekcls = 0
+                rgsum = 0.0
                 do k = 1, j
                     ip = cluster(i)%members(k)
                     rv(1:ndim) = r(1:ndim, ip)
@@ -127,14 +128,6 @@ contains
                 ! Restore origin for centers of mass position to the original coordinate
                 !
                 cluster(i)%center(1:ndim) = sidel(1:ndim)*theta(1:ndim)/(2*pi) + rlow(1:ndim)
-                ! Compute radius of gyration
-                rgsum = 0.0
-                do k = 1, j
-                    ip = cluster(i)%members(k)
-                    rv(1:ndim) = r(1:ndim, ip)- cluster(i)%center(1:ndim)
-                    rgsum = rgsum + masa(ip)*dot_product(rv(1:ndim),rv(ndim))
-                enddo
-                cluster(i)%rg = sqrt(rgsum/mcl)
                 !
                 ! Store cluster's center of mass velocity and net mass
                 !
@@ -147,9 +140,7 @@ contains
                          &- cluster(i)%vl(:), vel(:, ip) - cluster(i)%vl(:))
                 end do
                 cluster(i)%ekin = ekcls
-                averg = averg +  cluster(i)%rg
             end if
-            avrg = avrg + averg/cluster_id
             if (j >= minclsize) then
                 icl = icl + 1
                 if (keytrj>0) then
@@ -198,12 +189,17 @@ contains
         !
         ! Determine cluster radii, density ..
         !
+        averg = 0
         do i = 1, cluster_id
             clussize = cluster(i)%clsize
             clcent(:) = cluster(i)%center(1:ndim)
             rclxyz(1:ndim, i) = clcent(1:ndim)
             rcluster = radius(cluster(i)%members(:), clussize, clcent, sidel)
             cluster(i)%radio = rcluster
+            ! Radius of gyration
+            cluster(i)%rg = radiusrg(cluster(i)%members(:), clussize, &
+            & clcent, sidel,cluster(i)%mass)
+            averg = averg+cluster(i)%rg 
             if (ndim == 3) then
                 volcl = (4*pi*rcluster**3/3.0)
             else
@@ -221,6 +217,7 @@ contains
             denscl = denscl + cluster(i)%cldens
             rclus = rclus + rcluster
         end do
+        avrg = avrg +averg/cluster_id
         rclxyzd(:, :) = rclxyz(:, :)
         !
         ! Compute cluster-cluster structure factor
