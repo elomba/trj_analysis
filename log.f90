@@ -236,7 +236,7 @@ contains
       do i = 1, ndrho
          write (125, "(5f15.7)") i*drho, i*drho/sigma**3, (real(densclus(i))/drho/Nconf)
       end do
-      write (126, "('#      r                  R_cl(r)')")
+      write (126, "('#      r                  RG_cl(r)')")
       write (999, "('#      r                  rho_cl(r)')")
       write (999, '(2f15.6)') 0.0, rhoclusav(0)/(4*pi*((deltar&
       &/2)**3)/3.0*Nconf)

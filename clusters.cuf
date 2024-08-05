@@ -211,7 +211,7 @@ contains
             else
                 ind = nint(cluster(i)%cldens*sigma**2/drho)
             end if
-            indr = nint(cluster(i)%radio/deltar)
+            indr = nint(cluster(i)%rg/deltar)
             if (ind <= ndrho) densclus(ind) = densclus(ind) + 1
             if (indr <= ndr) radii(indr) = radii(indr) + 1
             denscl = denscl + cluster(i)%cldens
