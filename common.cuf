@@ -41,7 +41,7 @@ module mod_common
     real, device, dimension(3) :: fk_d, sidel_d
     real(myprec), dimension(3, 3) :: cell
     real(myprec), allocatable, dimension(:) :: masa, bscat
-    real, device, allocatable, dimension(:) :: sqf_d, sqfcl_d
+    real, device, allocatable, dimension(:) :: sqf_d, sqfcl_d, bsc_d
     real(myprec), allocatable, dimension(:, :) :: r, vel, force, densprof
     real, device, allocatable, dimension(:, :) :: r_d, v_d, rclxyzd, sqfp_d
     real(double), device, allocatable, dimension(:) :: engcl_d
@@ -414,6 +414,7 @@ subroutine thermo_kin(iconf, ndim)
         allocate (r_d(ndim, nmol))
         allocate (itype_d(nmol))
         allocate (ntype_d(nsp))
+        allocate (bsc_d(nsp))
         allocate (ipos_d(nsp, nmol))
         allocate (gdone(nmol))
 

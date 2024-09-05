@@ -117,21 +117,28 @@ contains
       !
       ! Printout S(Q)'s
       !
-      real(myprec) :: x1, x2, s11, s22, s12, scc
+      real(myprec) :: x1, x2, s11, s22, s12, scc, baver, b2aver
       integer, intent(IN) :: Nmol
       integer :: i, j
+      baver = sum(ntype(1:nsp)*bsc(1:nsp))/Nmol
+      b2aver = sum(ntype(1:nsp)*bsc(1:nsp)**2)/Nmol
+      sqf(:) = sqf(:)/baver**2
       open (100, file='sq.dat')
+      open (101, file='sqf.dat')
       open (110, file='sqmix.dat')
       if (nsp == 2) then
         x1 = (real(ntype(1))/real(Nmol))
         x2 = (real(ntype(2))/real(Nmol))
         write (100, "('#           Q        S_NN(Q)          S_cc(Q)       S_11(Q)        S_22(Q)           S_12(Q)         n(Q)')")
+        write (101, "('#           Q        S_NN(Q)          S_cc(Q)       S_11(Q)        S_22(Q)           S_12(Q)         n(Q)')")
       else
          write (100, "('#           Q       S_NN(Q)          n(Q)')")
+         write (101, "('#           Q       S_NN(Q)          n(Q)')")
       end if
       write (110, "('#       Q',14x,6('S_',2i1,'(Q)',9x:))") ((j, j), j=1, nsp)
       do i = 1, nqmax
          if (i*dq <= qmin .or. dq > 0.2) then
+         write (101, '(6f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i)))
          if (nsp == 2) then
             s11 = x1*sqfp(i, 1)/(ntype(1)*Nconf*real(nq(i)))
             s22 = x2*sqfp(i, 2)/(ntype(2)*Nconf*real(nq(i)))
@@ -163,6 +170,10 @@ contains
                                                                     &*real(nq(i - 2:i + 2))))/5, j=1, nsp)
          end do
       end if
+      do i=nint(qmin/dq)+1, nqmax
+        write (101, '(2f15.7,i12)') i*dq,sqf(i)/(Nmol*Nconf*real(nq(i)))
+      end do
+      close (101)
       close (100)
       close (110)
    end subroutine printSQ

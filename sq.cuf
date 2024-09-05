@@ -18,14 +18,14 @@ contains
         istat = cudaEventRecord(startEvent, 0)
         if (nqmin > 1) then
             if (ndim == 3) then
-                call sqf3D<<<tBlock, grid>>>(r_d, Nmol, ndim, itype_d, ntype_d, ipos_d, fk_d, sqf_d, sqfp_d,&
+                call sqf3D<<<tBlock, grid>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqf_d, sqfp_d,&
                      & nsp, nqmax, qmin2, dq)
-                call sqfact<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, ipos_d, fk_d,&
+                call sqfact<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d,&
                      & sqf_d, sqfp_d, nsp, nqmax, nqmin + 1)
             else
-                call sqf2D<<<tBlock, grid>>>(r_d, Nmol, ndim, itype_d, ntype_d, ipos_d, fk_d, sqf_d, sqfp_d,&
+                call sqf2D<<<tBlock, grid>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqf_d, sqfp_d,&
                      & nsp, nqmax, qmin2, dq)
-                call sqfact2<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, ipos_d, fk_d,&
+                call sqfact2<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d,&
                      & sqf_d, sqfp_d, nsp, nqmax, nqmin + 1)
             end if
         else
@@ -34,10 +34,10 @@ contains
             ! just sample   (1,0,0),(0,1,0),(0,0,1) directions
             !
             if (ndim == 3) then
-                call sqfact<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, ipos_d, fk_d, sqf_d, &
+                call sqfact<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqf_d, &
                                                                         sqfp_d, nsp, nqmax, nqmin)
             else
-                call sqfact2<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, ipos_d, fk_d, sqf_d, &
+                call sqfact2<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqf_d, &
                                                                          sqfp_d, nsp, nqmax, nqmin)
             end if
         end if
@@ -168,18 +168,20 @@ contains
         ! Device data transfer
         !
         ntype_d(:) = ntype(:)
+        bsc_d(:) = bsc(:)
         ipos_d(:, :) = ipos(:, :)
         itype_d(1:Nmol) = itype(1:Nmol)
 
     end subroutine sq_init
 
 
-    attributes(global) subroutine sqfact(r_d, Nmol, dim, itype, ntype, ipos, fk, sqf, sqfp, nsp, kmax, kmin)
+    attributes(global) subroutine sqfact(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, kmin)
         integer, value, intent(IN) :: Nmol, dim, nsp, kmax, kmin
         integer, intent(IN) :: itype(Nmol), ntype(nsp), ipos(nsp, Nmol)
         real, dimension(3, Nmol), intent(IN) :: r_d
         real(kind=4), intent(INOUT) :: sqf(kmax), sqfp(kmax, nsp)
-        real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, suma
+	real(kind=4), intent(IN) :: bsc(nsp)
+        real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, suma, bs
         real(kind=8) :: sumcx, sumsx, sumcy, sumsy, sumcz, sumsz,  &
              & sumcpx, sumspx, sumcpy, sumspy, sumcpz, sumspz
         real(kind=4), intent(IN) :: fk(dim)
@@ -206,6 +208,7 @@ contains
                 sumspy = 0
                 sumcpz = 0
                 sumspz = 0
+		bs = bsc(j)
                 do it = 1, ntype(j)
                     i = i + 1
                     rkx = r_d(1, i)*kf1
@@ -218,12 +221,12 @@ contains
                     sumcpz = sumcpz + __cosf(rkz)
                     sumspz = sumspz + __sinf(rkz)
                 end do
-                sumcx = sumcx + sumcpx
-                sumsx = sumsx + sumspx
-                sumcy = sumcy + sumcpy
-                sumsy = sumsy + sumspy
-                sumcz = sumcz + sumcpz
-                sumsz = sumsz + sumspz
+                sumcx = sumcx + bs*sumcpx
+                sumsx = sumsx + bs*sumspx
+                sumcy = sumcy + bs*sumcpy
+                sumsy = sumsy + bs*sumspy
+                sumcz = sumcz + bs*sumcpz
+                sumsz = sumsz + bs*sumspz
                 suma = (sumcpx**2 + sumspx**2 + sumcpy**2 + sumspy**2 + sumcpz**2 + sumspz**2)
                 ia = atomicadd(sqfp(k, j), suma)
             end do
@@ -231,12 +234,13 @@ contains
         end if
     end subroutine sqfact
 
-    attributes(global) subroutine sqfact2(r_d, Nmol, dim, itype, ntype, ipos, fk, sqf, sqfp, nsp, kmax, kmin)
+    attributes(global) subroutine sqfact2(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, kmin)
         integer, value, intent(IN) :: Nmol, dim, nsp, kmax, kmin
         integer, intent(IN) :: itype(Nmol), ntype(nsp), ipos(nsp, Nmol)
         real, dimension(2, Nmol), intent(IN) :: r_d
         real(kind=4), intent(INOUT) :: sqf(kmax), sqfp(kmax, nsp)
-        real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, suma
+	real(kind=4), intent(IN) ::bsc(nsp)
+        real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, suma, bs
         real(kind=8) :: sumcx, sumsx, sumcy, sumsy, sumcpx, sumspx, sumcpy, sumspy
         real(kind=4), intent(IN) :: fk(dim)
         integer :: i, j, k, ind, it, ia
@@ -256,6 +260,7 @@ contains
                 sumspx = 0
                 sumcpy = 0
                 sumspy = 0
+		bs = bsc(j)
                 do it = 1, ntype(j)
                     i = i + 1
                     rkx = r_d(1, i)*kf1
@@ -265,10 +270,10 @@ contains
                     sumcpy = sumcpy + __cosf(rky)
                     sumspy = sumspy + __sinf(rky)
                 end do
-                sumcx = sumcx + sumcpx
-                sumsx = sumsx + sumspx
-                sumcy = sumcy + sumcpy
-                sumsy = sumsy + sumspy
+                sumcx = sumcx + bs*sumcpx
+                sumsx = sumsx + bs*sumspx
+                sumcy = sumcy + bs*sumcpy
+                sumsy = sumsy + bs*sumspy
                 suma = (sumcpx**2 + sumspx**2 + sumcpy**2 + sumspy**2)
                 ia = atomicadd(sqfp(k, j), suma)
             end do
@@ -276,13 +281,14 @@ contains
         end if
     end subroutine sqfact2
 
-    attributes(global) subroutine sqf3D(r_d, Nmol, dim, itype, ntype, ipos, fk, sqf, sqfp, nsp, kmax, q2max, dq)
+    attributes(global) subroutine sqf3D(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, q2max, dq)
         integer, intent(IN) :: itype(Nmol), ntype(nsp), ipos(nsp, Nmol)
         integer, value, intent(IN) :: Nmol, dim, nsp, kmax
         real, dimension(3, Nmol), intent(IN) :: r_d
+	real(kind=4), intent(IN) :: bsc(nsp)
         real(kind=4), intent(INOUT) :: sqf(kmax), sqfp(kmax, nsp)
         real(kind=4) :: rkxyz, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma
-        real(kind=8) :: sumcx, sumsx, sumcpx, sumspx, q2
+        real(kind=8) :: sumcx, sumsx, sumcpx, sumspx, q2, bs
         real(kind=4), intent(IN) :: fk(dim)
         real(kind=4), value, intent(IN) ::  dq, q2max
 
@@ -306,14 +312,15 @@ contains
             do j = 1, nsp
                 sumcpx = 0
                 sumspx = 0
+		bs = bsc(j)
                 do it = 1, ntype(j)
                     i = i + 1
                     rkxyz = r_d(3, i)*kf3+r_d(2, i)*kf2+r_d(1, i)*kf1
                     sumcpx = sumcpx + __cosf(rkxyz)
                     sumspx = sumspx + __sinf(rkxyz)
                 end do
-                sumcx = sumcx + sumcpx
-                sumsx = sumsx + sumspx
+                sumcx = sumcx + bs*sumcpx
+                sumsx = sumsx + bs*sumspx
                 suma = (sumcpx**2 + sumspx**2)
                 ia = atomicadd(sqfp(ind, j), suma)
             end do
@@ -322,12 +329,13 @@ contains
         end if
     end subroutine sqf3D
 
-    attributes(global) subroutine sqf2D(r_d, Nmol, dim, itype, ntype, ipos, fk, sqf, sqfp, nsp, kmax, q2max, dq)
+    attributes(global) subroutine sqf2D(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, q2max, dq)
         integer, intent(IN) :: itype(Nmol), ntype(nsp), ipos(nsp, Nmol)
         integer, value, intent(IN) :: Nmol, dim, nsp, kmax
         real, dimension(2, Nmol), intent(IN) :: r_d
+        real(kind=4), intent(IN) :: bsc(nsp)
         real(kind=4), intent(INOUT) :: sqf(kmax), sqfp(kmax, nsp)
-        real(kind=4) :: rkxy, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma
+        real(kind=4) :: rkxy, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma, bs
         real(kind=8) :: sumcx, sumsx, sumcpx, sumspx, q2
         real(kind=4), intent(IN) :: fk(dim)
         real(kind=4), value, intent(IN) ::  dq, q2max
@@ -349,14 +357,15 @@ contains
             do j = 1, nsp
                 sumcpx = 0
                 sumspx = 0
+		bs = bsc(j)
                 do it = 1, ntype(j)
                     i = i + 1
                     rkxy = r_d(2, i)*kf2 + r_d(1, i)*kf1
                     sumcpx = sumcpx + __sinf(rkxy + 1.5707963267948966)
                     sumspx = sumspx + __sinf(rkxy)
                 end do
-                sumcx = sumcx + sumcpx
-                sumsx = sumsx + sumspx
+                sumcx = sumcx + bs*sumcpx
+                sumsx = sumsx + bs*sumspx
                 suma = (sumcpx**2 + sumspx**2)
                 ia = atomicadd(sqfp(ind, j), suma)
             end do
