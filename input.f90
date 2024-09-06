@@ -13,9 +13,9 @@ module mod_input
    character(len=128) :: input_filename, log_output_file, trj_input_file
    namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread, &
       ncfs_from_to, rdf_sq_cl_dyn_thermo_conf
-   namelist /INPUT_SP/ sp_types_selected, sp_labels, mat, bsc
+   namelist /INPUT_SP/ sp_types_selected, sp_labels, mat 
    namelist /INPUT_RDF/ deltar, rcrdf
-   namelist /INPUT_SQ/ qmax, qmin
+   namelist /INPUT_SQ/ qmax, qmin, bsc
    namelist /INPUT_CL/ rcl, dcl, jmin, minclsize, sigma
    namelist /INPUT_CONF/ idir, pwall, pwallp
    namelist /INPUT_DYN/ nbuffer, tmax
@@ -34,6 +34,7 @@ contains
       allocate(sp_labels(nsp))
       allocate(mat(nsp))
       allocate(bsc(nsp))
+      bsc(:) = 1.0
       read (unit=io_input_file, nml=INPUT_SP)
 
       deltar = -1.0
