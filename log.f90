@@ -120,13 +120,17 @@ contains
       real(myprec) :: x1, x2, s11, s22, s12, scc, baver, b2aver
       integer, intent(IN) :: Nmol
       integer :: i, j
+      logical :: bsc_one = .true.
       baver = sum(ntype(1:nsp)*bsc(1:nsp))/Nmol
       b2aver = sum(ntype(1:nsp)*bsc(1:nsp)**2)/Nmol
       sqf(:) = sqf(:)/baver**2
+      do i = 1, nsp
+         if (abs(bsc(i)-1.0) > 1.0e-4) bsc_one=.false.
+      enddo
       open (100, file='sq.dat')
       open (101, file='sqf.dat')
       open (110, file='sqmix.dat')
-      if (nsp == 2) then
+      if (nsp == 2 .and. bsc_one) then
         x1 = (real(ntype(1))/real(Nmol))
         x2 = (real(ntype(2))/real(Nmol))
         write (100, "('#           Q        S_NN(Q)          S_cc(Q)       S_11(Q)        S_22(Q)           S_12(Q)         n(Q)')")
@@ -139,7 +143,7 @@ contains
       do i = 1, nqmax
          if (i*dq <= qmin .or. dq > 0.2) then
          write (101, '(6f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i)))
-         if (nsp == 2) then
+         if (nsp == 2 .and. bsc_one) then
             s11 = x1*sqfp(i, 1)/(ntype(1)*Nconf*real(nq(i)))
             s22 = x2*sqfp(i, 2)/(ntype(2)*Nconf*real(nq(i)))
             s12 = 0.5*(sqf(i)/(Nmol*Nconf*real(nq(i))) - s11 - s22)
@@ -156,7 +160,7 @@ contains
       end do
       if (dq <= 0.2) then
          do i = nint(qmin/dq) + 1, nqmax - 2, 3
-            if (nsp == 2) then
+            if (nsp == 2 .and. bsc_one) then
                s11 = x1*sum(sqfp(i - 2:i + 2, 1)/(ntype(1)*Nconf*real(nq(i - 2:i + 2))))/5
                s22 = x2*sum(sqfp(i - 2:i + 2, 2)/(ntype(2)*Nconf*real(nq(i - 2:i + 2))))/5
                s12 = 0.5*(sum(sqf(i - 2:i + 2)/(Nmol*Nconf*real(nq(i - 2:i + 2))))/5 - s11 - s22)
