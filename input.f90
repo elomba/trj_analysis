@@ -14,7 +14,7 @@ module mod_input
    namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread, &
       ncfs_from_to, rdf_sq_cl_dyn_thermo_conf
    namelist /INPUT_SP/ sp_types_selected, sp_labels, mat 
-   namelist /INPUT_RDF/ deltar, rcrdf
+   namelist /INPUT_RDF/ deltar, rcrdf, nrandom
    namelist /INPUT_SQ/ qmax, qmin, bsc
    namelist /INPUT_CL/ rcl, dcl, jmin, minclsize, sigma
    namelist /INPUT_CONF/ idir, pwall, pwallp

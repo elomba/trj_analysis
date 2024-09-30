@@ -30,24 +30,26 @@ module mod_common
     type(dim3) :: bl2, thr2, grid, tBlock
     integer, save :: nstep = 0
     integer :: nbcuda, natms, nmol, keytrj, width, nqmax, lmaxx, lmaxy, lmaxz, &
-               lsmax, nqmin, ndr, shmsize, maxthread, nit, nconf, nmzero = 0, maxcln
+               lsmax, nqmin, ndr, shmsize, maxthread, nit, nconf, nmzero = 0, maxcln, nrandom=0
     integer, allocatable, dimension(:) :: ntype, itype, lty, list, done, nq
     integer, allocatable, dimension(:, :) :: ipos, densprofi, histomixi
     integer, device, allocatable, dimension(:) :: itype_d, ntype_d, gdone
+    real, device, allocatable, dimension(:) :: gii_d, g2ii_d
     integer, device, allocatable, dimension(:, :) :: ipos_d, densprof_d, histomix_d
     real(myprec) :: tuniti, volumen, side, side2, ecaver, dq, densty, Tfact, taver, &
                     temperature, rdenst, volumen_r, tstep
     real(myprec), dimension(3) :: sidel, rlow
     real, device, dimension(3) :: fk_d, sidel_d
     real(myprec), dimension(3, 3) :: cell
-    real(myprec), allocatable, dimension(:) :: masa, bscat
+    real(myprec), allocatable, dimension(:) :: masa, bscat, sig2n, gaver
+    real(kind=8), allocatable, dimension(:) :: gi, g2i, gii, g2ii
     real, device, allocatable, dimension(:) :: sqf_d, sqfcl_d, bsc_d
     real(myprec), allocatable, dimension(:, :) :: r, vel, force, densprof
     real, device, allocatable, dimension(:, :) :: r_d, v_d, rclxyzd, sqfp_d
     real(double), device, allocatable, dimension(:) :: engcl_d
     logical, allocatable, dimension(:) :: bigcl
     logical,  device, allocatable, dimension(:) :: bigcl_d
-    real(double), allocatable, dimension(:) :: engcls
+    real(double), allocatable, dimension(:) :: engcls, gclr, gclr2
     real(myprec), allocatable, dimension(:) :: engclclh
     real ::  qmin2, cpu0, cpu1
     real, dimension(3) :: fk

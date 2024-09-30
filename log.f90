@@ -193,10 +193,14 @@ contains
       integer :: i, j, l, k
       fname99 = 'gmixsim.dat'
       Open (99, file=fname99)
+      if (nrandom>0) Open (199, file="s2n.dat")
       if (rcl > 0) then
-         write (99, "('#       r',16x,'g_cl(r)        g_cl-cl(r)',5x,16('g_',2i1,'(r)',8x:))") (((j, k), k=j, nsp), j=1, nsp)
+         write (99, "('#       r',16x,'g_cl(r)        g_cl-cl(r)        ',5x,16('g_',2i1,'(r)',8x:))")&
+         & (((j, k), k=j, nsp), j=1, nsp)
+         if (nrandom>0)  write (199, "('#       r',16x,'s2n(cl)       s2n')")
       else
-         write (99, "('#       r',16x,16('g_',2i1,'(r)',9x:))") (((j, k), k=j, nsp), j=1, nsp)
+         write (99, "('#       r        ',16x,16('g_',2i1,'(r)',9x:))") (((j, k), k=j, nsp), j=1, nsp)
+         if (nrandom>0)  write (199, "('#       r',16x,'s2n')")
       end if
 
       Do i = 1, lsmax - 2
@@ -210,7 +214,6 @@ contains
             deltaV = pi*((ri + deltar/2)**2 - (ri - deltar/2)**2)
          end if
          !
-         !
          Do j = 1, nsp
 
             Do l = j, nsp
@@ -220,14 +223,25 @@ contains
 
             End Do
          End Do
+         if (i<lsmax) then
+            if (nrandom>0) then
+               if (rcl>0) then
+                  Write (199, '(18f16.5)') i*deltar,  gclr2(i)/(Nconf*nrandom)-(gclr(i)/(Nconf*nrandom))**2,&
+                  & g2i(i)/(Nconf*nrandom)-(gi(i)/(Nconf*nrandom))**2 
+               else
+                  Write (199, '(18f16.5)') i*deltar,  g2i(i)/(Nconf*nrandom)-(gi(i)/(Nconf*nrandom))**2 
+               endif
+            endif
+         endif
          if (rcl > 0) then
-            Write (99, '(18f16.7)') i*deltar,&
-                 & gclustav(i)/(deltaV*Nconf), 2*gclcl(i)/(deltaV*Nconf), (gmix(j, j:nsp), j=1, nsp)
+            Write (99, '(18f16.5)') i*deltar,&
+                 & gclustav(i)/(deltaV*Nconf), 2*gclcl(i)/(deltaV*Nconf),(gmix(j, j:nsp), j=1, nsp)
          else
-            Write (99, '(18f16.7)') i*deltar, (gmix(j, j:nsp), j=1, nsp)
+            Write (99, '(18f16.5)') i*deltar,  (gmix(j, j:nsp), j=1, nsp)
          end if
       End Do
       close (99)
+      if (nrandom>0) close (199)
    end subroutine printrdf
 
    subroutine print_clusinfo(nqmin, Nmol)

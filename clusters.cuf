@@ -247,8 +247,10 @@ contains
         !
         ! Cluster-cluster pdf
         !
-        call rdfclcl(ndim, rclxyz(1:ndim, 1:cluster_id), cluster_id, sidel&
-             &, side2, gclcl, lsmax, deltar, volumen)
+        !call rdfclcl(ndim, rclxyz(1:ndim, 1:cluster_id), cluster_id, sidel&
+             !&, side2, gclcl, lsmax, deltar, volumen)
+        call rdfclcl2(ndim, rclxyz(1:ndim, 1:cluster_id), cluster_id, sidel&
+             &, nrandom, side2, gclcl, gclr, gclr2, lsmax, deltar, volumen)
         NTclus = suma + NTclus
         ! Potential Energy
         if (run_thermo .and. iconf ==1 ) call thermo_init_cluster(natms, ndim, sidel, side2, maxcln, cluster)

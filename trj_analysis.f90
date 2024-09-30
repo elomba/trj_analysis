@@ -63,7 +63,7 @@ program trj_analysis
     write(*,"('*',t80,'*')")
     write(*,"('*    Using GPU with CUDA nvfortran/nvcc >= 12.0',t80,'*')")
     write(*,"('*',t80,'*')")
-    write(*,"('*    Version 0.2.10 June 2024',,t80,'*')")
+    write(*,"('*    Version 0.2.20 September 2024',,t80,'*')")
     write(*,"('*',78(' '),'*'/80('*')/)")
     call printDevPropShort(gpu_properties, 0)
     ! Command line arguments control

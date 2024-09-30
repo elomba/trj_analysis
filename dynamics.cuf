@@ -24,15 +24,15 @@ module mod_dyn
       if (ndyn < 10) then
          write(*,"('** Error: length of dynamics to short. Reduce number of buffers !')")
          stop
-      endif 
+      endif
       allocate(t(ndyn),r2t(ndyn))
       allocate(r0(ndim,nmol,nbuffer),r2tb(ndyn,nbuffer))
       allocate(r0_d(ndim,nmol,nbuffer),rt_d(ndim,nmol,nbuffer),r2tb_d(ndyn,nbuffer))
       r2tb_d(:,:) = 0
       if (keytrj > 0) then
          allocate(v0(ndim,nmol,nbuffer),v2t(ndyn),v2tb(ndyn,nbuffer))
-         v2tb_d(:,:) = 0
          allocate(v0_d(ndim,nmol,nbuffer),v2tb_d(ndyn,nbuffer))
+         v2tb_d(:,:) = 0
          allocate(w(ndyn),ftv(ndyn))
       endif
    end  subroutine dyn_init
