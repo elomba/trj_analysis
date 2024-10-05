@@ -29,10 +29,12 @@ module mod_common
     type(cudaDeviceProp) :: gpu_properties
     type(dim3) :: bl2, thr2, grid, tBlock
     integer, save :: nstep = 0
-    integer :: nbcuda, natms, nmol, keytrj, width, nqmax, lmaxx, lmaxy, lmaxz, &
+    integer :: nbcuda, natms, nmol, keytrj, width, nqmax, nqwmax, lmaxx, lmaxy, lmaxz, &
                lsmax, nqmin, ndr, shmsize, maxthread, nit, nconf, nmzero = 0, maxcln, nrandom=0
     integer, allocatable, dimension(:) :: ntype, itype, lty, list, done, nq
     integer, allocatable, dimension(:, :) :: ipos, densprofi, histomixi
+    integer (kind=2), allocatable, dimension(:,:) :: indqw
+    integer (kind=2), device, allocatable, dimension(:,:) :: indqw_d
     integer, device, allocatable, dimension(:) :: itype_d, ntype_d, gdone
     real, device, allocatable, dimension(:) :: gii_d, g2ii_d
     integer, device, allocatable, dimension(:, :) :: ipos_d, densprof_d, histomix_d
@@ -58,7 +60,7 @@ module mod_common
     real, allocatable, dimension(:, :) :: sqfp
     real, allocatable, dimension(:, :, :) :: histomix
     logical :: pdir(3) = .true., run_clusters = .false., run_rdf = .false., &
-               run_sq = .false., run_dyn = .false., run_thermo = .false.
+               run_sq = .false., run_dyn = .false., run_sqw = .false., run_thermo = .false.
     character :: fname99*18
     character, dimension(:), allocatable :: atoms*8
     real(myprec) :: epotperatom, epot

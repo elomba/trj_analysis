@@ -133,10 +133,10 @@ program trj_analysis
 
     ! Modules to run
     clnfound = .true.
-    if (rdf_sq_cl_dyn_thermo_conf(1) == .true.) run_rdf = .true.
+    if (rdf_sq_cl_dyn_sqw_thermo_conf(1) == .true.) run_rdf = .true.
     run_sq = .false. 
-    if (rdf_sq_cl_dyn_thermo_conf(2) == .true.) run_sq = .true.
-    if (rdf_sq_cl_dyn_thermo_conf(3) == .true.) then
+    if (rdf_sq_cl_dyn_sqw_thermo_conf(2) == .true.) run_sq = .true.
+    if (rdf_sq_cl_dyn_sqw_thermo_conf(3) == .true.) then
         !
         ! Cluster analysis needs rdf's and s(q)'s to be computed
         ! This is also modified in input.f90
@@ -146,18 +146,24 @@ program trj_analysis
         run_sq = .true.
         clnfound = .false.
     end if
-    if (rdf_sq_cl_dyn_thermo_conf(4) == .true.) run_dyn = .true. 
+    if (rdf_sq_cl_dyn_sqw_thermo_conf(4) == .true.) run_dyn = .true. 
    ! Deactivate use of cell lists if clusters not analysed 
     if (clnfound) then
         rcl = -1.
         use_cell = .false.
     endif
-    if (rdf_sq_cl_dyn_thermo_conf(5) == .true.) then
+    ! Activate analysis of dynamic structure factor 
+    if (rdf_sq_cl_dyn_sqw_thermo_conf(5) == .true.) then
+        run_sqw = .true.
+        run_dyn = .true.
+        run_sq = .true.
+    endif
+    if (rdf_sq_cl_dyn_sqw_thermo_conf(6) == .true.) then
         run_thermo = .true. 
     else
         use_cellp = .false.
     endif 
-    if (rdf_sq_cl_dyn_thermo_conf(6) == .true.) run_rdf = .true. 
+    if (rdf_sq_cl_dyn_sqw_thermo_conf(7) == .true.) run_rdf = .true. 
 
     ! Init common variables & print log_01
     call common_init(natoms, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)

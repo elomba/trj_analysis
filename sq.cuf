@@ -57,8 +57,9 @@ contains
     subroutine sq_init(nmol, nsp, nbcuda)
         Implicit none
         integer, intent(IN) :: Nmol, nsp, nbcuda
-        integer :: i, j, k, ind, indm
-        real :: rr
+        integer :: i, j, k, ind, indm, l, iq, kmaxz
+        real :: rr, qmm
+        logical :: found
         ! if (idir > 0) then
         !     width = nint((pwallp - pwall)/(2*deltar))
         !     allocate (densprof(0:width, nsp), densprofi(0:width, nsp))
@@ -112,6 +113,72 @@ contains
         sqfcl(:) = 0.0d0
         sqfp(:, :) = 0
         nq(:) = 0
+        if (run_sqw) Then
+            iq = 0
+            qmm = maxval(qw(1:nqw))
+            ! Loop to determine the number of i,j,k that match the input qw to calculate S(Q,w)
+            do i = 0, nint(qmm/(2*pi/sidel(1)))
+                do j = 0, nint(qmm/(2*pi/sidel(2))) 
+                    if (ndim==3) then 
+                        kmaxz = nint(qmm/(2*pi/sidel(3)))
+                    else
+                        kmaxz = 0
+                    endif
+                    do k = 0,  kmaxz
+                        if (i + j + k .ne. 0) then
+                            rr = sqrt((i*fk(1))**2 + (j*fk(2))**2 + (k*fk(3))**2)
+                            found = .false.
+                            l = 1
+                            do while(.not.found.and.l <= nqw)
+                                if (qw(l)-dq/2<rr.and.qw(l)+dq/2>rr) then 
+                                    iq = iq+1
+                                    found = .true.
+                                else
+                                    l=l+1
+                                endif
+                            enddo
+                        endif
+                    enddo
+                enddo
+            enddo
+            ! allocate index matrices
+            allocate(indqw(iq,ndim))
+            allocate(indqw_d(iq,ndim))
+            iq = 0
+            nw(:) = 0
+            ! Loop to store the indices for further calculation
+            do i = 0, nint(qmm/(2*pi/sidel(1)))
+                do j = 0, nint(qmm/(2*pi/sidel(2))) 
+                    if (ndim==3) then 
+                        kmaxz = nint(qmm/(2*pi/sidel(3)))
+                    else
+                        kmaxz = 0
+                    endif
+                    do k = 0,  kmaxz
+                        if (i + j + k .ne. 0) then
+                            rr = sqrt((i*fk(1))**2 + (j*fk(2))**2 + (k*fk(3))**2)
+                            found = .false.
+                            l = 1
+                            do while(.not.found.and.l <= nqw)
+                                if (qw(l)-dq/2<rr.and.qw(l)+dq/2>rr) then 
+                                    iq = iq+1
+                                    indqw(iq,1) = i
+                                    indqw(iq,2) = j
+                                    if (ndim==3) indqw(iq,3) = k
+                                    nw(l) = nw(l)+1
+                                    found = .true.
+                                else
+                                    l=l+1
+                                endif
+                            enddo
+                        endif
+                    enddo
+                enddo
+            enddo
+            write(*,'("**  ", i5," vector indices defined for S(Q,w) calculation"/)')iq
+            nqwmax = iq
+            indqw_d(:,:) = indqw(:,:)
+        endif
         if (nqmin > 10) then
             indm = 0
             if (ndim == 3) then
@@ -208,7 +275,7 @@ contains
                 sumspy = 0
                 sumcpz = 0
                 sumspz = 0
-		bs = bsc(j)
+		        bs = bsc(j)
                 do it = 1, ntype(j)
                     i = i + 1
                     rkx = r_d(1, i)*kf1
@@ -239,7 +306,7 @@ contains
         integer, intent(IN) :: itype(Nmol), ntype(nsp), ipos(nsp, Nmol)
         real, dimension(2, Nmol), intent(IN) :: r_d
         real(kind=4), intent(INOUT) :: sqf(kmax), sqfp(kmax, nsp)
-	real(kind=4), intent(IN) ::bsc(nsp)
+	    real(kind=4), intent(IN) ::bsc(nsp)
         real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, suma, bs
         real(kind=8) :: sumcx, sumsx, sumcy, sumsy, sumcpx, sumspx, sumcpy, sumspy
         real(kind=4), intent(IN) :: fk(dim)
@@ -260,7 +327,7 @@ contains
                 sumspx = 0
                 sumcpy = 0
                 sumspy = 0
-		bs = bsc(j)
+		        bs = bsc(j)
                 do it = 1, ntype(j)
                     i = i + 1
                     rkx = r_d(1, i)*kf1
@@ -312,7 +379,7 @@ contains
             do j = 1, nsp
                 sumcpx = 0
                 sumspx = 0
-		bs = bsc(j)
+		        bs = bsc(j)
                 do it = 1, ntype(j)
                     i = i + 1
                     rkxyz = r_d(3, i)*kf3+r_d(2, i)*kf2+r_d(1, i)*kf1
@@ -329,6 +396,7 @@ contains
         end if
     end subroutine sqf3D
 
+   
     attributes(global) subroutine sqf2D(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, q2max, dq)
         integer, intent(IN) :: itype(Nmol), ntype(nsp), ipos(nsp, Nmol)
         integer, value, intent(IN) :: Nmol, dim, nsp, kmax
@@ -357,7 +425,7 @@ contains
             do j = 1, nsp
                 sumcpx = 0
                 sumspx = 0
-		bs = bsc(j)
+		        bs = bsc(j)
                 do it = 1, ntype(j)
                     i = i + 1
                     rkxy = r_d(2, i)*kf2 + r_d(1, i)*kf1
