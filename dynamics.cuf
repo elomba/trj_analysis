@@ -183,6 +183,8 @@ module mod_dyn
          call fftw1d(v2t,ftv,w,ndyn,t(2)-t(1),tmax)
       end if 
       open(55,file="dyn.dat")
+      if (run_sqw) open(65,file='fkt.dat')
+
       if (keytrj>0) then
           write(55,"('#',2x,'t(ps)',9x,'C_r(t)',7x'C_v(t)',10x,'f(THz)',7x,'f(meV)',12x,'F(w)')")
       else
