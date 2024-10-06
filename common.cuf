@@ -34,7 +34,6 @@ module mod_common
     integer, allocatable, dimension(:) :: ntype, itype, lty, list, done, nq
     integer, allocatable, dimension(:, :) :: ipos, densprofi, histomixi
     integer (kind=2), allocatable, dimension(:,:) :: indqw
-    integer (kind=2), device, allocatable, dimension(:,:) :: indqw_d
     integer, device, allocatable, dimension(:) :: itype_d, ntype_d, gdone
     real, device, allocatable, dimension(:) :: gii_d, g2ii_d
     integer, device, allocatable, dimension(:, :) :: ipos_d, densprof_d, histomix_d

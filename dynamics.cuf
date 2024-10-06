@@ -9,6 +9,7 @@ module mod_dyn
    real(myprec), device, allocatable, dimension(:,:,:) :: r0_d, rt_d, v0_d, fktb_d
    real(myprec), device, allocatable, dimension(:,:) :: r2tb_d, v2tb_d
    real(myprec), device, allocatable, dimension(:) :: qw_d
+   integer (kind=2), device, allocatable, dimension(:,:) :: indqw_d
    real(myprec), allocatable, dimension(:,:,:) :: r0, v0, fktb
    real(myprec),  allocatable, dimension(:,:) :: r2tb, v2tb, fkt
    real(myprec),  allocatable, dimension(:) :: t, r2t, v2t
@@ -42,7 +43,6 @@ module mod_dyn
          qw_d(:) = qw(:)
          fktb_d(:,:,:) = 0.0
       endif 
-
    end  subroutine dyn_init
 
    subroutine dyn_clear()
@@ -84,17 +84,20 @@ module mod_dyn
       if (keytrj>0) then
          call vtcal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf)
       end if
+      if (iconf == 1 .and. run_sqw) then 
+         allocate(indqw_d(nqwmax,ndim))
+         indqw_d(:,:) = indqw(:,:)
+      endif
       if (run_sqw) then
-         call  Fqt3D<<<nqwmax,nbuffer>>>(indqw_d, nqwmax, nqw, Nmol, ndim, itype_d, ntype_d, bsc_d, fk_d, nsp, dq, ndyn, iconf)
+         call  FqtnD<<<nqwmax,nbuffer>>>(nqwmax, nqw, Nmol, ndim, itype_d, ntype_d, bsc_d, fk_d, nsp, dq, ndyn, iconf)
          fktb(:,:,:) = fktb_d(:,:,:)
       endif
       time_gpu = gptime(stopEvent, startEvent)
       tdyn = tdyn + time_gpu
    end subroutine rtcorr
 
- attributes(global) subroutine Fqt3D(indqw, nqwmax, nqw, Nmol, dim, itype, ntype, bsc, fk, nsp, dq, dyn, iconf)
+ attributes(global) subroutine FqtnD(nqwmax, nqw, Nmol, dim, itype, ntype, bsc, fk, nsp, dq, dyn, iconf)
         integer, intent(IN) :: itype(Nmol), ntype(nsp)
-        integer(kind=2), intent(IN) ::indqw(nqwmax,dim)
         integer, value, intent(IN) :: Nmol, dim, nsp, nqwmax, dyn, iconf, nqw
         integer :: ibuffer, indx
 	     real(kind=4), intent(IN) :: bsc(nsp)
@@ -111,16 +114,20 @@ module mod_dyn
             indx = iconf-ibuffer+1
    ! Check origin and final configuration of each averaging buffer 
             if (iconf<i.or. indx>dyn) return
-            kx = indqw(blockidx%x,1)
-            ky = indqw(blockidx%x,2)
-            kz = indqw(blockidx%x,3)
+            kx = indqw_d(blockidx%x,1)
+            ky = indqw_d(blockidx%x,2)
             fk1 = fk(1)
             fk2 = fk(2)
-            fk3 = fk(3)
             kf1 = kx*fk1
             kf2 = ky*fk2
-            kf3 = kz*fk3
-            q2 = kf1*kf1 + kf2*kf2 + kf3*kf3
+            if (dim==3) then
+               kz = indqw_d(blockidx%x,3)
+               fk3 = fk(3)
+               kf3 = kz*fk3
+               q2 = kf1*kf1 + kf2*kf2 + kf3*kf3
+            else
+               q2 = kf1*kf1 + kf2*kf2 
+            endif
             sumcx = 0
             sumcxt = 0
             sumsx = 0
@@ -144,10 +151,15 @@ module mod_dyn
     		      bs = bsc(j)
                do it = 1, ntype(j)
                   i = i + 1
-                  rkxyz = r0_d(3, i,ibuffer)*kf3+r0_d(2, i,ibuffer)*kf2+r0_d(1, i,ibuffer)*kf1
+                  if (dim==3) then
+                     rkxyz = r0_d(3, i,ibuffer)*kf3+r0_d(2, i,ibuffer)*kf2+r0_d(1, i,ibuffer)*kf1
+                     rkxyzt = r_d(3, i)*kf3+r_d(2, i)*kf2+r_d(1, i)*kf1
+                  else
+                     rkxyz = r0_d(2, i,ibuffer)*kf2+r0_d(1, i,ibuffer)*kf1
+                     rkxyzt = r_d(2, i)*kf2+r_d(1, i)*kf1
+                  endif
                   sumcpx = sumcpx + __cosf(rkxyz)
                   sumspx = sumspx + __sinf(rkxyz)
-                  rkxyzt = r_d(3, i)*kf3+r_d(2, i)*kf2+r_d(1, i)*kf1
                   sumcpxt = sumcpxt + __cosf(rkxyzt)
                   sumspxt = sumspxt + __sinf(rkxyzt)
                end do
@@ -159,7 +171,7 @@ module mod_dyn
             tsum = (sumcx*sumcxt + sumsx*sumsxt)
             ia = atomicadd(fktb_d(ind,indx,ibuffer), tsum)
          endif
-    end subroutine Fqt3D
+    end subroutine FqtnD
 
 
    subroutine print_rtcor()

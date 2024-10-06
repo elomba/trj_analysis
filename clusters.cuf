@@ -222,11 +222,7 @@ contains
         !
         ! Compute cluster-cluster structure factor
         !
-        if (ndim == 3) then
-            call sqf3Dcl<<<tBlock, grid>>>(rclxyzd, cluster_id, fk_d, sqfcl_d, nqmax, qmin2, dq)
-        else
-            call sqf2Dcl<<<tBlock, grid>>>(rclxyzd, cluster_id, fk_d, sqfcl_d, nqmax, qmin2, dq)
-        end if
+        call sqfnDcl<<<tBlock, grid>>>(rclxyzd, cluster_id, ndim, fk_d, sqfcl_d, nqmax, qmin2, dq)
         averdens = averdens + denscl/cluster_id
         avradio = avradio + rclus/cluster_id
         ! Determine average cluster density, cluster g(r) and density profiles

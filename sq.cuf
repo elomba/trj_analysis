@@ -17,14 +17,12 @@ contains
         !
         istat = cudaEventRecord(startEvent, 0)
         if (nqmin > 1) then
-            if (ndim == 3) then
-                call sqf3D<<<tBlock, grid>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqf_d, sqfp_d,&
+                call sqfnD<<<tBlock, grid>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqf_d, sqfp_d,&
                      & nsp, nqmax, qmin2, dq)
+            if (ndim == 3) then
                 call sqfact<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d,&
                      & sqf_d, sqfp_d, nsp, nqmax, nqmin + 1)
             else
-                call sqf2D<<<tBlock, grid>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqf_d, sqfp_d,&
-                     & nsp, nqmax, qmin2, dq)
                 call sqfact2<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d,&
                      & sqf_d, sqfp_d, nsp, nqmax, nqmin + 1)
             end if
@@ -143,7 +141,6 @@ contains
             enddo
             ! allocate index matrices
             allocate(indqw(iq,ndim))
-            allocate(indqw_d(iq,ndim))
             iq = 0
             nw(:) = 0
             ! Loop to store the indices for further calculation
@@ -177,7 +174,6 @@ contains
             enddo
             write(*,'("**  ", i5," vector indices defined for S(Q,w) calculation"/)')iq
             nqwmax = iq
-            indqw_d(:,:) = indqw(:,:)
         endif
         if (nqmin > 10) then
             indm = 0
@@ -238,7 +234,7 @@ contains
         bsc_d(:) = bsc(:)
         ipos_d(:, :) = ipos(:, :)
         itype_d(1:Nmol) = itype(1:Nmol)
-
+        print *, ' ok sq'
     end subroutine sq_init
 
 
@@ -348,10 +344,10 @@ contains
         end if
     end subroutine sqfact2
 
-    attributes(global) subroutine sqf3D(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, q2max, dq)
+    attributes(global) subroutine sqfnD(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, q2max, dq)
         integer, intent(IN) :: itype(Nmol), ntype(nsp), ipos(nsp, Nmol)
         integer, value, intent(IN) :: Nmol, dim, nsp, kmax
-        real, dimension(3, Nmol), intent(IN) :: r_d
+        real, dimension(dim, Nmol), intent(IN) :: r_d
 	real(kind=4), intent(IN) :: bsc(nsp)
         real(kind=4), intent(INOUT) :: sqf(kmax), sqfp(kmax, nsp)
         real(kind=4) :: rkxyz, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma
@@ -365,11 +361,15 @@ contains
         kz = (blockidx%z - 1)*blockdim%z + threadidx%z - 1
         fk1 = fk(1)
         fk2 = fk(2)
-        fk3 = fk(3)
         kf1 = kx*fk1
         kf2 = ky*fk2
-        kf3 = kz*fk3
-        q2 = kf1*kf1 + kf2*kf2 + kf3*kf3
+        if (dim==3) then
+            fk3 = fk(3)
+            kf3 = kz*fk3
+            q2 = kf1*kf1 + kf2*kf2 + kf3*kf3
+        else
+           q2 = kf1*kf1 + kf2*kf2 
+        endif
         if (q2 > 0.0 .and. q2 <= q2max) then
             sumcx = 0
             sumsx = 0
@@ -382,7 +382,8 @@ contains
 		        bs = bsc(j)
                 do it = 1, ntype(j)
                     i = i + 1
-                    rkxyz = r_d(3, i)*kf3+r_d(2, i)*kf2+r_d(1, i)*kf1
+                    rkxyz = r_d(2, i)*kf2+r_d(1, i)*kf1
+                    if(dim==3) rkxyz = rkxyz + r_d(3, i)*kf3
                     sumcpx = sumcpx + __cosf(rkxyz)
                     sumspx = sumspx + __sinf(rkxyz)
                 end do
@@ -394,55 +395,8 @@ contains
             tsum = (sumcx**2 + sumsx**2)
             ia = atomicadd(sqf(ind), tsum)
         end if
-    end subroutine sqf3D
+    end subroutine sqfnD
 
-   
-    attributes(global) subroutine sqf2D(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, q2max, dq)
-        integer, intent(IN) :: itype(Nmol), ntype(nsp), ipos(nsp, Nmol)
-        integer, value, intent(IN) :: Nmol, dim, nsp, kmax
-        real, dimension(2, Nmol), intent(IN) :: r_d
-        real(kind=4), intent(IN) :: bsc(nsp)
-        real(kind=4), intent(INOUT) :: sqf(kmax), sqfp(kmax, nsp)
-        real(kind=4) :: rkxy, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma, bs
-        real(kind=8) :: sumcx, sumsx, sumcpx, sumspx, q2
-        real(kind=4), intent(IN) :: fk(dim)
-        real(kind=4), value, intent(IN) ::  dq, q2max
-
-        integer :: i, j, it, kx, ky, kz, ind, ia
-        kx = (blockidx%x - 1)*blockdim%x + threadidx%x - 1
-        ky = (blockidx%y - 1)*blockdim%y + threadidx%y - 1
-        fk1 = fk(1)
-        fk2 = fk(2)
-        kf1 = kx*fk1
-        kf2 = ky*fk2
-        q2 = kf1*kf1 + kf2*kf2
-        if (q2 > 0.0 .and. q2 <= q2max) then
-            sumcx = 0
-            sumsx = 0
-            q = sqrt(q2)
-            ind = int(q/dq+0.501)
-            i = 0
-            do j = 1, nsp
-                sumcpx = 0
-                sumspx = 0
-		        bs = bsc(j)
-                do it = 1, ntype(j)
-                    i = i + 1
-                    rkxy = r_d(2, i)*kf2 + r_d(1, i)*kf1
-                    sumcpx = sumcpx + __sinf(rkxy + 1.5707963267948966)
-                    sumspx = sumspx + __sinf(rkxy)
-                end do
-                sumcx = sumcx + bs*sumcpx
-                sumsx = sumsx + bs*sumspx
-                suma = (sumcpx**2 + sumspx**2)
-                ia = atomicadd(sqfp(ind, j), suma)
-            end do
-            tsum = (sumcx**2 + sumsx**2)
-            ia = atomicadd(sqf(ind), tsum)
-        end if
-    end subroutine sqf2D
-
-    
 
     subroutine sq_clear()
         implicit none
@@ -461,48 +415,9 @@ contains
 
     end subroutine sq_clear
 
-    attributes(global) subroutine sqf3Dcl(r_d, Nmol, fk, sqf, kmax, q2max, dq)
-        integer, value, intent(IN) :: Nmol, kmax
-        real, dimension(3, Nmol), intent(IN) :: r_d
-        real(kind=4), intent(INOUT) :: sqf(kmax)
-        real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma
-        real(kind=8) :: sumcx, sumsx, sumcpx, sumspx, q2
-        real(kind=4), intent(IN) :: fk(3)
-        real(kind=4), value, intent(IN) ::  dq, q2max
-
-        integer :: i, j, it, kx, ky, kz, ind, ia
-        kx = (blockidx%x - 1)*blockdim%x + threadidx%x - 1
-        ky = (blockidx%y - 1)*blockdim%y + threadidx%y - 1
-        kz = (blockidx%z - 1)*blockdim%z + threadidx%z - 1
-        fk1 = fk(1)
-        fk2 = fk(2)
-        fk3 = fk(3)
-        kf1 = kx*fk1
-        kf2 = ky*fk2
-        kf3 = kz*fk3
-        q2 = kf1*kf1 + kf2*kf2 + kf3*kf3
-        if (q2 > 0.0 .and. q2 <= q2max) then
-            sumcx = 0
-            sumsx = 0
-            q = sqrt(q2)
-            ind = nint(q/dq)
-            sumcpx = 0
-            sumspx = 0
-            do i = 1, Nmol
-                rkx = r_d(1, i)*kf1
-                rky = r_d(2, i)*kf2
-                rkz = r_d(3, i)*kf3
-                sumcpx = sumcpx + cos(rkx + rky + rkz)
-                sumspx = sumspx + sin(rkx + rky + rkz)
-            end do
-            suma = (sumcpx**2 + sumspx**2)/Nmol
-            ia = atomicadd(sqf(ind), suma)
-        end if
-    end subroutine sqf3Dcl
-
-    attributes(global) subroutine sqf2Dcl(r_d, Nmol, fk, sqf, kmax, q2max, dq)
-        integer, value, intent(IN) :: Nmol, kmax
-        real, dimension(2, Nmol), intent(IN) :: r_d
+    attributes(global) subroutine sqfnDcl(r_d, Nmol, dim, fk, sqf, kmax, q2max, dq)
+        integer, value, intent(IN) :: Nmol, kmax, dim
+        real, dimension(dim, Nmol), intent(IN) :: r_d
         real(kind=4), intent(INOUT) :: sqf(kmax)
         real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma
         real(kind=8) :: sumcx, sumsx, sumcpx, sumspx, q2
@@ -517,6 +432,12 @@ contains
         kf1 = kx*fk1
         kf2 = ky*fk2
         q2 = kf1*kf1 + kf2*kf2
+        if (dim==3) then 
+            kz = (blockidx%z - 1)*blockdim%z + threadidx%z - 1
+            fk3 = fk(3)
+            kf3 = kz*fk3
+            q2 = q2 + kf3*kf3
+        endif
         if (q2 > 0.0 .and. q2 <= q2max) then
             sumcx = 0
             sumsx = 0
@@ -527,12 +448,14 @@ contains
             do i = 1, Nmol
                 rkx = r_d(1, i)*kf1
                 rky = r_d(2, i)*kf2
-                sumcpx = sumcpx + cos(rkx + rky)
-                sumspx = sumspx + sin(rkx + rky)
+                tsum = rkx+rky
+                if (dim==3) tsum=tsum + r_d(3, i)*kf3
+                sumcpx = sumcpx + cos(tsum)
+                sumspx = sumspx + sin(tsum)
             end do
             suma = (sumcpx**2 + sumspx**2)/Nmol
             ia = atomicadd(sqf(ind), suma)
         end if
-    end subroutine sqf2Dcl
+    end subroutine sqfnDcl
 
 end module mod_sq

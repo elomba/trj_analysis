@@ -232,7 +232,6 @@ program trj_analysis
         if (idir > 0) then
             call profile_comp(nthread, ndim, idir, pwall, deltar)
         end if
-
         ! Compute SQ
         if (run_sq) call SQcalc()
         !
