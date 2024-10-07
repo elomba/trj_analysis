@@ -234,7 +234,6 @@ contains
         bsc_d(:) = bsc(:)
         ipos_d(:, :) = ipos(:, :)
         itype_d(1:Nmol) = itype(1:Nmol)
-        print *, ' ok sq'
     end subroutine sq_init
 
 

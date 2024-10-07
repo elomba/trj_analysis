@@ -6,12 +6,12 @@ module mod_dyn
    implicit none
    integer :: ndyn
    integer, parameter :: nbmax = 200, nblocks = 1
-   real(myprec), device, allocatable, dimension(:,:,:) :: r0_d, rt_d, v0_d, fktb_d
+   real(myprec), device, allocatable, dimension(:,:,:) :: r0_d, rt_d, v0_d, fktb_d, fsktb_d
    real(myprec), device, allocatable, dimension(:,:) :: r2tb_d, v2tb_d
    real(myprec), device, allocatable, dimension(:) :: qw_d
    integer (kind=2), device, allocatable, dimension(:,:) :: indqw_d
-   real(myprec), allocatable, dimension(:,:,:) :: r0, v0, fktb
-   real(myprec),  allocatable, dimension(:,:) :: r2tb, v2tb, fkt
+   real(myprec), allocatable, dimension(:,:,:) :: r0, v0, fktb, fsktb
+   real(myprec),  allocatable, dimension(:,:) :: r2tb, v2tb, fkt, fskt, sqw, ssqw
    real(myprec),  allocatable, dimension(:) :: t, r2t, v2t
    real(float), allocatable, dimension(:) :: w, ftv
    real(float) :: sumvel=0 
@@ -38,10 +38,12 @@ module mod_dyn
          allocate(w(ndyn),ftv(ndyn))
       endif
       if (run_sqw) then
-         allocate(fktb(nqw,ndyn,nbuffer),fkt(nqw,ndyn))
-         allocate(fktb_d(nqw,ndyn,nbuffer),qw_d(nqw))
+         allocate(fktb(nqw,ndyn,nbuffer),fsktb(nqw,ndyn,nbuffer),fkt(nqw,ndyn),fskt(nqw,ndyn))
+         allocate(sqw(ndyn,nqw),ssqw(ndyn,nqw))
+         allocate(fktb_d(nqw,ndyn,nbuffer),fsktb_d(nqw,ndyn,nbuffer),qw_d(nqw))
          qw_d(:) = qw(:)
          fktb_d(:,:,:) = 0.0
+         fsktb_d(:,:,:) = 0.0
       endif 
    end  subroutine dyn_init
 
@@ -54,9 +56,9 @@ module mod_dyn
          deallocate(v0_d,v2tb_d)
          deallocate(w,ftv)
       endif
-      if (run_sq) then 
-         deallocate(fkt,fktb)
-         deallocate(fktb_d)
+      if (run_sqw) then 
+         deallocate(fkt,fktb,fskt,fsktb,sqw,ssqw)
+         deallocate(fktb_d,fsktb_d)
       endif
    end subroutine dyn_clear
 
@@ -91,6 +93,7 @@ module mod_dyn
       if (run_sqw) then
          call  FqtnD<<<nqwmax,nbuffer>>>(nqwmax, nqw, Nmol, ndim, itype_d, ntype_d, bsc_d, fk_d, nsp, dq, ndyn, iconf)
          fktb(:,:,:) = fktb_d(:,:,:)
+         fsktb(:,:,:) = fsktb_d(:,:,:)
       endif
       time_gpu = gptime(stopEvent, startEvent)
       tdyn = tdyn + time_gpu
@@ -103,7 +106,7 @@ module mod_dyn
 	     real(kind=4), intent(IN) :: bsc(nsp)
         real(kind=4) :: rkxyz, rkxyzt, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma
         real(kind=8) :: sumcx, sumsx, sumcpx, sumspx, q2, bs
-        real(kind=8) :: sumcxt, sumsxt, sumcpxt, sumspxt
+        real(kind=8) :: sumcxt, sumsxt, sumcpxt, sumspxt, sumself
         real(kind=4), intent(IN) :: fk(dim)
         real(kind=4), value, intent(IN) ::  dq  
 
@@ -132,6 +135,7 @@ module mod_dyn
             sumcxt = 0
             sumsx = 0
             sumsxt = 0
+            sumself = 0
             q = sqrt(q2)
             ind = 1
             found = .false.
@@ -162,6 +166,7 @@ module mod_dyn
                   sumspx = sumspx + __sinf(rkxyz)
                   sumcpxt = sumcpxt + __cosf(rkxyzt)
                   sumspxt = sumspxt + __sinf(rkxyzt)
+                  sumself = sumself + __cosf(rkxyzt-rkxyz)
                end do
                sumcx = sumcx + bs*sumcpx
                sumcxt = sumcxt + bs*sumcpxt
@@ -170,6 +175,7 @@ module mod_dyn
             end do
             tsum = (sumcx*sumcxt + sumsx*sumsxt)
             ia = atomicadd(fktb_d(ind,indx,ibuffer), tsum)
+            ia = atomicadd(fsktb_d(ind,indx,ibuffer), real(sumself,kind=4))
          endif
     end subroutine FqtnD
 
@@ -177,7 +183,7 @@ module mod_dyn
    subroutine print_rtcor()
       use fftw3
       implicit none
-      integer :: i
+      integer :: i, j
       real :: fconv=4.135
       r2tb(1:ndyn,1:nbuffer) = r2tb_d(1:ndyn,1:nbuffer)
       r2t(1:ndyn) = sum(r2tb(1:ndyn,1:nbuffer),DIM=2)
@@ -187,6 +193,7 @@ module mod_dyn
       end if 
       if (run_sqw) then 
          fkt(1:nqw,1:ndyn) = sum(fktb(1:nqw,1:ndyn,1:nbuffer),DIM=3) 
+         fskt(1:nqw,1:ndyn) = sum(fsktb(1:nqw,1:ndyn,1:nbuffer),DIM=3) 
       endif
       t(1:ndyn) = t(1:ndyn)-t(1)
       r2t(:) = r2t(:)/nbuffer
@@ -194,9 +201,25 @@ module mod_dyn
          v2t(:) = v2t(:)/nbuffer
          call fftw1d(v2t,ftv,w,ndyn,t(2)-t(1),tmax)
       end if 
+      if (run_sqw) then
+      !
+      ! set q-dependent time window for F(q,t) transforms to tmx
+         if (maxval(tmqw(:))<1.0e-6) then
+            tmqw(:) = tmax
+         endif
+      endif
       open(55,file="dyn.dat")
-      if (run_sqw) open(65,file='fkt.dat')
-
+      if (run_sqw) then 
+         open(65,file='fkt.dat')
+         open(66,file='fskt.dat')
+         open(67,file='sqw.dat')
+         do i=1, nqw
+            fkt(i,1:ndyn)=fkt(i,1:ndyn)/(Nmol*nbuffer*nw(i))
+            fskt(i,1:ndyn)=fskt(i,1:ndyn)/(Nmol*nbuffer*nw(i))
+            call fftw1d(fkt(i,1:ndyn),sqw(1:ndyn,i),w,ndyn,t(2)-t(1),tmax)
+            call fftw1d(fskt(i,1:ndyn),ssqw(1:ndyn,i),w,ndyn,t(2)-t(1),tmax)
+         enddo
+      endif
       if (keytrj>0) then
           write(55,"('#',2x,'t(ps)',9x,'C_r(t)',7x'C_v(t)',10x,'f(THz)',7x,'f(meV)',12x,'F(w)')")
       else
@@ -204,6 +227,8 @@ module mod_dyn
       endif
       if (run_sqw) then 
          write(65,'("#",2x,"t(ps)",9x,8("F(",f6.4,",t)",4x:))')qw(1:nqw)
+         write(66,'("#",2x,"t(ps)",9x,8("Fs(",f6.4,",t)",4x:))')qw(1:nqw)
+         write(67,"('#',2x,'f(THz)',7x,'f(meV)',5x,8('S(',f6.4,'w)    Ss(',f6.4,'w)',4x:))')")(qw(j),qw(j),j=1,nqw)
       endif
       do i = 1, Nconf - nbuffer
          if (keytrj > 0) then
@@ -215,10 +240,15 @@ module mod_dyn
             write(55,"(f10.3,8f15.5)")t(i), r2t(i)
          endif 
          if (run_sqw) then 
-            write(65,"(f10.3,8f15.5)")t(i),fkt(1:nqw,i)/(Nmol*nbuffer*nw(1:nqw))
+            write(65,"(f10.3,8f15.5)")t(i),fkt(1:nqw,i)
+            write(66,"(f10.3,8f15.5)")t(i),fskt(1:nqw,i)
+            write(67,"(2f10.3,8f15.5)")w(i)/(2*pi),fconv*w(i)/(2*pi),(sqw(i,j),ssqw(i,j),j=1,nqw)
          endif
       end do
       close(55)
+      close(65)
+      close(66)
+      close(67)
    end subroutine print_rtcor
 
 

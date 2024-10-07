@@ -28,6 +28,7 @@ subroutine fftw1d(fin,fout,w,nin,dtin, tmax)
    forall (i=1:n) tx(i)=(i-1)*dt
    ! if tmax not defined use maximum time
    if (abs(tmax)<1.0e-6) tmax = n*dt
+  
    in(1:n) = in(1:n)*window(tx,tmax,n,alpha)
 
    Call fftw1(in,out,n,.True.)

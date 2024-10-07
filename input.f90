@@ -9,7 +9,7 @@ module mod_input
    logical :: use_cell = .true.
    logical, dimension(7) :: rdf_sq_cl_dyn_sqw_thermo_conf
    real(myprec) :: deltar, rcl, dcl, qmin, qmax, sigma, pwall, pwallp, rcrdf, tmax=100.0, potengmargin
-   real(myprec), allocatable, dimension(:) :: mat, bsc, qw
+   real(myprec), allocatable, dimension(:) :: mat, bsc, qw, tmqw
    character(len=128) :: input_filename, log_output_file, trj_input_file
    namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread, &
       ncfs_from_to, rdf_sq_cl_dyn_sqw_thermo_conf, nqw
@@ -19,7 +19,7 @@ module mod_input
    namelist /INPUT_CL/ rcl, dcl, jmin, minclsize, sigma
    namelist /INPUT_CONF/ idir, pwall, pwallp
    namelist /INPUT_DYN/ nbuffer, tmax
-   namelist /INPUT_SQW/ qw
+   namelist /INPUT_SQW/ qw, tmqw
    namelist /INPUT_THERMO/ potengmargin, potnbins
 contains
 
@@ -29,7 +29,6 @@ contains
       rdf_sq_cl_dyn_sqw_thermo_conf(:) = .false.
       open (newunit=io_input_file, file=input_filename, action='read')
       read (unit=io_input_file, nml=INPUT)
-      
       allocate(sp_types_selected(nsp))
       sp_types_selected(:)=0
       allocate(sp_labels(nsp))
@@ -48,7 +47,8 @@ contains
       if (rdf_sq_cl_dyn_sqw_thermo_conf(4) == .true. &
       &  .or. rdf_sq_cl_dyn_sqw_thermo_conf(5) == .true. ) read (unit=io_input_file, nml=INPUT_DYN)
       if (rdf_sq_cl_dyn_sqw_thermo_conf(5) == .true.) then 
-         allocate(qw(nqw),nw(nqw))
+         allocate(qw(nqw),nw(nqw),tmqw(nqw))
+         tmqw(:) = 0.0
          read (unit=io_input_file, nml=INPUT_SQW)
       endif
       if (rdf_sq_cl_dyn_sqw_thermo_conf(6) == .true.) read (unit=io_input_file, nml=INPUT_THERMO)

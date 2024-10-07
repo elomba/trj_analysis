@@ -28,5 +28,5 @@ Requires NVIDIA CUDA SDK >= 12.0, netcdf v 4.9, FFTW3.
 Not licensed yet.
 Creative Commons Non commercial CC BY-NC 4.0 (https://creativecommons.org/licenses/by-nc/4.0/)
 ## Project status
-Version 1.0 ready. Awaiting for publication
+Version 0.2 ready. Awaiting for publication
 

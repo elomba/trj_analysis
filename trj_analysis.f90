@@ -101,12 +101,12 @@ program trj_analysis
         print *, ' ERROR: number of species in input file is',nsp,' larger than that in netcdf file ',ntypes
         STOP
     end if 
-    !if (selectall) then
-    !    nsp = ntypes ! from netcdf
-    !else
-    !    nsp = size(sp_types_selected) ! from namelist
-    !end if
-    !print *, nsp,sp_types_selected, selectall 
+    if (selectall) then
+        nsp = ntypes ! from netcdf
+    else
+        nsp = size(sp_types_selected) ! from namelist
+    end if
+    print *, nsp,sp_types_selected, selectall 
     ! If number of species is not equal to size of list's properties, print error
     if (nsp /= size(sp_labels) .or. nsp /= size(mat) .or. nsp /= size(bsc)) then
         print *, 'ERROR: nsp not equal to size of sp_labels/sp_atomic_weight/sp_scattering'
