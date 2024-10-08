@@ -95,6 +95,7 @@ program trj_analysis
         STOP
     else if (nsp == ntypes) Then
         selectall = .true.
+        nmol = natoms
     else if (nsp < ntypes) then 
         allocate(wtypes(nsp))
         wtypes = sp_types_selected        

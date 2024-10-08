@@ -305,7 +305,12 @@ subroutine reset_nmol(nmoln)
         endif
     enddo
     Nmoln = index
-    write(*,"('*** Nmol reset to',i7)") nmoln
+    if (Nmoln >0) then
+        write(*,"('*** Nmol reset to',i7)") nmoln
+    else 
+        write(*,"('*** Error: selected type not in netcdf trajectory file ..')")
+        stop
+    endif
 end subroutine reset_nmol
 
 subroutine trans_ncdfinput()
