@@ -81,12 +81,6 @@ program trj_analysis
         nthread = maxthread/8
         write(*,'("** Warning: number of threads reset to",I3)')nthread
     endif
-    ! Selected specie's types pre netcdf load
-    if (sp_types_selected(1) == 0) then
-        selectall = .true.
-    else
-        wtypes = sp_types_selected
-    end if
 
     ! First load from netcdf input file. Load global attributes
     call check(nf90_open(path=trj_input_file, mode=NF90_WRITE, ncid=ncid_in), ioerr)
@@ -95,25 +89,18 @@ program trj_analysis
     endif 
 
     call read_nc_cfg(ncid_in, 1, io, io_log_file)
-
     ! Set number of species from netcdf file or from selected species from namelist
     if (nsp > ntypes) then 
         print *, ' ERROR: number of species in input file is',nsp,' larger than that in netcdf file ',ntypes
         STOP
+    else if (nsp == ntypes) Then
+        selectall = .true.
+    else if (nsp < ntypes) then 
+        allocate(wtypes(nsp))
+        wtypes = sp_types_selected        
+        call reset_nmol(nmol)
     end if 
-    if (selectall) then
-        nsp = ntypes ! from netcdf
-    else
-        nsp = size(sp_types_selected) ! from namelist
-    end if
-    print *, nsp,sp_types_selected, selectall 
     ! If number of species is not equal to size of list's properties, print error
-    if (nsp /= size(sp_labels) .or. nsp /= size(mat) .or. nsp /= size(bsc)) then
-        print *, 'ERROR: nsp not equal to size of sp_labels/sp_atomic_weight/sp_scattering'
-        print *, 'Check your namelist input file!'
-        print *, nsp, size(sp_labels), size(mat),   size(bsc)
-        stop
-    end if
     nit = nsp*(nsp + 1)/2
     ! Set number of configurations to read from netcdf & from and to number of configurations
     if (ncfs_from_to(1) == 0) then
@@ -166,9 +153,9 @@ program trj_analysis
     if (rdf_sq_cl_dyn_sqw_thermo_conf(7) == .true.) run_rdf = .true. 
 
     ! Init common variables & print log_01
-    call common_init(natoms, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)
+    call common_init(nmol, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)
     if (run_thermo) then 
-        call thermo_init(natoms)
+        call thermo_init(nmol)
     endif
 
     if (idir > 0) then
@@ -193,7 +180,11 @@ program trj_analysis
             Exit
         endif 
         ! Pre configuration analysis data transformations, corrections and format
-        call trans_ncdfinput()
+        if (ntypes == nsp) then
+            call trans_ncdfinput()
+        else
+            call select_ncdfinput()
+        endif
         call cpu_time(t1)
         tread = tread + t1 - t0
 

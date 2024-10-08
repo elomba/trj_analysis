@@ -288,17 +288,36 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
     first = .false.
 end subroutine read_nc_cfg
 
+subroutine reset_nmol(nmoln)
+    use mod_nc_conf, only: ity_in => ity, natoms, ntypes, wtypes
+    integer, intent(INOUT) :: nmoln
+    integer :: i, index
+   ! remap data to take into account selected atoms
+    ! calculate number of atoms to consider 
+    index = 0
+    do i = 1, natoms
+        if (any(wtypes == ity_in(i,1)))then
+            if(count(wtypes==ity_in(i,1))>1) then
+                write(*,"('*** Error: type',i2,' appears more than onces in selection ')")ity_in(i,1)
+                stop
+            endif
+            index=index+1
+        endif
+    enddo
+    Nmoln = index
+    write(*,"('*** Nmol reset to',i7)") nmoln
+end subroutine reset_nmol
+
 subroutine trans_ncdfinput()
     use mod_nc_conf, only: org, cell_in => cell, r_in => r, v_in => v, &
-                           ity_in => ity, nstep_in => step, natoms
+                           ity_in => ity, nstep_in => step, natoms, ntypes, wtypes
     use mod_common, only: vel, r, force, cell, sidel, side, volumen, itype, bscat, tunit, &
                           ntype, masa, nstep, vector_product, nmol, keytrj, &
                           tuniti, side2
     use mod_input, only: ndim, mat, bsc, rcrdf, nsp
     implicit none
     integer, dimension(:), allocatable :: counter, nct
-    integer :: i, j, it
-
+    integer :: i, j, it, index
     allocate (nct(nsp), counter(nsp))
     nstep = nstep_in(1)
     sidel(:) = cell_in(:, 1)
@@ -315,12 +334,13 @@ subroutine trans_ncdfinput()
         cell(i, i) = cell_in(i, 1)
         volumen = volumen*cell(i, i)
     end do
+ 
     !
     ! Remap coordinates so as to have first ntype(1) particles in contiguous positions, followed
     ! by ntype(2) particles and so on .. and transform from netcdf format to local vars
     !
     ntype(:) = 0
-    do i = 1, Nmol
+    do i = 1, natoms
         ntype(ity_in(i, 1)) = ntype(ity_in(i, 1)) + 1
     end do
     nct(1) = 0
@@ -328,7 +348,7 @@ subroutine trans_ncdfinput()
         nct(i) = nct(i - 1) + ntype(i - 1)
     end do
     counter(:) = nct(:)
-    do i = 1, Nmol
+    do i = 1, natoms
         it = ity_in(i, 1)
         counter(it) = counter(it) + 1
         j = counter(it)
@@ -347,3 +367,68 @@ subroutine trans_ncdfinput()
     end do
 
 end subroutine trans_ncdfinput
+
+subroutine select_ncdfinput()
+    ! Select atoms in wtypes from netcdf file and remap coordinates in species order
+    use mod_nc_conf, only: org, cell_in => cell, r_in => r, v_in => v, &
+                           ity_in => ity, nstep_in => step, natoms, ntypes, wtypes
+    use mod_common, only: vel, r, force, cell, sidel, side, volumen, itype, bscat, tunit, &
+                          ntype, masa, nstep, vector_product, nmol, keytrj, &
+                          tuniti, side2
+    use mod_input, only: ndim, mat, bsc, rcrdf, nsp
+    implicit none
+    integer, dimension(:), allocatable :: counter, nct
+    integer :: i, j, it(1), index
+    allocate (nct(nsp), counter(nsp))
+    nstep = nstep_in(1)
+    sidel(:) = cell_in(:, 1)
+    side = Minval(sidel(1:ndim))
+    ! secure rcrdf to be less that half the simulation box
+    rcrdf = min(rcrdf,side/2)
+    if (rcrdf > 0.0) then
+        side2 = rcrdf**2
+    else
+        side2 = (side/2)**2
+    end if
+    volumen = 1.0
+    do i = 1, ndim
+        cell(i, i) = cell_in(i, 1)
+        volumen = volumen*cell(i, i)
+    end do
+ 
+    !
+    ! Remap coordinates so as to have first ntype(1) particles in contiguous positions, followed
+    ! by ntype(2) particles and so on .. and transform from netcdf format to local vars
+    !
+    ntype(:) = 0
+    do i = 1, natoms
+        if (any(wtypes == ity_in(i,1))) then
+            it = findloc(wtypes,ity_in(i,1)) 
+            ntype(it(1)) = ntype(it(1)) + 1
+        endif
+    end do
+    nct(1) = 0
+    do i = 2, nsp
+        nct(i) = nct(i - 1) + ntype(i - 1)
+    end do
+    counter(:) = nct(:)
+    do i = 1, natoms
+        if (any(wtypes == ity_in(i,1))) then
+            it = findloc(wtypes,ity_in(i, 1))
+            counter(it(1)) = counter(it(1)) + 1
+            j = counter(it(1))
+        !
+        ! NOTE: when ndim=2, z component of r_in,v_in is discarded
+        !
+            if (keytrj > 0) vel(1:ndim, j) = v_in(1:ndim, i, 1)*tunit/tuniti
+            r(1:ndim, j) = r_in(1:ndim, i, 1)
+            r(1:ndim, j) = r(1:ndim, j) - sidel(1:ndim)*int(r(1:ndim, j)&
+                 &/sidel(1:ndim))
+            itype(j) = it(1)
+        endif
+    end do
+    do i = 1, nsp
+        masa(nct(i) + 1:nct(i) + ntype(i)) = mat(i)
+        bscat(nct(i) + 1:nct(i) + ntype(i)) = bscat(i)
+    end do
+    end subroutine select_ncdfinput 

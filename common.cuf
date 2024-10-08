@@ -369,7 +369,6 @@ subroutine thermo_kin(iconf, ndim)
 
         nmol = natoms !! WARN, change when molecules are implemented
         natms = natoms !! WARN, assign for compatibility
-
         ! CUDA number of blocks
         nbcuda = Nmol/nthread
         if (nbcuda*nthread .ne. Nmol) nbcuda=nbcuda+1
