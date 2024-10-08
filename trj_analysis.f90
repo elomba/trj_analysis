@@ -7,15 +7,22 @@ program trj_analysis
     !     - Cluster analysis (average cluster profiles, cluster-cluster rdf's and sq's)
     !                         size and radii distributions, and a trajectory file with the
     !                         evolution of cluster  com's 
-    !     - Dynamics (position and velocity correlation functions)
+    !     - Dynamics (position and velocity correlation functions, 
+    !                 intermediate scatterin functions, frequency dependent S(q,w)'s, complete and self)
+    !                 Only total quantities are computed in mixtures. Use the selection option if
+    !                 single component quantities are needed
     !     - Kinetic energy (if velocities present in the trajectory file)
     !     - Potential energy (unm.dat for each interaction must be present as a
     !       LAMMPS table file with RSQ tabulation -IMPORTANT!!-)
+    !     - The code allows for selection of specific components in mixtures
     !   The input is provided as a set of namelist (see attached example) 
+    !
+    !   Restrictions: Only orthogonal cells are allowed, particle numbers must remain constant all along
+    !                 the simulation
     !
     !   Programmed in NVIDIA CUDA Fortran
     !
-    !   A. Diaz-Pozuelo & E. Lomba, Madrid, spring 2024 
+    !   A. Diaz-Pozuelo & E. Lomba, Madrid/Santiago de Compostela, fall 2024 
     !
     !
     use mod_precision
