@@ -6,9 +6,10 @@ Trajectoryanalysis
   At this stage it computes:
 
 - Pair distribution functions
-- Static structure factors
+- Particle&cluster fluctuation analysis (for hyperuniformity tests)
+- Static & dynamic structure factors
 - Cluster analysis (average cluster profiles, cluster-cluster rdf's and sq's) size and radii distributions, and a trajectory file with the evolution of cluster  com's 
-- Dynamics (position and velocity correlation functions)
+- Dynamics (position and velocity time correlation functions)
 - Kinetic energy (if velocities present in trajectory file) global and per cluster
 - Potential energy. Only when potential table files LAMMPS style (using RSQ tabulation) are available as 
   ulm.dat (l,m denote the species)
@@ -19,10 +20,10 @@ The input is provided as a set of namelist directives (see attached example)
 ## Installation
 A Makefile is included (-mno-avx512f can be removed from compilation options if AVX512 instruction set present in the CPU)
 
-Requires NVIDIA CUDA SDK >= 12.0, netcdf v 4.9, FFTW3.
+Requires NVIDIA CUDA SDK >= 11.6, netcdf v 4.9, FFTW3.
 
 ## Authors and acknowledgment
- A. Diaz-Pozuelo & E. Lomba, Madrid June 2024 
+ A. Diaz-Pozuelo & E. Lomba, CSIC-Madrid/USC Santiago de Compostela, October 2024 
 
 ## License
 Not licensed yet.

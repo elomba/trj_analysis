@@ -1,4 +1,8 @@
+# Makefile to build trj_analysis.
+# A word of warning: when making changes in commo
+# Specify main local directory
 PROG_DIR = /usr/local
+# Specify directory to Netcdf libs. The must be compiled with NVIDIA's nvfortran !!
 NETCDF = nv_netcdf
 NETCDF_INC = $(PROG_DIR)/$(NETCDF)/include
 NETCDF_LIB = $(PROG_DIR)/$(NETCDF)/lib64
@@ -27,10 +31,10 @@ OBJ = precision.o thrust.o common.o input.o netcdf.o cells.o cellsp.o\
 %.o : %.mod
 .SUFFIXES : .cuf .f90
 
-%.o: %.cuf
+%.o: %.cuf common.cuf precision.f90 
 	$(FC) -c $(FCOPTS) $(FCINC) $(FCLIBS) $< -o $@
 
-%.o: %.f90
+%.o: %.f90 common.cuf precision.f90 
 	$(F90) -c $(F90OPTS) $(F90INC) -c $(F90LIBS) $< -o $@
 
 all: $(OBJ) 
@@ -38,6 +42,10 @@ all: $(OBJ)
 
 ex-scan.o:
 	$(CC) -O4 --std c++14 -c ex-scan.cu
+common.o: precision.o common.cuf 
+	$(FC) -c $(FCOPTS) $(FCINC) $(FCLIBS) common.cuf
+precision.o: precision.f90
+	$(F90) -c $(F90OPTS) $(F90INC) -c $(F90LIBS) precision.f90
 
 clean:
 	rm -f *.o *.mod *.exe
