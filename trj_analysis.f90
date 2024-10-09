@@ -214,9 +214,10 @@ program trj_analysis
         ! BFS cluster search
         if (run_clusters) call cluster_search()
         
-        ! Thermodynamics calculus
-        call thermo_kin(i, ndim)
-
+        ! kinetic energy (if velocities available) 
+        if (ex_vel) call thermo_kin(i, ndim)
+        ! Virial calculation (if forces available)
+        if (ex_force) call thermo_vir(i,ndim)
         ! Run RDF
         if (run_rdf) call RDFcomp(Nmol, i, nbcuda, nthread)
 

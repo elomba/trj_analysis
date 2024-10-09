@@ -22,9 +22,10 @@ module mod_common
     Integer, Parameter :: nitmax = nspmax*(nspmax + 1)/2
     real(myprec), parameter :: pi = 3.1415926535898D0, fconv = 4.135, &
                                rgas = 8.3144d7, aunit = 1.0d-8, tunit = 1.0d-12, &
-                               kelvintokcal = 0.00198717
+                               kelvintokcal = 0.00198717, c_nktv=1.430933, kcal_a3_to_bar=6.948d6
+
     real(myprec) :: time_cpu_start, time_cpu_stop, time_total = 0_sp
-    real(double) :: ekin, suma
+    real(double) :: ekin, vir_i, suma
     type(cudaEvent) :: startEvent, stopEvent
     type(cudaDeviceProp) :: gpu_properties
     type(dim3) :: bl2, thr2, grid, tBlock
@@ -37,7 +38,8 @@ module mod_common
     integer, device, allocatable, dimension(:) :: itype_d, ntype_d, gdone
     real, device, allocatable, dimension(:) :: gii_d, g2ii_d
     integer, device, allocatable, dimension(:, :) :: ipos_d, densprof_d, histomix_d
-    real(myprec) :: tuniti, volumen, side, side2, ecaver, dq, densty, Tfact, taver, &
+    real(kind=8) :: vir_aver, ecaver
+    real(myprec) :: tuniti, volumen, side, side2, dq, densty, Tfact, taver, &
                     temperature, rdenst, volumen_r, tstep
     real(myprec), dimension(3) :: sidel, rlow
     real, device, dimension(3) :: fk_d, sidel_d
@@ -220,32 +222,41 @@ write (*,"(80('_')/)")
 return
 end subroutine printDevPropShort
 
+subroutine thermo_vir(iconf, ndim)
+    !
+    ! Compute virial contribution to the pressure
+    !
+    integer, intent(in) :: iconf, ndim
+    integer :: i
+
+    vir_i = 0.0
+    Do i = 1, natms 
+        vir_i = vir_i + dot_product(r(1:ndim,i),force(1:ndim,i))
+    End Do
+    vir_aver = vir_aver + vir_i
+end subroutine thermo_vir
+
 subroutine thermo_kin(iconf, ndim)
+    !
+    ! Compute kinetic energy and temperature
+    !
     integer, intent(in) :: iconf, ndim
     integer :: i
 
     densty = natms/volumen
 
-    If (ex_vel) Then
-       ekin = masa(natms)*Dot_product(vel(1:ndim, natms&
-            &), vel(1:ndim, natms))
-    End If
-    Do i = 1, natms - 1
-       If (ex_vel) Then
-          ekin = ekin + masa(i)*Dot_product(vel(1:ndim, i)&
-               &, vel(1:ndim, i))
-       End if
+    ekin = 0.0
+    Do i = 1, natms 
+        ekin = ekin + masa(i)*Dot_product(vel(1:ndim, i)&
+            &, vel(1:ndim, i))
     End Do
     ekin = 0.5d0*ekin
     ecaver = ecaver + ekin
-    If (ex_vel) Then
-       Tfact = (natms - nmzero - 1)*ndim
-       Tfact = (natms - nmzero - 1)*ndim
-       taver = 2*ecaver*(aunit/tunit)**2/(Tfact*Rgas*Iconf)
-       temperature = 2*ekin*(aunit/tunit)**2/(Tfact*Rgas)
-    End if
-
- end subroutine thermo_kin
+    Tfact = (natms - nmzero - 1)*ndim
+    Tfact = (natms - nmzero - 1)*ndim
+    taver = 2*ecaver*(aunit/tunit)**2/(Tfact*Rgas*Iconf)
+    temperature = 2*ekin*(aunit/tunit)**2/(Tfact*Rgas)
+end subroutine thermo_kin
 
     function minj(dim, members, nm, center, sidel, side2)
         integer, intent(IN) :: nm, dim
@@ -423,6 +434,7 @@ subroutine thermo_kin(iconf, ndim)
 
         ! Init variables
         ecaver = 0.0
+        vir_aver = 0.0
         cell(:, :) = 0
 
     end subroutine common_init

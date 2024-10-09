@@ -383,7 +383,7 @@ end subroutine trans_ncdfinput
 
 subroutine select_ncdfinput()
     ! Select atoms in wtypes from netcdf file and remap coordinates in species order
-    use mod_nc_conf, only: org, cell_in => cell, r_in => r, v_in => v, f_in => fxyz &
+    use mod_nc_conf, only: org, cell_in => cell, r_in => r, v_in => v, f_in => fxyz, &
                            ity_in => ity, nstep_in => step, natoms, ntypes, wtypes
     use mod_common, only: vel, r, force, cell, sidel, side, volumen, itype, bscat, tunit, &
                           ntype, masa, nstep, vector_product, nmol, ex_vel, ex_force,&

@@ -20,7 +20,7 @@ contains
 
    subroutine print_output(iconf)
       integer, intent(in) :: iconf
-
+      real(myprec) :: pideal_i, pideal_av
       If (Mod(Iconf - 1, 5) .Eq. 0) Then
          call cpu_time(cpu1)
          Write (*, "(/' ** Working on MD step no. ',i8,' time =',f10.5,' ns, cpu time=',f15.2&
@@ -33,7 +33,7 @@ contains
                write (*, "(' ** Intercluster potential energy=',f15.4,' Kcal/mol')") engclcl
             endif 
          end if
-
+         ! Kinetic energy and temperature
          If (ex_vel) then
             write (*, "(' ** Kinetic energy=',f15.4,' Kcal/mol, average=',f15.4,'Kcal/mol')") &
             kelvintokcal*ekin*(aunit/tunit)**2/Rgas, 0.00198717*ecaver*(aunit/tunit)**2/Rgas/Iconf
@@ -55,6 +55,16 @@ contains
             Write (*, "(' Density*=',f10.6&
                  &)") natms/volumen
          end if
+         ! Pressure printout
+         if (ex_force) then 
+            print *, 'volumen=',volumen,' Nmol=', Nmol, temperature
+            pideal_i = c_nktv*Nmol*temperature/volumen 
+            pideal_av = c_nktv*Nmol*taver/volumen 
+            write(*,'(" ** Pressure(i) =",f15.4," bar, Pressure (av) =",f15.4," bar")') &
+            &     pideal_i+kcal_a3_to_bar*vir_i/(3*volumen), &
+            &     pideal_av+kcal_a3_to_bar*vir_aver/(3*volumen*Iconf)
+         endif
+         ! Cluster information 
          if (rcl > 0) then
             write (*, "(' ** Average cluster radius',f8.3,' average &
               &cluster density ',f10.7)") avradio/iconf, averdens/iconf
