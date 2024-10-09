@@ -29,7 +29,7 @@ module mod_common
     type(cudaDeviceProp) :: gpu_properties
     type(dim3) :: bl2, thr2, grid, tBlock
     integer, save :: nstep = 0
-    integer :: nbcuda, natms, nmol, keytrj, width, nqmax, nqwmax, lmaxx, lmaxy, lmaxz, &
+    integer :: nbcuda, natms, nmol, width, nqmax, nqwmax, lmaxx, lmaxy, lmaxz, &
                lsmax, nqmin, ndr, shmsize, maxthread, nit, nconf, nmzero = 0, maxcln, nrandom=0
     integer, allocatable, dimension(:) :: ntype, itype, lty, list, done, nq
     integer, allocatable, dimension(:, :) :: ipos, densprofi, histomixi
@@ -69,6 +69,7 @@ module mod_common
     real(myprec) epotperatomcl_min, epotperatomcl_max, epotcl_min, epotcl_max, deltapotcl, deltapotperatomcl
     real(myprec), allocatable, dimension(:) :: epotclcldata
     real(myprec) :: epotclclmean, epotclclstdv
+    logical :: ex_vel = .false., ex_force = .false., ex_mol = .false., periodic(3) = .true.
 
     type clus
         sequence
@@ -225,19 +226,19 @@ subroutine thermo_kin(iconf, ndim)
 
     densty = natms/volumen
 
-    If (keytrj > 0) Then
+    If (ex_vel) Then
        ekin = masa(natms)*Dot_product(vel(1:ndim, natms&
             &), vel(1:ndim, natms))
     End If
     Do i = 1, natms - 1
-       If (keytrj > 0) Then
+       If (ex_vel) Then
           ekin = ekin + masa(i)*Dot_product(vel(1:ndim, i)&
                &, vel(1:ndim, i))
        End if
     End Do
     ekin = 0.5d0*ekin
     ecaver = ecaver + ekin
-    If (keytrj > 0) Then
+    If (ex_vel) Then
        Tfact = (natms - nmzero - 1)*ndim
        Tfact = (natms - nmzero - 1)*ndim
        taver = 2*ecaver*(aunit/tunit)**2/(Tfact*Rgas*Iconf)
@@ -404,11 +405,11 @@ subroutine thermo_kin(iconf, ndim)
         allocate (list(nmol))
         allocate (done(nmol))
         allocate (r(ndim, nmol))
-        if (keytrj > 0) then
+        if (ex_vel) then
             allocate (vel(ndim, nmol))
             allocate (v_d(ndim, nmol))
         end if 
-        if (keytrj ==2) then
+        if (ex_force) then
             allocate (force(ndim, nmol))
         end if
 

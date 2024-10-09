@@ -31,7 +31,7 @@ module mod_dyn
       allocate(r0(ndim,nmol,nbuffer),r2tb(ndyn,nbuffer))
       allocate(r0_d(ndim,nmol,nbuffer),rt_d(ndim,nmol,nbuffer),r2tb_d(ndyn,nbuffer))
       r2tb_d(:,:) = 0
-      if (keytrj > 0) then
+      if (ex_vel) then
          allocate(v0(ndim,nmol,nbuffer),v2t(ndyn),v2tb(ndyn,nbuffer))
          allocate(v0_d(ndim,nmol,nbuffer),v2tb_d(ndyn,nbuffer))
          v2tb_d(:,:) = 0
@@ -51,7 +51,7 @@ module mod_dyn
       deallocate(t,r2t)
       deallocate(r0,r2tb)
       deallocate(r0_d,rt_d,r2tb_d)
-      if (keytrj > 0) then
+      if (ex_vel) then
          deallocate(v0,v2t,v2tb)
          deallocate(v0_d,v2tb_d)
          deallocate(w,ftv)
@@ -67,7 +67,7 @@ module mod_dyn
       integer :: i
       integer :: istat
       real :: time_gpu, v0(3), v(3), res
-      if (keytrj>0) then
+      if (ex_vel) then
          v_d(1:ndim, 1:Nmol) = vel(1:ndim,1:Nmol)
       end if
       if (nmol/nblocks<1) then
@@ -75,7 +75,7 @@ module mod_dyn
       endif 
       if (iconf <= nbuffer) then
          r0_d(1:ndim,1:nmol,iconf) = r_d(1:ndim,1:nmol)
-         if (keytrj>0) then
+         if (ex_vel) then
             v0_d(1:ndim,1:nmol,iconf) = v_d(1:ndim,1:nmol)
          end if
 
@@ -83,7 +83,7 @@ module mod_dyn
       if (iconf <= ndyn) t(iconf) = nstep*tstep
       istat = cudaEventRecord(startEvent, 0)
       call rtcal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf)
-      if (keytrj>0) then
+      if (ex_vel) then
          call vtcal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf)
       end if
       if (iconf == 1 .and. run_sqw) then 
@@ -187,7 +187,7 @@ module mod_dyn
       real :: fconv=4.135
       r2tb(1:ndyn,1:nbuffer) = r2tb_d(1:ndyn,1:nbuffer)
       r2t(1:ndyn) = sum(r2tb(1:ndyn,1:nbuffer),DIM=2)
-      if (keytrj>0) then
+      if (ex_vel) then
          v2tb(1:ndyn,1:nbuffer) = v2tb_d(1:ndyn,1:nbuffer)
          v2t(1:ndyn) = sum(v2tb(1:ndyn,1:nbuffer),DIM=2)
       end if 
@@ -197,7 +197,7 @@ module mod_dyn
       endif
       t(1:ndyn) = t(1:ndyn)-t(1)
       r2t(:) = r2t(:)/nbuffer
-      if (keytrj>0) then
+      if (ex_vel) then
          v2t(:) = v2t(:)/nbuffer
          call fftw1d(v2t,ftv,w,ndyn,t(2)-t(1),tmax)
       end if 
@@ -220,7 +220,7 @@ module mod_dyn
             call fftw1d(fskt(i,1:ndyn),ssqw(1:ndyn,i),w,ndyn,t(2)-t(1),tmax)
          enddo
       endif
-      if (keytrj>0) then
+      if (ex_vel) then
           write(55,"('#',2x,'t(ps)',9x,'C_r(t)',7x'C_v(t)',10x,'f(THz)',7x,'f(meV)',12x,'F(w)')")
       else
          write(55,"('#',2x,'t(ps)',9x,'C_r(t)')")
@@ -231,7 +231,7 @@ module mod_dyn
          write(67,"('#',2x,'f(THz)',7x,'f(meV)',5x,8('S(',f6.4,'w)    Ss(',f6.4,'w)',4x:))')")(qw(j),qw(j),j=1,nqw)
       endif
       do i = 1, Nconf - nbuffer
-         if (keytrj > 0) then
+         if (ex_vel) then
             !
             ! transform from w(wavenumber) to f (frequency) in THz and meV
             !

@@ -34,7 +34,7 @@ contains
             endif 
          end if
 
-         If (keytrj > 0) then
+         If (ex_vel) then
             write (*, "(' ** Kinetic energy=',f15.4,' Kcal/mol, average=',f15.4,'Kcal/mol')") &
             kelvintokcal*ekin*(aunit/tunit)**2/Rgas, 0.00198717*ecaver*(aunit/tunit)**2/Rgas/Iconf
             if (rcl > 0) then

@@ -119,13 +119,6 @@ program trj_analysis
     nconf = ncfs_from_to(1)
     ncfs_from_to(3) = ncfs_from_to(3) + 1
 
-    ! Keytrj set & control (0: only positions ; 1: positions & velocities)
-    if (allocated(v)) then
-        keytrj = 1
-    else
-        keytrj = 0
-    end if
-
     ! Modules to run
     clnfound = .true.
     if (rdf_sq_cl_dyn_sqw_thermo_conf(1) == .true.) run_rdf = .true.
