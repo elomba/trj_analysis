@@ -18,6 +18,28 @@ module mod_thermo
    real(myprec), device, allocatable,dimension(:) :: engclcl_d
 contains
 
+   subroutine thermo_kin(iconf, ndim)
+       !
+      ! Compute kinetic energy and temperature
+      !
+      integer, intent(in) :: iconf, ndim
+      integer :: i
+
+       densty = natms/volumen
+
+       ekin = 0.0
+       Do i = 1, natms 
+           ekin = ekin + masa(i)*Dot_product(vel(1:ndim, i)&
+               &, vel(1:ndim, i))
+      End Do
+      ekin = 0.5d0*ekin
+      ecaver = ecaver + ekin
+      Tfact = (natms - nmzero - 1)*ndim
+      Tfact = (natms - nmzero - 1)*ndim
+      taver = 2*ecaver*(aunit/tunit)**2/(Tfact*Rgas*Iconf)
+      temperature = 2*ekin*(aunit/tunit)**2/(Tfact*Rgas)
+end subroutine thermo_kin
+
    subroutine thermo_init(natoms)
       integer, intent(in) :: natoms
       integer :: io_input_file, i, j, k, junkint, nitid = 1

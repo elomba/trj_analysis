@@ -1,5 +1,5 @@
 ## Name: 
-Trajectoryanalysis
+Trajectory analysis
 
 ## Description
  This program performs an analysis of a netcdf trajectory file from LAMMPS.
@@ -11,7 +11,6 @@ Trajectoryanalysis
 - Cluster analysis (average cluster profiles, cluster-cluster rdf's and sq's) size and radii distributions, and a trajectory file with the evolution of cluster  com's 
 - Dynamics (position and velocity time correlation functions)
 - Kinetic energy (if velocities present in trajectory file) global and per cluster
-- Pressure tensor (if forces present in trajectory file)
 - Potential energy. Only when potential table files LAMMPS style (using RSQ tabulation) are available as 
   ulm.dat (l,m denote the species)
 

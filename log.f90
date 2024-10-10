@@ -55,17 +55,6 @@ contains
             Write (*, "(' Density*=',f10.6&
                  &)") natms/volumen
          end if
-         ! Pressure printout
-         if (ex_force) then 
-            print *, 'volumen=',volumen,' Nmol=', Nmol, temperature
-            pideal_i = c_nktv*Nmol*temperature/volumen 
-            pideal_av = c_nktv*Nmol*taver/volumen 
-            print *, pideal_i, pideal_av
-            print *, vir_i,kcal_a3_to_bar/volumen
-            write(*,'(" ** Pressure(i) =",f15.4," bar, Pressure (av) =",f15.4," bar")') &
-            &     pideal_i+kcal_a3_to_bar*vir_i/(ndim*volumen), &
-            &     pideal_av+kcal_a3_to_bar*vir_aver/(ndim*volumen*Iconf)
-         endif
          ! Cluster information 
          if (rcl > 0) then
             write (*, "(' ** Average cluster radius',f8.3,' average &

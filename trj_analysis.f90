@@ -8,7 +8,7 @@ program trj_analysis
     !                         size and radii distributions, and a trajectory file with the
     !                         evolution of cluster  com's 
     !     - Dynamics (position and velocity correlation functions, 
-    !                 intermediate scatterin functions, frequency dependent S(q,w)'s, complete and self)
+    !                 intermediate scattering functions, frequency dependent S(q,w)'s, complete and self)
     !                 Only total quantities are computed in mixtures. Use the selection option if
     !                 single component quantities are needed
     !     - Kinetic energy (if velocities present in the trajectory file)
@@ -216,8 +216,6 @@ program trj_analysis
         
         ! kinetic energy (if velocities available) 
         if (ex_vel) call thermo_kin(i, ndim)
-        ! Virial calculation (if forces available)
-        if (ex_force) call thermo_vir(i,ndim)
         ! Run RDF
         if (run_rdf) call RDFcomp(Nmol, i, nbcuda, nthread)
 

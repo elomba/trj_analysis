@@ -8,11 +8,41 @@ module mod_clusters
     use mod_thermo
     use cudafor
     use mod_nc_conf, only : conf
+ 
     implicit none
     integer :: io_centers_file, io_clusevol_file
     character(len=17) :: centers_filename = 'centers.lammpstrj'
     character(len=12) :: clusevol_filename = 'clusevol.dat'
+   interface
+        function minj(dim, members, nm, center, sidel, side2)
+            use mod_precision
+            integer, intent(IN) :: nm, dim
+            integer, intent(IN) :: members(nm)
+            real, intent(IN) :: center(3), sidel(3), side2
+        end function minj
 
+        function cldens(dim, members, nm, sidel, side2, center, rclus)
+            use mod_precision
+            integer, intent(IN) :: nm, dim
+            integer, intent(IN) :: members(nm)
+            real, intent(IN) :: sidel(3), side2, center(3), rclus
+            real :: avcldens
+        end function cldens
+
+        function radius(members, nm, center, sidel)
+            use mod_precision
+            integer, intent(IN) :: nm
+            integer, intent(IN) :: members(nm)
+            real(myprec), intent(IN) :: center(3), sidel(3)
+        end function radius
+
+        function radiusRg(members, nm, center, sidel, masat)
+            use mod_precision
+            integer, intent(IN) :: nm
+            integer, intent(IN) :: members(nm)
+            real(myprec), intent(IN) :: center(3), sidel(3), masat
+        end function radiusRg
+    end interface
 contains
 
     subroutine cluster_analysis(Iconf)
@@ -410,5 +440,89 @@ contains
         end do
     end subroutine denspcl
 
+function minj(dim, members, nm, center, sidel, side2)
+        integer, intent(IN) :: nm, dim
+        integer, intent(IN) :: members(nm)
+        real, intent(IN) :: center(3), sidel(3), side2
+        real :: rv(3), dist, r2
+        integer :: j, i, jmin, minj
+        dist = 100000000.0
+        do j = 1, nm
+            i = members(j)
+            rv(1:dim) = r(1:dim, i) - center(1:dim)
+            rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+            r2 = dot_product(rv(1:dim), rv(1:dim))
+            if (r2 <= dist) then
+                dist = r2
+                jmin = j
+            end if
+        end do
+        minj = jmin
+    end function minj
+
+    function cldens(dim, members, nm, sidel, side2, center, rclus)
+        integer, intent(IN) :: nm, dim
+        integer, intent(IN) :: members(nm)
+        real, intent(IN) :: sidel(3), side2, center(3), rclus
+        real :: avcldens
+        real :: rv(3), vol, rr2, rclus2
+        integer :: i, j, count
+        if (dim == 3) then
+            vol = 4*pi*rclus**3/3.0
+        else
+            vol = 4*pi*rclus**2
+        end if
+        rclus2 = rclus*rclus
+        count = 0
+        do i = 1, nm
+            j = members(i)
+            rv(1:dim) = r(1:dim, j) - center(1:dim)
+            ! PBC (unwrap if necessary)
+            rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+            rr2 = Dot_product(rv(1:dim), rv(1:dim))
+            if (rr2 < rclus2) then
+                count = count + 1
+            end if
+        end do
+        cldens = real(count)/vol
+    end function cldens
+
+    function radius(members, nm, center, sidel)
+        implicit none
+        integer, intent(IN) :: nm
+        integer, intent(IN) :: members(nm)
+        real(myprec), intent(IN) :: center(3), sidel(3)
+        real(myprec) :: rr2, rv(3)
+        integer :: i
+        real(myprec) :: radius
+        radius = 0
+        do i = 1, nm
+            rv(:) = r(:, members(i)) - center(:)
+            rv = rv - sidel*nint(rv/sidel)
+            rr2 = Dot_product(rv, rv)
+            if (rr2 > radius) radius = rr2
+        end do
+        radius = sqrt(radius)
+    end function radius
+
+    function radiusRg(members, nm, center, sidel, masat)
+        ! Radius of gyration
+        implicit none
+        integer, intent(IN) :: nm
+        integer, intent(IN) :: members(nm)
+        real(myprec), intent(IN) :: center(3), sidel(3), masat
+        real(myprec) :: rr2, mt, rv(3)
+        integer :: i, ip
+        real(myprec) :: radius
+        radiusrg = 0
+        do i = 1, nm
+            ip = members(i)
+            rv(:) = r(:, ip) - center(:)
+            rv = rv - sidel*nint(rv/sidel)
+            rr2 = Dot_product(rv, rv)
+            radiusrg = radiusrg+masa(ip)*rr2
+        end do
+        radiusrg = sqrt(radiusrg/masat)
+    end function radiusRg
 
 end module mod_clusters
