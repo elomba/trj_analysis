@@ -22,7 +22,7 @@ module mod_common
     Integer, Parameter :: nitmax = nspmax*(nspmax + 1)/2
     real(myprec), parameter :: pi = 3.1415926535898D0, fconv = 4.135, &
                                rgas = 8.3144d7, aunit = 1.0d-8, tunit = 1.0d-12, &
-                               kelvintokcal = 0.00198717, c_nktv=1.430933, kcal_a3_to_bar=6.948d6
+                               kelvintokcal = 0.00198717, c_nktv=1.380649d2, kcal_a3_to_bar=6.9477d4
 
     real(myprec) :: time_cpu_start, time_cpu_stop, time_total = 0_sp
     real(double) :: ekin, vir_i, suma

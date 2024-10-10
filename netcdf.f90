@@ -370,6 +370,7 @@ subroutine trans_ncdfinput()
         if (ex_vel) vel(1:ndim, j) = v_in(1:ndim, i, 1)*tunit/tuniti
         if (ex_force) force(1:ndim, j) = f_in(1:ndim, 1, 1)
         r(1:ndim, j) = r_in(1:ndim, i, 1)
+        ! Coordinates are folded back into the simulation cell under PBC
         r(1:ndim, j) = r(1:ndim, j) - sidel(1:ndim)*int(r(1:ndim, j)&
              &/sidel(1:ndim))
         itype(j) = it
@@ -436,6 +437,7 @@ subroutine select_ncdfinput()
             if (ex_vel) vel(1:ndim, j) = v_in(1:ndim, i, 1)*tunit/tuniti
             if (ex_force) force(1:ndim, j) = f_in(1:ndim, i, 1)
             r(1:ndim, j) = r_in(1:ndim, i, 1)
+            ! Coordinates are folded back into the simulation cell under PBC
             r(1:ndim, j) = r(1:ndim, j) - sidel(1:ndim)*int(r(1:ndim, j)&
                  &/sidel(1:ndim))
             itype(j) = it(1)

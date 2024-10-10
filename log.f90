@@ -59,10 +59,11 @@ contains
          if (ex_force) then 
             print *, 'volumen=',volumen,' Nmol=', Nmol, temperature
             pideal_i = c_nktv*Nmol*temperature/volumen 
+            print *, pideal_i, ekin
             pideal_av = c_nktv*Nmol*taver/volumen 
             write(*,'(" ** Pressure(i) =",f15.4," bar, Pressure (av) =",f15.4," bar")') &
-            &     pideal_i+kcal_a3_to_bar*vir_i/(3*volumen), &
-            &     pideal_av+kcal_a3_to_bar*vir_aver/(3*volumen*Iconf)
+            &     pideal_i+kcal_a3_to_bar*vir_i/(ndim*volumen), &
+            &     pideal_av+kcal_a3_to_bar*vir_aver/(ndim*volumen*Iconf)
          endif
          ! Cluster information 
          if (rcl > 0) then
