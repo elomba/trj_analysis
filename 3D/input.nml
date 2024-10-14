@@ -3,38 +3,41 @@
   trj_input_file='run.nc'
   ndim=3
   nsp=2
+  nqw=3
   nthread=128
-  ncfs_from_to=0 0 0
-  rdf_sq_cl_dyn_sqw_thermo_conf=T T T F F F F
+  ncfs_from_to=50 1 50
+  rdf_sq_cl_dyn_sqw_conf=T T F T T  F
+  ener_name="ener" 
+  press_name="stress"
 /
 &INPUT_SP
-  sp_types_selected=0 0
-  sp_labels='A' 'B'
-  mat=100.0 100.0
-  bsc=1.0 1.0
+  sp_labels='A' 'B' 
+  mat=39.948 39.948
 /
 &INPUT_RDF
-  deltar=0.5
-  rcrdf=150.0
+  deltar=0.125
+  rcrdf=350.0
 /
 &INPUT_SQ
-  qmax=8.0
-  qmin=0.2
+  qmax=15.0
+  qmin=3.4
 /
 &INPUT_CL
-  rcl=5.25
-  dcl=6.0
+  rcl=4.25
+  dcl=20.0
   jmin=5
   minclsize=100
   sigma=4.0
 /
 &INPUT_DYN
-  nbuffer=10
-  tmax=2.5
+nbuffer=100
+tmax=10
+/
+&INPUT_SQW
+qw=0.12916 0.194 0.23788 
 /
 &INPUT_THERMO
-  potnbins=100
-  potengmargin=0.9
+  thermo_junk=1
 /
 &INPUT_CONF
   idir=0
