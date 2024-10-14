@@ -28,11 +28,15 @@ contains
          cpu0 = cpu1
          if (run_thermo) then
             write (*, "(' ** Potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epot, epotperatom
+            write (*, "(' ** Average potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epotav/Iconf, epotav/(Iconf*nmol)
             if (run_clusters) then
                write (*, "(' ** Intracluster av. potential energy=',f15.4,' Kcal/mol')") engclus
                write (*, "(' ** Intercluster potential energy=',f15.4,' Kcal/mol')") engclcl
             endif 
          end if
+         if (ex_stress) then
+            write (*, "(' ** Pressure =',f15.4,' bar, Avergage pressure=',f15.4' bar')") pressure, pressav/Iconf !kcal_a3_to_bar*pressure, kcal_a3_to_bar*pressav/Iconf
+         endif
          ! Kinetic energy and temperature
          If (ex_vel) then
             write (*, "(' ** Kinetic energy=',f15.4,' Kcal/mol, average=',f15.4,'Kcal/mol')") &
@@ -71,7 +75,6 @@ contains
          if (run_rdf) print *, " ··Time for rdf ", trdf/iconf
          if (run_sq) print *, " ··Time for S(Q) ", tsQ/iconf
          if (run_dyn) print *, " ··Time for dynamics ", tdyn/iconf
-         if (run_thermo) print *, " ··Time for thermodynamics ", tpoteng/iconf
          print *, " ··Time config in/out  ", tread/iconf
       End if
 

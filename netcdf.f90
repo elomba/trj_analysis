@@ -1,6 +1,7 @@
 module mod_nc
     use mod_precision
-    use mod_common, Only : ex_vel, ex_force, ex_mol, periodic 
+    use mod_common, Only : ex_vel, ex_force, ex_stress, run_thermo, &
+                           u_p, stress, ex_mol, periodic, voigt, ener_name, press_name 
     interface
         subroutine read_nc_cfg(ncid, ncstart, io, unit)
             integer, intent(in) :: ncid, ncstart
@@ -60,7 +61,8 @@ module mod_nc_conf
     type(config), dimension(:), allocatable :: conf
     type(dimens), dimension(:), allocatable :: mydims
     type(globalat), dimension(:), allocatable :: myglobatts
-    real(myprec), dimension(:, :, :), allocatable :: r, v, fxyz
+    real(myprec), dimension(:, :, :), allocatable :: r, v, fxyz, stress_i
+    real(myprec), dimension(:,:), allocatable :: u_pi
     real(myprec), dimension(3, 1) :: org, cell, cell_a
     real(myprec) :: time, scale
     integer, dimension(:, :), allocatable :: idi, ity, imol
@@ -147,6 +149,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
             mydims(j)%name = trim(adjustl(nombre))
             write (iunit, "( 'dimension id',i2,' nombre ',A, ' length=',i)") j, mydims(j)%name, mydims(j)%length
             if (mydims(j)%name == "frame") nmconf = mydims(j)%length
+            if (mydims(j)%name == "Voigt") voigt = mydims(j)%length
         end do
         write (iunit, "(/' ** Readings vars, type, no. dimensions, no. a&
              &ttrs ',/)")
@@ -232,6 +235,20 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
             start(3) = ncstart
             count(2) = natoms
             call check(nf90_get_var(ncid, i, fxyz, start, count), ioerr)
+        else if (conf(i)%varname == "c_"//trim(adjustl(ener_name))) then
+            run_thermo = .true.
+            if (first) then 
+                allocate (u_pi(conf(i)%dimlen(1), 1))
+            endif
+            counti(1) = conf(i)%dimlen(1)
+            call check(nf90_get_var(ncid, i, u_pi, starti, counti), ioerr)
+        else if (conf(i)%varname == "c_"//trim(adjustl(press_name))) then
+            ex_stress = .true.
+            if (first) allocate (stress_i(conf(i)%dimlen(1), conf(i)%dimlen(2), 1))
+            count(1) = conf(i)%dimlen(1)
+            start(3) = ncstart
+            count(2) = natoms
+            call check(nf90_get_var(ncid, i, stress_i, start, count), ioerr)
         else if (conf(i)%varname == "type") then
             typedefined = .true.
             if (first) allocate (ity(conf(i)%dimlen(1), 1))
@@ -322,10 +339,10 @@ end subroutine reset_nmol
 
 subroutine trans_ncdfinput()
     use mod_nc_conf, only: org, cell_in => cell, r_in => r, v_in => v, f_in => fxyz, &
-                           ity_in => ity, nstep_in => step, natoms, ntypes, wtypes
+                           ity_in => ity, nstep_in => step, natoms, ntypes, wtypes, u_pi, stress_i
     use mod_common, only: vel, r, force, cell, sidel, side, volumen, itype, bscat, tunit, &
                           ntype, masa, nstep, vector_product, nmol, ex_vel, ex_force, &
-                          tuniti, side2
+                          tuniti, side2, stress, u_p, voigt, run_thermo, ex_stress
     use mod_input, only: ndim, mat, bsc, rcrdf, nsp
     implicit none
     integer, dimension(:), allocatable :: counter, nct
@@ -369,6 +386,8 @@ subroutine trans_ncdfinput()
         !
         if (ex_vel) vel(1:ndim, j) = v_in(1:ndim, i, 1)*tunit/tuniti
         if (ex_force) force(1:ndim, j) = f_in(1:ndim, i, 1)
+        if (run_thermo) u_p(j) = u_pi(i,1)
+        if (ex_stress) stress(1:voigt,j)=stress_i(1:voigt,i,1)
         r(1:ndim, j) = r_in(1:ndim, i, 1)
         ! Coordinates are folded back into the simulation cell under PBC
         r(1:ndim, j) = r(1:ndim, j) - sidel(1:ndim)*int(r(1:ndim, j)&
@@ -385,10 +404,10 @@ end subroutine trans_ncdfinput
 subroutine select_ncdfinput()
     ! Select atoms in wtypes from netcdf file and remap coordinates in species order
     use mod_nc_conf, only: org, cell_in => cell, r_in => r, v_in => v, f_in => fxyz, &
-                           ity_in => ity, nstep_in => step, natoms, ntypes, wtypes
+                           ity_in => ity, nstep_in => step, natoms, ntypes, wtypes, u_pi, stress_i
     use mod_common, only: vel, r, force, cell, sidel, side, volumen, itype, bscat, tunit, &
                           ntype, masa, nstep, vector_product, nmol, ex_vel, ex_force,&
-                          tuniti, side2
+                          tuniti, side2, u_p, stress, voigt, run_thermo, ex_stress
     use mod_input, only: ndim, mat, bsc, rcrdf, nsp
     implicit none
     integer, dimension(:), allocatable :: counter, nct
@@ -436,6 +455,8 @@ subroutine select_ncdfinput()
         !
             if (ex_vel) vel(1:ndim, j) = v_in(1:ndim, i, 1)*tunit/tuniti
             if (ex_force) force(1:ndim, j) = f_in(1:ndim, i, 1)
+            if (run_thermo) u_p(j) = u_pi(i,1)
+            if (ex_stress) stress(1:voigt,j)=stress_i(1:voigt,i,1)
             r(1:ndim, j) = r_in(1:ndim, i, 1)
             ! Coordinates are folded back into the simulation cell under PBC
             r(1:ndim, j) = r(1:ndim, j) - sidel(1:ndim)*int(r(1:ndim, j)&

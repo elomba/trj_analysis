@@ -32,7 +32,8 @@ module mod_common
     type(dim3) :: bl2, thr2, grid, tBlock
     integer, save :: nstep = 0
     integer :: nbcuda, natms, nmol, width, nqmax, nqwmax, lmaxx, lmaxy, lmaxz, &
-               lsmax, nqmin, ndr, shmsize, maxthread, nit, nconf, nmzero = 0, maxcln, nrandom=0
+               lsmax, nqmin, ndr, shmsize, maxthread, nit, nconf, nmzero = 0, maxcln,&
+               voigt, nrandom=0
     integer, allocatable, dimension(:) :: ntype, itype, lty, list, done, nq
     integer, allocatable, dimension(:, :) :: ipos, densprofi, histomixi
     integer (kind=2), allocatable, dimension(:,:) :: indqw
@@ -45,10 +46,10 @@ module mod_common
     real(myprec), dimension(3) :: sidel, rlow
     real, device, dimension(3) :: fk_d, sidel_d
     real(myprec), dimension(3, 3) :: cell
-    real(myprec), allocatable, dimension(:) :: masa, bscat, sig2n, gaver
+    real(myprec), allocatable, dimension(:) :: masa, bscat, sig2n, gaver, u_p
     real(kind=8), allocatable, dimension(:) :: gi, g2i, gii, g2ii
     real, device, allocatable, dimension(:) :: sqf_d, sqfcl_d, bsc_d
-    real(myprec), allocatable, dimension(:, :) :: r, vel, force, densprof
+    real(myprec), allocatable, dimension(:, :) :: r, vel, force, stress, densprof
     real, device, allocatable, dimension(:, :) :: r_d, v_d, rclxyzd, sqfp_d
     real(double), device, allocatable, dimension(:) :: engcl_d
     logical, allocatable, dimension(:) :: bigcl
@@ -65,14 +66,16 @@ module mod_common
                run_sq = .false., run_dyn = .false., run_sqw = .false., run_thermo = .false.
     character :: fname99*18
     character, dimension(:), allocatable :: atoms*8
-    real(myprec) :: epotperatom, epot
+    character :: ener_name*12, press_name*12
+    real(myprec) :: epotperatom, epot,epotav, pressure, pressav
     integer, allocatable, dimension(:) :: epotperatomhistomixcl, epothistomixcl
     integer(kind=2), allocatable, dimension(:) :: clusid
     integer(kind=2), device, allocatable, dimension(:) :: clusid_d
     real(myprec) epotperatomcl_min, epotperatomcl_max, epotcl_min, epotcl_max, deltapotcl, deltapotperatomcl
     real(myprec), allocatable, dimension(:) :: epotclcldata
     real(myprec) :: epotclclmean, epotclclstdv
-    logical :: ex_vel = .false., ex_force = .false., ex_mol = .false., periodic(3) = .true.
+    logical :: ex_vel = .false., ex_force = .false., ex_stress = .false., &
+            &  ex_mol = .false., periodic(3) = .true.
 
     type clus
         sequence
@@ -278,7 +281,14 @@ end subroutine printDevPropShort
         if (ex_force) then
             allocate (force(ndim, nmol))
         end if
-
+        if (run_thermo) then 
+            allocate(u_p(nmol))
+            ecaver = 0
+        endif
+        if (ex_stress) then
+            allocate(stress(voigt,nmol))
+            pressav = 0
+        endif
         ! Allocate GPU memory
         allocate (r_d(ndim, nmol))
         allocate (itype_d(nmol))

@@ -65,7 +65,7 @@ contains
         if (Iconf > 1) then
             deallocate (cluster, contador)
             if (run_thermo) then
-                deallocate(engcl_d,bigcl_d,engclcl_d)
+                deallocate(bigcl_d)
                 deallocate(engcls,bigcl,engclclh)
             endif
         else
@@ -74,7 +74,7 @@ contains
         end if
         allocate (cluster(maxcln), contador(maxcln))
         if (run_thermo) then
-            allocate(engcl_d(maxcln), bigcl_d(maxcln),engclcl_d(1:nmol))
+            allocate(bigcl_d(maxcln))
             allocate(engclclh(1:nmol),engcls(maxcln),bigcl(maxcln))
         endif
         Cluster_id = maxcln

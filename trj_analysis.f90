@@ -12,7 +12,8 @@ program trj_analysis
     !                 Only total quantities are computed in mixtures. Use the selection option if
     !                 single component quantities are needed
     !     - Kinetic energy (if velocities present in the trajectory file)
-    !     - Potential energy (unm.dat for each interaction must be present as a
+    !     - Potential energ (if compute pe/peratom pressent in the trajectory file)
+    !     - Stress tensor (pressure)  (if compute stress/atom pressent in the trajectory file)
     !       LAMMPS table file with RSQ tabulation -IMPORTANT!!-)
     !     - The code allows for selection of specific components in mixtures
     !   The input is provided as a set of namelist (see attached example) 
@@ -24,6 +25,14 @@ program trj_analysis
     !
     !   A. Diaz-Pozuelo & E. Lomba, Madrid/Santiago de Compostela, fall 2024 
     !
+    !   Important notice: in LAMMPS script the following computes must be included in the dump
+    !                     in order to compute potential energies and pressures
+    !             
+    !       compute stress all stress/atom NULL
+    !       compute ener all pe/atom
+    !       dump trj1 all netcdf ${Ndump} run.nc  id type x y z vx vy vz c_stress[*] c_ener
+    !    In the first INPUT namelist optional character variables "ener_name" and "press_name" refer to the
+    !    names of the computes
     !
     use mod_precision
     use mod_common
@@ -121,10 +130,10 @@ program trj_analysis
 
     ! Modules to run
     clnfound = .true.
-    if (rdf_sq_cl_dyn_sqw_thermo_conf(1) == .true.) run_rdf = .true.
+    if (rdf_sq_cl_dyn_sqw_conf(1) == .true.) run_rdf = .true.
     run_sq = .false. 
-    if (rdf_sq_cl_dyn_sqw_thermo_conf(2) == .true.) run_sq = .true.
-    if (rdf_sq_cl_dyn_sqw_thermo_conf(3) == .true.) then
+    if (rdf_sq_cl_dyn_sqw_conf(2) == .true.) run_sq = .true.
+    if (rdf_sq_cl_dyn_sqw_conf(3) == .true.) then
         !
         ! Cluster analysis needs rdf's and s(q)'s to be computed
         ! This is also modified in input.f90
@@ -134,35 +143,26 @@ program trj_analysis
         run_sq = .true.
         clnfound = .false.
     end if
-    if (rdf_sq_cl_dyn_sqw_thermo_conf(4) == .true.) run_dyn = .true. 
+    if (rdf_sq_cl_dyn_sqw_conf(4) == .true.) run_dyn = .true. 
    ! Deactivate use of cell lists if clusters not analysed 
     if (clnfound) then
         rcl = -1.
         use_cell = .false.
     endif
     ! Activate analysis of dynamic structure factor 
-    if (rdf_sq_cl_dyn_sqw_thermo_conf(5) == .true.) then
+    if (rdf_sq_cl_dyn_sqw_conf(5) == .true.) then
         run_sqw = .true.
         run_dyn = .true.
         run_sq = .true.
     endif
-    if (rdf_sq_cl_dyn_sqw_thermo_conf(6) == .true.) then
-        run_thermo = .true. 
-    else
-        use_cellp = .false.
-    endif 
-    if (rdf_sq_cl_dyn_sqw_thermo_conf(7) == .true.) run_rdf = .true. 
+    if (rdf_sq_cl_dyn_sqw_conf(6) == .true.) run_rdf = .true. 
 
     ! Init common variables & print log_01
     call common_init(nmol, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)
-    if (run_thermo) then 
-        call thermo_init(nmol)
-    endif
-
+ 
     if (idir > 0) then
         call prof_init()
     end if
-
     ! Analysis begin,s every configuration selected
     do i = 1, ncfs_from_to(1)
         ! In the first configuration init modules
@@ -188,7 +188,6 @@ program trj_analysis
         endif
         call cpu_time(t1)
         tread = tread + t1 - t0
-
         ! In each configuration run modules
         if (run_clusters) then
             if (use_cell) then
@@ -226,18 +225,14 @@ program trj_analysis
         ! Compute SQ
         if (run_sq) call SQcalc()
         !
-        !  Init and build cells for potential calculation
-        if (run_thermo) then 
-            if (use_cellp) then
-                if (i == 1) call cellsp_init_post_nc_read()
-                call cells_buildp()
-            endif
-        endif
         ! Compute cluster properties
         if (run_clusters) call cluster_analysis(i)
         
         ! Compute potential energy
-        if (run_thermo) call poteng(i, natoms, nbcuda, nthread) 
+        if (run_thermo) call poteng(i, natoms)
+
+        ! Compute pressure
+        if (ex_stress) call stress_calc(i, ndim, natoms)
      
         ! Compute dynamics
         if (run_dyn) then
