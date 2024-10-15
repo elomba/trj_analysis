@@ -52,7 +52,10 @@ contains
          read (unit=io_input_file, nml=INPUT_SQW)
       endif
       idir = 0
-      if (rdf_sq_cl_dyn_sqw_conf(6) == .true.) read (unit=io_input_file, nml=INPUT_CONF)
+      if (rdf_sq_cl_dyn_sqw_conf(6) == .true.) then
+         read (unit=io_input_file, nml=INPUT_CONF)
+         confined = .true.
+      endif
       close (io_input_file)
 
    end subroutine read_input_file

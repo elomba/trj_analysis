@@ -52,35 +52,8 @@ program trj_analysis
 
     integer :: io = 0, ioerr, istat, ncid_in
     integer :: argc, ncstart, i
-    logical :: selectall = .false., clnfound = .true. 
+    logical :: selectall = .false., clnfound = .true., first_configuration=.true. 
     real :: t0 = 0, t1 = 0
-
-    call cpu_time(time_cpu_start)
-    call cpu_time(cpu0)
-
-    ! Get CUDA properties from device 0 (can be set from environmente variable CUDA_VISIBLE_DEVICES)
-
-    istat = cudaSetDevice(0)
-    if (istat == 0) then
-        istat = cudaGetDeviceProperties(gpu_properties, 0)
-    else
-        write(*,"('*** Unrecoverable error: no GPU available !!')")
-        stop
-    end if
-    shmsize = gpu_properties%sharedMemPerBlock
-    maxthread = gpu_properties%maxThreadsPerBlock
-    ! Initialize CUDA timing
-    istat = cudaEventCreate(startEvent)
-    istat = cudaEventCreate(stopEvent)
-    ! Print program header
-    write(*,"(/80('*')/'*',78(' '),'*')")
-    write(*,"('*    Program trj_analysis: analyzing LAMMPS trajectory in NETCDF format',t80,'*')")
-    write(*,"('*',t80,'*')")
-    write(*,"('*    Using GPU with CUDA nvfortran/nvcc >= 11.6',t80,'*')")
-    write(*,"('*',t80,'*')")
-    write(*,"('*    Version 0.2.30 October 2024',,t80,'*')")
-    write(*,"('*',78(' '),'*'/80('*')/)")
-    call printDevPropShort(gpu_properties, 0)
     ! Command line arguments control
     argc = command_argument_count()
     if (argc /= 1) then
@@ -88,15 +61,20 @@ program trj_analysis
                 & input file\r\nexample: trj_analisys.exe input_file.nml'
     end if
     call get_command_argument(1, input_filename)
+    !
+    ! initialize timers
+    !
+    call cpu_time(time_cpu_start)
+    call cpu_time(cpu0)
+
+    ! Get CUDA properties from device 0 (can be set from environmente variable CUDA_VISIBLE_DEVICES)
+    call gpu_and_header(startEvent,stopEvent)
+   
+  
     ! Load namelist input file & init log system
     call read_input_file()
     call log_init()
-    ! Check that maximum number of threads is not surpassed
-    if (nthread > maxthread/8) then
-        nthread = maxthread/8
-        write(*,'("** Warning: number of threads reset to",I3)')nthread
-    endif
-
+   
     ! First load from netcdf input file. Load global attributes
     call check(nf90_open(path=trj_input_file, mode=NF90_WRITE, ncid=ncid_in), ioerr)
     if (ioerr .ne. 0) then
@@ -166,55 +144,31 @@ program trj_analysis
     ! Init common variables & print outs
     call common_init(nmol, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)
     
-    ! Initialize profiles : idir defines the direction of confinement (x,y,z->1,2,3)
-    if (idir > 0) then
-        call prof_init()
-    end if
-    ! Analysis begins every configuration selected
+    ! Analysis begins from first configuration selected
     do i = 1, ncfs_from_to(1)
-        ! In the first configuration init modules
-        if (i == 1) then
-            if (use_cell) call cells_init_pre_nc_read(nmol)
-            if (run_clusters) call clusters_init(nmol)
-            if (run_dyn) call dyn_init()
-        end if
+        ! In the first configuration basic initialization 
+        if (first_configuration) call basic_init(use_cell,run_clusters,run_dyn,nmol)
         ! Read i configuration from netcdf input file
         call cpu_time(t0)
-        ! Jumps configurations to be read
+        ! Jumps configurations to be read: ncstart controls starting conf in netcdf file
         ncstart = ncfs_from_to(2) + (i - 1)*(ncfs_from_to(3) - ncfs_from_to(2))/ncfs_from_to(1)
         ! Read-in a full configuration
         call read_nc_cfg(ncid_in, ncstart, io, io_log_file)
-        ! Correct of end of file reached
-        if (io<0) then
-            ncfs_from_to(1)=i-1
-            Exit
-        endif 
         ! Pre configuration analysis data transformations, corrections and format
-        if (ntypes == nsp) then
-            ! All species selected
-            call trans_ncdfinput()
-        else
-            ! Only some species selected from the configuration
-            call select_ncdfinput()
-        endif
+        call reformat_input_conf(io,ncfs_from_to(1),i,ntypes,nsp)
+        ! Exit the loop when EOF reached 
+        if (io<0) exit
         call cpu_time(t1)
+        ! Accumulate i/o time
         tread = tread + t1 - t0
-        ! Over each configuration run selected modules
-        if (run_clusters) then
-            ! Linked cells for cluster analysis
-            if (use_cell) then
-                if (i == 1) call cells_init_post_nc_read()
-                call cells_build()
-            end if
+        ! Over each configuration run selected modules (first initialize)
+        if (first_configuration) call init_modules(use_cell, run_rdf, run_sq, run_clusters)
+        ! Linked cells for cluster analysis
+        if (use_cell) then
+            call cells_build()
+            call cells_reset_struct()
         end if
-        if (use_cell) call cells_reset_struct() ! Put inside above if ?? if use_cell == false, it's run
         !
-        if (i==1) then
-            if (run_rdf) call RDF_init(nsp)
-            if (run_sq) call sq_init(nmol, nsp, nbcuda)
-            if (run_clusters) call clusters_sq_init()
-        end if
-
         ! Transfer data to GPU
         call transfer_cpu_gpu(ndim)
 
@@ -227,7 +181,7 @@ program trj_analysis
         if (run_rdf) call RDFcomp(Nmol, i, nbcuda, nthread)
 
         ! Compute density profile along idir direction
-        if (idir > 0) then
+        if (confined) then
             call profile_comp(nthread, ndim, idir, pwall, deltar)
         end if
         ! Compute SQ
@@ -243,56 +197,24 @@ program trj_analysis
         if (ex_stress) call stress_calc(i, ndim, natoms)
      
         ! Compute dynamics
-        if (run_dyn) then
-            call rtcorr(i)
-        end if 
+        if (run_dyn) call rtcorr(i)
 
         ! Print periodic output
         call print_output(i)
+        first_configuration = .false.
     end do
 
     ! Normalize density profiles computed along the non-periodic dimension
-    if (idir > 0) then
+    if (confined) then
         call normdenspr(nconf)
     end if
 
-    ! Print out S(Q)'s
-    if (run_sq) then
-        call sq_transfer_gpu_cpu()
-        call printSQ(Nmol)
-    end if
-
-    do i = 1, nsp
-        write (*, '(" ** ",i6," atoms of type ",i2)') ntype(i), i
-    end do
-
-    ! Print partial pair distribution functions
-    if (run_rdf) then
-         call printrdf(rcl, lsmax)
-    end if
-    if (run_dyn) then
-        call print_rtcor()
-    endif
-    if (run_clusters) then
-        call print_clusinfo(nqmin, Nmol)
-        if (run_thermo) then
-            call printPotEngCl()
-            call printPotEngClCl()
-        end if
-    end if
+    ! Programme printouts
+    call print_results(run_sq, run_rdf, run_dyn, run_clusters, run_thermo, nsp, lsmax, nmol, nqmin)
 
     ! Cleaning house
 
-    if (run_sq) call sq_clear()
-    if (run_rdf) call rdf_clear()
-    if (run_clusters) call clusters_clear()
-    if (use_cell) call cells_clear()
-    if (run_dyn) call dyn_clear()
-    if (idir > 0) call prof_clear()
-    if (run_thermo) call thermo_clear()
-    call common_clear()
-    call log_clear()
-    call input_clear()
+    call clean_memory(run_sq,run_rdf,run_clusters,use_cell,run_dyn,confined)
     call cpu_time(time_cpu_stop)
 
     ! Print simulation time

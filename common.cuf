@@ -49,7 +49,8 @@ module mod_common
     real, allocatable, dimension(:, :) :: sqfp
     real, allocatable, dimension(:, :, :) :: histomix
     logical :: pdir(3) = .true., run_clusters = .false., run_rdf = .false., &
-               run_sq = .false., run_dyn = .false., run_sqw = .false., run_thermo = .false.
+               run_sq = .false., run_dyn = .false., run_sqw = .false., run_thermo = .false., &
+               confined = .false.
     character :: fname99*18
     character, dimension(:), allocatable :: atoms*8
     character :: ener_name*12, press_name*12
@@ -286,7 +287,8 @@ end subroutine printDevPropShort
         ! Init variables
         ecaver = 0.0
         cell(:, :) = 0
-
+        ! Initialize profiles : idir defines the direction of confinement (x,y,z->1,2,3)
+        if (idir>o) call prof_init()
     end subroutine common_init
 
     subroutine common_clear()
