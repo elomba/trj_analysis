@@ -39,6 +39,7 @@ end subroutine thermo_kin
          sumener = sumener + u_p(i)
       enddo
       epot = sumener
+      epotperatom = epot/natoms
       epotav = epotav + epot
    end subroutine poteng
 
