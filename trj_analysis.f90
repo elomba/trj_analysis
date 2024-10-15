@@ -46,8 +46,6 @@ program trj_analysis
     use mod_densprof
     use mod_log
     use mod_thermo
-    use cellp_props
-    use mod_cellsp, only : cellsp_init_post_nc_read, cells_buildp, cellsp_clear
     use mod_dyn, only : dyn_init, dyn_clear, rtcorr, print_rtcor
     use cudafor
     implicit none
@@ -71,15 +69,16 @@ program trj_analysis
     end if
     shmsize = gpu_properties%sharedMemPerBlock
     maxthread = gpu_properties%maxThreadsPerBlock
+    ! Initialize CUDA timing
     istat = cudaEventCreate(startEvent)
     istat = cudaEventCreate(stopEvent)
     ! Print program header
     write(*,"(/80('*')/'*',78(' '),'*')")
     write(*,"('*    Program trj_analysis: analyzing LAMMPS trajectory in NETCDF format',t80,'*')")
     write(*,"('*',t80,'*')")
-    write(*,"('*    Using GPU with CUDA nvfortran/nvcc >= 12.0',t80,'*')")
+    write(*,"('*    Using GPU with CUDA nvfortran/nvcc >= 11.6',t80,'*')")
     write(*,"('*',t80,'*')")
-    write(*,"('*    Version 0.2.20 September 2024',,t80,'*')")
+    write(*,"('*    Version 0.2.30 October 2024',,t80,'*')")
     write(*,"('*',78(' '),'*'/80('*')/)")
     call printDevPropShort(gpu_properties, 0)
     ! Command line arguments control
@@ -103,7 +102,9 @@ program trj_analysis
     if (ioerr .ne. 0) then
         stop("** UNRECOVERABLE ERROR: cannot open NetCDF trajectory file !")
     endif 
-
+    !
+    ! Read header and details of the NETCDF trajectory files: check consistency with input data
+    !
     call read_nc_cfg(ncid_in, 1, io, io_log_file)
     ! Set number of species from netcdf file or from selected species from namelist
     if (nsp > ntypes) then 
@@ -117,7 +118,7 @@ program trj_analysis
         wtypes = sp_types_selected        
         call reset_nmol(nmol)
     end if 
-    ! If number of species is not equal to size of list's properties, print error
+    ! Number of different interactions
     nit = nsp*(nsp + 1)/2
     ! Set number of configurations to read from netcdf & from and to number of configurations
     if (ncfs_from_to(1) == 0) then
@@ -130,9 +131,12 @@ program trj_analysis
 
     ! Modules to run
     clnfound = .true.
+    ! Radial ditribution function
     if (rdf_sq_cl_dyn_sqw_conf(1) == .true.) run_rdf = .true.
     run_sq = .false. 
+    ! Static structure factors
     if (rdf_sq_cl_dyn_sqw_conf(2) == .true.) run_sq = .true.
+    ! Cluster analysis
     if (rdf_sq_cl_dyn_sqw_conf(3) == .true.) then
         !
         ! Cluster analysis needs rdf's and s(q)'s to be computed
@@ -143,6 +147,7 @@ program trj_analysis
         run_sq = .true.
         clnfound = .false.
     end if
+    ! Dynamic correlations
     if (rdf_sq_cl_dyn_sqw_conf(4) == .true.) run_dyn = .true. 
    ! Deactivate use of cell lists if clusters not analysed 
     if (clnfound) then
@@ -155,15 +160,17 @@ program trj_analysis
         run_dyn = .true.
         run_sq = .true.
     endif
+    ! Confined system (density profile analysis in the direction of confinement)
     if (rdf_sq_cl_dyn_sqw_conf(6) == .true.) run_rdf = .true. 
 
-    ! Init common variables & print log_01
+    ! Init common variables & print outs
     call common_init(nmol, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)
- 
+    
+    ! Initialize profiles : idir defines the direction of confinement (x,y,z->1,2,3)
     if (idir > 0) then
         call prof_init()
     end if
-    ! Analysis begin,s every configuration selected
+    ! Analysis begins every configuration selected
     do i = 1, ncfs_from_to(1)
         ! In the first configuration init modules
         if (i == 1) then
@@ -173,39 +180,40 @@ program trj_analysis
         end if
         ! Read i configuration from netcdf input file
         call cpu_time(t0)
+        ! Jumps configurations to be read
         ncstart = ncfs_from_to(2) + (i - 1)*(ncfs_from_to(3) - ncfs_from_to(2))/ncfs_from_to(1)
-        ! write (io_log_file, '(/,A,I0)'), 'Reading configuration number: ', ncstart
+        ! Read-in a full configuration
         call read_nc_cfg(ncid_in, ncstart, io, io_log_file)
+        ! Correct of end of file reached
         if (io<0) then
             ncfs_from_to(1)=i-1
             Exit
         endif 
         ! Pre configuration analysis data transformations, corrections and format
         if (ntypes == nsp) then
+            ! All species selected
             call trans_ncdfinput()
         else
+            ! Only some species selected from the configuration
             call select_ncdfinput()
         endif
         call cpu_time(t1)
         tread = tread + t1 - t0
-        ! In each configuration run modules
+        ! Over each configuration run selected modules
         if (run_clusters) then
+            ! Linked cells for cluster analysis
             if (use_cell) then
                 if (i == 1) call cells_init_post_nc_read()
                 call cells_build()
             end if
         end if
         if (use_cell) call cells_reset_struct() ! Put inside above if ?? if use_cell == false, it's run
-        if (run_rdf) then
-            if (i==1) call RDF_init(nsp)
-        endif
-        if (run_sq) then
-            if (i == 1) then
-                call sq_init(nmol, nsp, nbcuda)
-                if (run_clusters) call clusters_sq_init()
-            end if
+        !
+        if (i==1) then
+            if (run_rdf) call RDF_init(nsp)
+            if (run_sq) call sq_init(nmol, nsp, nbcuda)
+            if (run_clusters) call clusters_sq_init()
         end if
-        !done(:) = 0 !!! WARN, try to move inside function
 
         ! Transfer data to GPU
         call transfer_cpu_gpu(ndim)
@@ -282,7 +290,6 @@ program trj_analysis
     if (run_dyn) call dyn_clear()
     if (idir > 0) call prof_clear()
     if (run_thermo) call thermo_clear()
-    if (use_cellp) call cellsp_clear()
     call common_clear()
     call log_clear()
     call input_clear()

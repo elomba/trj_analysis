@@ -1,17 +1,3 @@
-module cellp_props
-    use mod_precision
-    use cudafor
-    implicit none
-    integer :: maxpi, maxpj, maxpk, ncellp
-    integer, device :: maxipd,maxjpd,maxkpd,ncellpd, nnpd
-    integer, dimension(:), allocatable :: headp, listap
-    integer, device, dimension(:), allocatable :: headpd, listapd
-    integer, dimension(:,:), allocatable :: neighp
-    integer, device, dimension(:,:), allocatable :: neighpd
-    real(myprec) :: cellpx, cellpy, cellpz, rclp
-    real(myprec), device :: cellxpd, cellypd, cellzpd
-    logical :: use_cellp=.true.
-end module cellp_props
 module mod_common
     use mod_precision
     use cudafor

@@ -3,7 +3,6 @@ module mod_thermo
    use mod_common
    use mod_input
    use cudafor
-   use cellp_props
    implicit none
    real(double) :: engclcl, engclus
 contains
