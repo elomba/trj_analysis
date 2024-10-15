@@ -20,7 +20,9 @@ Trajectory analysis
                      in order to compute potential energies and pressures
              
       compute stress all stress/atom NULL
+
       compute ener all pe/atom
+      
       dump trj1 all netcdf ${Ndump} run.nc  id type x y z vx vy vz c_stress[*] c_ener
 
 -    In the first INPUT namelist optional character variables "ener_name" and "press_name" 
