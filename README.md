@@ -18,12 +18,13 @@ Trajectory analysis
 
 -   **Important notice:** in LAMMPS script the following computes must be included in the dump
                      in order to compute potential energies and pressures
-             
-      compute stress all stress/atom NULL
-
-      compute ener all pe/atom
       
+```
+      compute stress all stress/atom NULL
+      compute ener all pe/atom
       dump trj1 all netcdf ${Ndump} run.nc  id type x y z vx vy vz c_stress[*] c_ener
+```
+
 
 -    In the first INPUT namelist optional character variables "ener_name" and "press_name" 
      refer to the  names of the computes
@@ -35,7 +36,7 @@ Trajectory analysis
     - The number of particles MUST be constant (NpT simulations are allowed, but structure
       factors will be affected by minor errors due to changes in \Delta Q = 2\pi/L)
     - The mimimum dump information to process is 
-      dump trj1 all netcdf ${Ndump} run.nc  id type x y z      
+      `dump trj1 all netcdf ${Ndump} run.nc  id type x y z`      
 
 ## Input 
 The input is provided as a set of namelist directives (see attached example) 
