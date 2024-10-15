@@ -24,9 +24,10 @@ LKLIBS = -L$(NETCDF_LIB)
 CC = nvcc
 
 EXE = -o trj_analysis.exe
-OBJ = precision.o thrust.o common.o input.o util.o netcdf.o cells.o \
+
+OBJ = precision.o thrust.o common.o input.o netcdf.o cells.o \
 	sq.o rdf.o densprof.o thermo.o clusters.o log.o fftwlib.o dynamics.o\
-	trj_analysis.o ex-scan.o
+	util.o trj_analysis.o ex-scan.o
 
 %.o : %.mod
 .SUFFIXES : .cuf .f90

@@ -43,10 +43,12 @@ program trj_analysis
     use mod_clusters
     use mod_sq
     use mod_rdf
-    use mod_densprof
+   ! use mod_densprof
     use mod_log
     use mod_thermo
     use mod_dyn, only : dyn_init, dyn_clear, rtcorr, print_rtcor
+    use mod_util, only : gpu_and_header, clean_memory, init_modules, reformat_input_conf, &
+                         basic_init, print_results
     use cudafor
     implicit none
 
@@ -147,7 +149,7 @@ program trj_analysis
     ! Analysis begins from first configuration selected
     do i = 1, ncfs_from_to(1)
         ! In the first configuration basic initialization 
-        if (first_configuration) call basic_init(use_cell,run_clusters,run_dyn,nmol)
+        if (first_configuration) call basic_init(use_cell,run_clusters,run_dyn,confined,nmol)
         ! Read i configuration from netcdf input file
         call cpu_time(t0)
         ! Jumps configurations to be read: ncstart controls starting conf in netcdf file
@@ -162,7 +164,7 @@ program trj_analysis
         ! Accumulate i/o time
         tread = tread + t1 - t0
         ! Over each configuration run selected modules (first initialize)
-        if (first_configuration) call init_modules(use_cell, run_rdf, run_sq, run_clusters)
+        if (first_configuration) call init_modules(use_cell, run_rdf, run_sq, run_clusters, nsp, nmol, nbcuda)
         ! Linked cells for cluster analysis
         if (use_cell) then
             call cells_build()
@@ -210,11 +212,12 @@ program trj_analysis
     end if
 
     ! Programme printouts
-    call print_results(run_sq, run_rdf, run_dyn, run_clusters, run_thermo, nsp, lsmax, nmol, nqmin)
+    call print_results(run_sq,  run_rdf, run_dyn, run_clusters, run_thermo, &
+                        ntype, nsp, lsmax, nmol, nqmin, rcl)
 
     ! Cleaning house
 
-    call clean_memory(run_sq,run_rdf,run_clusters,use_cell,run_dyn,confined)
+    call clean_memory(run_sq,run_rdf,run_clusters,run_thermo,use_cell,run_dyn,confined)
     call cpu_time(time_cpu_stop)
 
     ! Print simulation time

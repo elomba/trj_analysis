@@ -1,9 +1,22 @@
+module mod_util
+    use mod_common, only : shmsize, maxthread,  &
+                            printDevPropShort, common_clear
+    use mod_densprof, only : prof_init, prof_clear
+    use mod_sq, only : sq_init, printsq, sq_clear, sq_transfer_gpu_cpu
+    use mod_rdf, only : rdf_init, printrdf, rdf_clear
+    use mod_dyn, only : print_rtcor, dyn_clear, dyn_init
+    use mod_log, only : log_clear, log_init, printPotEngCl, printPotEngClCl, print_clusinfo
+    use mod_clusters, only : clusters_clear, clusters_init, clusters_sq_init
+    use mod_input, only : input_clear
+    use mod_cells, only : cells_init_post_nc_read, cells_init_pre_nc_read, cells_clear
+    use mod_thermo, only : thermo_clear
+    contains
 subroutine gpu_and_header(startEvent,stopEvent)
     use cudafor
     use mod_input, only : nthread
-    use mod_common, only : shmsize, maxthread
     implicit None
     type(cudaEvent), intent(inout) :: startEvent, stopEvent
+    type(cudaDeviceProp) :: gpu_properties
     integer :: istat
     ! Get CUDA properties from device 0 (can be set from environmente variable CUDA_VISIBLE_DEVICES)
 
@@ -27,7 +40,7 @@ subroutine gpu_and_header(startEvent,stopEvent)
     write(*,"('*',t80,'*')")
     write(*,"('*    Version 0.2.30 October 2024',,t80,'*')")
     write(*,"('*',78(' '),'*'/80('*')/)")
-    call printDevPropShort(gpu_propertoies, 0)
+    call printDevPropShort(gpu_properties, 0)
      ! Check that maximum number of threads is not surpassed
     if (nthread > maxthread/8) then
         nthread = maxthread/8
@@ -36,27 +49,29 @@ subroutine gpu_and_header(startEvent,stopEvent)
 end subroutine gpu_and_header
 
 
-subroutine basic_init(use_cell,run_clusters,run_dyn,nmol)
+subroutine basic_init(use_cell,run_clusters,run_dyn,confined,nmol)
     implicit none
-    logical, intent(in) :: use_cell,run_clusters,run_dyn
+    logical, intent(in) :: use_cell,run_clusters,run_dyn, confined
     integer, intent(in) :: nmol
     if (use_cell) call cells_init_pre_nc_read(nmol)
     if (run_clusters) call clusters_init(nmol)
     if (run_dyn) call dyn_init()
+    if (confined) call prof_init()    
 end subroutine basic_init
 
-subroutine init_modules(use_cell,run_rdf,run_sq,run_clusters)
+subroutine init_modules(use_cell,run_rdf,run_sq,run_clusters,nsp,nmol,nbcuda)
     implicit none
     logical, intent(IN) :: use_cell,run_rdf,run_sq,run_clusters 
+    integer, intent(in) :: nsp, nmol, nbcuda
      if (use_cell) call cells_init_post_nc_read() 
      if (run_rdf) call RDF_init(nsp)
      if (run_sq) call sq_init(nmol, nsp, nbcuda)
      if (run_clusters) call clusters_sq_init()
 end subroutine init_modules
 
-subroutine clean_memory(run_sq,run_rdf,run_clusters,use_cell,run_dyn,confined)
+subroutine clean_memory(run_sq,run_rdf,run_clusters,run_thermo,use_cell,run_dyn,confined)
     implicit none
-    logical, intent(IN) :: run_sq,run_rdf,run_clusters,use_cell,run_dyn,confined 
+    logical, intent(IN) :: run_sq,run_rdf,run_clusters,use_cell,run_thermo,run_dyn,confined 
     if (run_sq) call sq_clear()
     if (run_rdf) call rdf_clear()
     if (run_clusters) call clusters_clear()
@@ -69,10 +84,14 @@ subroutine clean_memory(run_sq,run_rdf,run_clusters,use_cell,run_dyn,confined)
     call input_clear()
 end subroutine clean_memory
 
-subroutine print_results(run_sq,  run_rdf, run_dyn, run_clusters, run_thermo, nsp, lsmax, nmol, nqmin)
+subroutine print_results(run_sq,  run_rdf, run_dyn, run_clusters, run_thermo, ntype, nsp, lsmax, nmol, nqmin, rcl)
+    use mod_precision
     implicit none
+    real(myprec) :: rcl
     integer, intent(in) :: nsp, lsmax, nmol, nqmin
-    logical, intent(in) :: run_sq,  run_rdf, run_dyn, run_clusters, run_thermo 
+    integer, dimension(nsp), intent(in) :: ntype
+    logical, intent(in) :: run_sq,  run_rdf, run_dyn, run_clusters, run_thermo
+    integer :: i
 
     ! Print out S(Q)'s
     if (run_sq) then
@@ -118,3 +137,4 @@ subroutine reformat_input_conf(io,final_conf,current_conf,ntypes,nsp)
         endif
     endif
 end subroutine reformat_input_conf
+end module mod_util
