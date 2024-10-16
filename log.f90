@@ -5,7 +5,7 @@ module mod_log
    use mod_nc
    use mod_nc_conf
    use cudafor
-   use mod_thermo, only : engclus, engclcl
+   use mod_thermo, only : engclus, engclpa
    implicit none
    integer :: io_log_file
 contains
@@ -30,8 +30,8 @@ contains
             write (*, "(' ** Potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epot, epotperatom
             write (*, "(' ** Average potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epotav/Iconf, epotav/(Iconf*nmol)
             if (run_clusters) then
-               write (*, "(' ** Intracluster av. potential energy=',f15.4,' Kcal/mol')") engclus
-               write (*, "(' ** Intercluster potential energy=',f15.4,' Kcal/mol')") engclcl
+               write (*, "(' ** Average intracluster potential energy=',f15.4,' Kcal/mol'&
+               ,' Peratom =',f15.4,' Kcal/mol')") engclus, engclpa 
             endif 
          end if
          if (ex_stress) then
@@ -100,22 +100,7 @@ contains
       end do
       close (100)
    end subroutine printPotEngCl
-
-   subroutine printPotEngClCl()
-      implicit none
-      !
-      ! Printout Potential's Energy InterCluster
-      !
-      integer :: i
-      epotclclmean = sum(epotclcldata) / nconf
-      epotclcldata = epotclcldata - epotclclmean
-      epotclcldata = epotclcldata * epotclcldata
-      epotclclstdv = sum(epotclcldata) / nconf
-      epotclclstdv = sqrt(epotclclstdv)
-      write (*, "(' ** InterCluster AVG Potential energy=',f15.4,' Kcal/mol, STD_DEV=',f15.4)") epotclclmean, epotclclstdv
-
-   end subroutine printPotEngClCl
-
+   
    subroutine printSQ(Nmol)
       implicit none
       !

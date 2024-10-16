@@ -72,7 +72,7 @@ contains
         !
         implicit none
         integer, intent(IN) :: Nmol, Iconf, nbcuda, nthread
-        integer :: istart, i, ind, k, j, l, istat
+        integer :: istart, i, ind, k, j, l, istat=0
         real :: time_gpu, suma
         histomix_d(:, :) = 0
         gii_d(:) = 0

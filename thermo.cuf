@@ -4,7 +4,7 @@ module mod_thermo
    use mod_input
    use cudafor
    implicit none
-   real(double) :: engclcl, engclus
+   real(double) :: engclus, engclpa
 contains
 
    subroutine thermo_kin(iconf, ndim)
@@ -40,6 +40,7 @@ end subroutine thermo_kin
       epot = sumener
       epotperatom = epot/natoms
       epotav = epotav + epot
+      if (run_clusters) call clusener(iconf,maxcln, cluster)
    end subroutine poteng
 
    subroutine stress_calc(iconf,dim, natoms)
@@ -67,8 +68,6 @@ end subroutine thermo_kin
       epotcl_max = -1.0e10
       epotperatomcl_min = 1.0e10
       epotperatomcl_max = -1.0e10
-      engcls(1:maxcln) = engcl_d(1:maxcln)
-
       do c = 1, maxcln
          if (cluster(c)%clsize >= minclsize) then
             engcls(c) = 0
@@ -83,7 +82,8 @@ end subroutine thermo_kin
             if (cluster(c)%potengperatom < epotperatomcl_min) epotperatomcl_min = cluster(c)%potengperatom
             if (cluster(c)%potengperatom > epotperatomcl_max) epotperatomcl_max = cluster(c)%potengperatom
          end if
-      end do  
+      end do
+      print *, epotcl_max, epotcl_min  
       epotcl_max = epotcl_max + potengmargin * abs(epotcl_max - epotcl_min)
       epotcl_min = epotcl_min - potengmargin * abs(epotcl_max - epotcl_min)
       epotperatomcl_max = epotperatomcl_max + potengmargin * abs(epotperatomcl_max - epotperatomcl_min)
@@ -103,6 +103,7 @@ end subroutine thermo_kin
       type(clus), dimension(maxcln), intent(inout) :: cluster
       real(myprec) :: energcl
       integer :: ind, c, id, j
+      engclpa = 0.0
       do c = 1, maxcln
          engcls(c) = 0
          do j = 1, cluster(c)%clsize 
@@ -114,12 +115,12 @@ end subroutine thermo_kin
          ind = nint((cluster(c)%poteng-epotcl_min)/deltapotcl) + 1
          if (ind > 0 .and. ind <= potnbins) epothistomixcl(ind) = epothistomixcl(ind) + 1
          cluster(c)%potengperatom = cluster(c)%poteng/cluster(c)%clsize
+         engclpa = engclpa + cluster(c)%potengperatom
          ind = nint((cluster(c)%potengperatom-epotperatomcl_min)/deltapotperatomcl) + 1
          if (ind > 0 .and. ind <= potnbins) epotperatomhistomixcl(ind) = epotperatomhistomixcl(ind) + 1
       end do
-      engclcl = sum(engclclh(1:nmol))
       engclus = sum(engcls(1:maxcln))/maxcln
-      epotclcldata(iconf) = engclcl
+      engclpa = engclpa/maxcln
    end subroutine clusener
 
    

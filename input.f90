@@ -5,14 +5,14 @@ module mod_input
    integer, allocatable, dimension(:) :: sp_types_selected, nw
    integer, dimension(3) :: ncfs_from_to
    character(len=2), allocatable, dimension(:) :: sp_labels
-   integer :: nthread, ndim, jmin, minclsize, idir, nsp, nbuffer, potnbins, nqw=0
+   integer :: nthread, ndim, jmin, minclsize, idir, nsp, nbuffer, potnbins=100, nqw=0
    logical :: use_cell = .true.
    logical, dimension(6) :: rdf_sq_cl_dyn_sqw_conf
-   real(myprec) :: deltar, rcl, dcl, qmin, qmax, sigma, pwall, pwallp, rcrdf, tmax=100.0, potengmargin
+   real(myprec) :: deltar, rcl, dcl, qmin, qmax, sigma, pwall, pwallp, rcrdf, tmax=100.0, potengmargin=0.0
    real(myprec), allocatable, dimension(:) :: mat, bsc, qw, tmqw
    character(len=128) :: input_filename, log_output_file, trj_input_file
    namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread, &
-      ncfs_from_to, rdf_sq_cl_dyn_sqw_conf, nqw, ener_name, press_name 
+      ncfs_from_to, rdf_sq_cl_dyn_sqw_conf, nqw, ener_name, press_name, potnbins, potengmargin 
    namelist /INPUT_SP/ sp_types_selected, sp_labels, mat 
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
    namelist /INPUT_SQ/ qmax, qmin, bsc

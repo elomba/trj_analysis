@@ -191,10 +191,8 @@ program trj_analysis
         !
         ! Compute cluster properties
         if (run_clusters) call cluster_analysis(i)
-        
         ! Compute potential energy
         if (run_thermo) call poteng(i, natoms)
-
         ! Compute pressure
         if (ex_stress) call stress_calc(i, ndim, natoms)
      

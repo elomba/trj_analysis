@@ -66,7 +66,7 @@ contains
             deallocate (cluster, contador)
             if (run_thermo) then
                 deallocate(bigcl_d)
-                deallocate(engcls,bigcl,engclclh)
+                deallocate(engcls,bigcl)
             endif
         else
             allocate(clusid(1:nmol))
@@ -75,7 +75,7 @@ contains
         allocate (cluster(maxcln), contador(maxcln))
         if (run_thermo) then
             allocate(bigcl_d(maxcln))
-            allocate(engclclh(1:nmol),engcls(maxcln),bigcl(maxcln))
+            allocate(engcls(maxcln),bigcl(maxcln))
         endif
         Cluster_id = maxcln
         contador(:) = 0
@@ -125,7 +125,6 @@ contains
         else
             write (io_centers_file, "('ITEM: ATOMS id type x y z')")
         end if
-        !        write(189,*) " iconf=", iconf
         icl = 0
         cluster(:)%rg = 0
         do I = 1, cluster_id

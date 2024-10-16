@@ -5,7 +5,7 @@ module mod_util
     use mod_sq, only : sq_init, printsq, sq_clear, sq_transfer_gpu_cpu
     use mod_rdf, only : rdf_init, printrdf, rdf_clear
     use mod_dyn, only : print_rtcor, dyn_clear, dyn_init
-    use mod_log, only : log_clear, log_init, printPotEngCl, printPotEngClCl, print_clusinfo
+    use mod_log, only : log_clear, log_init, printPotEngCl, print_clusinfo
     use mod_clusters, only : clusters_clear, clusters_init, clusters_sq_init
     use mod_input, only : input_clear
     use mod_cells, only : cells_init_post_nc_read, cells_init_pre_nc_read, cells_clear
@@ -114,7 +114,6 @@ subroutine print_results(run_sq,  run_rdf, run_dyn, run_clusters, run_thermo, nt
         call print_clusinfo(nqmin, Nmol)
         if (run_thermo) then
             call printPotEngCl()
-            call printPotEngClCl()
         end if
     end if
     
