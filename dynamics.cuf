@@ -221,14 +221,14 @@ module mod_dyn
          enddo
       endif
       if (ex_vel) then
-          write(55,"('#',2x,'t(ps)',9x,'C_r(t)',7x'C_v(t)',10x,'f(THz)',7x,'f(meV)',12x,'F(w)')")
+          write(55,"('#',2x,'t(ps)',9x,'C_r(t)',7x'C_v(t)',10x,'w(THz)',7x,'w(meV)',12x,'Z(w)')")
       else
          write(55,"('#',2x,'t(ps)',9x,'C_r(t)')")
       endif
       if (run_sqw) then 
          write(65,'("#",2x,"t(ps)",9x,8("F(",f6.4,",t)",4x:))')qw(1:nqw)
          write(66,'("#",2x,"t(ps)",9x,8("Fs(",f6.4,",t)",4x:))')qw(1:nqw)
-         write(67,"('#',2x,'f(THz)',7x,'f(meV)',5x,8('S(',f6.4,'w)    Ss(',f6.4,'w)',4x:))')")(qw(j),qw(j),j=1,nqw)
+         write(67,"('#',2x,'w(THz)',7x,'w(meV)',5x,8('S(',f6.4,',w)    Ss(',f6.4,',w)',4x:))')")(qw(j),qw(j),j=1,nqw)
       endif
       do i = 1, Nconf - nbuffer
          if (ex_vel) then

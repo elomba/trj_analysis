@@ -1,15 +1,16 @@
 module mod_util
-    use mod_common, only : shmsize, maxthread,  &
-                            printDevPropShort, common_clear
+    use mod_common, only : shmsize, maxthread,  run_thermo, ex_stress, &
+                            printDevPropShort, common_clear, nit, ener_name, press_name
     use mod_densprof, only : prof_init, prof_clear
     use mod_sq, only : sq_init, printsq, sq_clear, sq_transfer_gpu_cpu
     use mod_rdf, only : rdf_init, printrdf, rdf_clear
     use mod_dyn, only : print_rtcor, dyn_clear, dyn_init
     use mod_log, only : log_clear, log_init, printPotEngCl, print_clusinfo
     use mod_clusters, only : clusters_clear, clusters_init, clusters_sq_init
-    use mod_input, only : input_clear
+    use mod_input, only : input_clear, sp_types_selected, ncfs_from_to 
     use mod_cells, only : cells_init_post_nc_read, cells_init_pre_nc_read, cells_clear
     use mod_thermo, only : thermo_clear
+    use mod_nc_conf, only : wtypes
     contains
 subroutine gpu_and_header(startEvent,stopEvent)
     use cudafor
@@ -48,6 +49,40 @@ subroutine gpu_and_header(startEvent,stopEvent)
     endif
 end subroutine gpu_and_header
 
+subroutine select_species(nsp,ntypes,nmol,natoms)
+    implicit none
+    integer, intent(in) :: nsp, ntypes, natoms
+    integer, intent(inout) :: nmol
+       if (nsp > ntypes) then 
+        print *, ' ERROR: number of species in input file is',nsp,' larger than that in netcdf file ',ntypes
+        STOP
+    else if (nsp == ntypes) Then
+        nmol = natoms
+    else if (nsp < ntypes) then 
+        allocate(wtypes(nsp))
+        wtypes = sp_types_selected        
+        call reset_nmol(nmol)
+        run_thermo = .false.
+        ex_stress = .false.
+        ener_name = "XXX"
+        press_name = "XXX"
+    end if 
+    ! Number of different interactions
+    nit = nsp*(nsp + 1)/2
+end subroutine select_species
+
+subroutine reset_confs(nconf_i,nconf)
+    implicit None
+    integer, intent(in) :: nconf_i
+    integer, intent(inout) :: nconf
+    if (ncfs_from_to(1) == 0) then
+        ncfs_from_to(1) = nconf_i
+        ncfs_from_to(2) = 1
+        ncfs_from_to(3) = nconf_i
+    end if
+    nconf = ncfs_from_to(1)
+    ncfs_from_to(3) = ncfs_from_to(3) + 1
+end subroutine reset_confs
 
 subroutine basic_init(use_cell,run_clusters,run_dyn,confined,nmol)
     implicit none

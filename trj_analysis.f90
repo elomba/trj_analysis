@@ -18,22 +18,79 @@ program trj_analysis
     !     - The code allows for selection of specific components in mixtures
     !   The input is provided as a set of namelist (see attached example) 
     !
-    !   Restrictions: Only orthogonal cells are allowed, particle numbers must remain constant all along
-    !                 the simulation
+    !   Restrictions: 
+    !                1. Only orthogonal cells are allowed
+    !                2. Particle numbers must remain constant all along the simulation
+    !                3. Molecules are analyzed in terms of their atoms, 
+    !                   so far no internal degrees of freedom taken into account
+    !                4. LAMMPS units must be "real" (unit conversion soon to be implemented)
+    !                   
     !
-    !   Programmed in NVIDIA CUDA Fortran
-    !
-    !   A. Diaz-Pozuelo & E. Lomba, Madrid/Santiago de Compostela, fall 2024 
-    !
+    ! 
     !   Important notice: in LAMMPS script the following computes must be included in the dump
-    !                     in order to compute potential energies and pressures
-    !             
+    !                     in order to compute potential energies and pressures            
     !       compute stress all stress/atom NULL
     !       compute ener all pe/atom
     !       dump trj1 all netcdf ${Ndump} run.nc  id type x y z vx vy vz c_stress[*] c_ener
     !    In the first INPUT namelist optional character variables "ener_name" and "press_name" refer to the
     !    names of the computes
     !
+    !    Usage: trj_analysis.exe input.nml (input file with sequence of namelists)
+    !
+    ! namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread, &
+    !       ncfs_from_to, rdf_sq_cl_dyn_sqw_conf, nqw, ener_name, press_name, 
+    !       potnbins, potengmargin
+    !       Name of log file, name of netcdf trajectory file, no. of dimensions (2,3), no. of species,
+    !       no. of CUDA threads (default 128), no. of configurations-start-end, modules to run 
+    !       (logical vars: RDF, structure factor, cluster analysis, dynamics, dynamic S(q,w),
+    !       no. of Q's for dynamic analysis, name of compute for potential energy/atom in LAMMPS,
+    !       name of stress/atom, no. of bins for energy histograms (def. 100), extra margins 
+    !       in energy histograms (def. 0))
+    ! namelist /INPUT_SP/ sp_types_selected, sp_labels, mat
+    !          IDs of selected species (if nsp<ntypes in trajectory), character labels, atomic mass
+    ! namelist /INPUT_RDF/ deltar, rcrdf, nrandom
+    !          grid in RDF calculation, cut-off for rdf (default half box size), no. os random origins 
+    !          for calculation of local number fluctuations
+    ! namelist /INPUT_SQ/ qmax, qmin, bsc
+    !          Max value of Q for S(Q), max value for full calculations (all Qs for 0<Q<=qmin), 
+    !          scattering lengths 
+    ! namelist /INPUT_CL/ rcl, dcl, jmin, minclsize, sigma
+    !          Geometric clustering distance, grid for cluster distribution, minimum cluster size for analysis,
+    !          Minimum cluster size to include in the trajectory of centers of mass, particle size
+    ! namelist /INPUT_CONF/ idir, pwall, pwallp
+    !          Direction of confinement (1,2,3->x,y,z), position of left wall, position of right wall
+    ! namelist /INPUT_DYN/ nbuffer, tmax
+    !           Number of buffers (time origins) for dynamic correlation analysis, maximum time for 
+    !           correlation functions (at tmax a window function is applied for FFTs), if omitted all
+    !           t values are used
+    ! namelist /INPUT_SQW/ qw, tmqw
+    !          values of Q to compute F(Q,t), Fs(Q,t) and S(Q,w),Ss(Q,w) maximum times for F(Q,t),
+    !          if omitted tmax is used
+    !
+    !    OUTPUT FILES:
+    !      - dyn.dat (msd, <v(t)v(0)>, Z(w))
+    !      - fkt.dat (F(Q_i,t) for nqw Qs)
+    !      - fskt.dat (F_self(Q_i,t) for nqw Qs)
+    !      - gmixsim.dat (g_ab(r), g_clcl(r) in cluster analysis on)
+    !      - sq.dat  S_NN(Q), (S_cc(Q) , S_11, S_12, S_22 in binary systems)
+    !      - sqcl.dat Cluster-cluster S(Q)
+    !      - sqmix.dat S_ii (i<=nsp)
+    !      - sqw.dat  (S(Q_i,w), S_self(Q_i,w) for nwq Qs)
+    !      - rhoprof.dat Average cluster density profile (only for finite clusters) 
+    !      - radii.dat Distribution of cluster gyration radii
+    !      - clustdistr.dat Distribution of cluster particle size
+    !      - distUcl_N.dat Distribution of cluster internal energies per particle
+    !      - distUcltot.dat Distribution of cluster internal energies (total)
+    !      - clusevol.dat , conf no., no. of clusters, % of particles in clusters
+    !      - centers.lammpstrj trajectory of clusters centers of mass (to be visualized with Ovito)
+    !                          Particle no. not constant along the trajectory !!
+    !
+    !########################################################
+    !   Programmed in NVIDIA CUDA Fortran
+    !
+    !   A. Diaz-Pozuelo & E. Lomba, Madrid/Santiago de Compostela, fall 2024 
+    !
+   
     use mod_precision
     use mod_common
     use mod_input
@@ -43,18 +100,17 @@ program trj_analysis
     use mod_clusters
     use mod_sq
     use mod_rdf
-   ! use mod_densprof
     use mod_log
     use mod_thermo
     use mod_dyn, only : dyn_init, dyn_clear, rtcorr, print_rtcor
     use mod_util, only : gpu_and_header, clean_memory, init_modules, reformat_input_conf, &
-                         basic_init, print_results
+                         basic_init, print_results, select_species, reset_confs
     use cudafor
     implicit none
 
     integer :: io = 0, ioerr, istat, ncid_in
     integer :: argc, ncstart, i
-    logical :: selectall = .false., clnfound = .true., first_configuration=.true. 
+    logical :: clnfound = .true., first_configuration=.true. 
     real :: t0 = 0, t1 = 0
     ! Command line arguments control
     argc = command_argument_count()
@@ -76,41 +132,28 @@ program trj_analysis
     ! Load namelist input file & init log system
     call read_input_file()
     call log_init()
-   
-    ! First load from netcdf input file. Load global attributes
+    !
+    ! Open netcdf trajectory file, get the file identificator ncid_in
     call check(nf90_open(path=trj_input_file, mode=NF90_WRITE, ncid=ncid_in), ioerr)
     if (ioerr .ne. 0) then
         stop("** UNRECOVERABLE ERROR: cannot open NetCDF trajectory file !")
     endif 
     !
+    ! First load from netcdf input file. Load global attributes of the simulation trajectory
     ! Read header and details of the NETCDF trajectory files: check consistency with input data
     !
     call read_nc_cfg(ncid_in, 1, io, io_log_file)
-    ! Set number of species from netcdf file or from selected species from namelist
-    if (nsp > ntypes) then 
-        print *, ' ERROR: number of species in input file is',nsp,' larger than that in netcdf file ',ntypes
-        STOP
-    else if (nsp == ntypes) Then
-        selectall = .true.
-        nmol = natoms
-    else if (nsp < ntypes) then 
-        allocate(wtypes(nsp))
-        wtypes = sp_types_selected        
-        call reset_nmol(nmol)
-    end if 
-    ! Number of different interactions
-    nit = nsp*(nsp + 1)/2
-    ! Set number of configurations to read from netcdf & from and to number of configurations
-    if (ncfs_from_to(1) == 0) then
-        ncfs_from_to(1) = nconf_i
-        ncfs_from_to(2) = 1
-        ncfs_from_to(3) = nconf_i
-    end if
-    nconf = ncfs_from_to(1)
-    ncfs_from_to(3) = ncfs_from_to(3) + 1
 
-    ! Modules to run
-    clnfound = .true.
+    ! Set number of species from netcdf file or from selected species from namelist
+    call select_species(nsp, ntypes, nmol, natoms)
+
+    ! Reset configurations to read: if first arg=0 all confs in file are read
+
+    call reset_confs(nconf_i,nconf)
+
+    ! Modules to run: check for dependencies 
+    !
+
     ! Radial ditribution function
     if (rdf_sq_cl_dyn_sqw_conf(1) == .true.) run_rdf = .true.
     run_sq = .false. 

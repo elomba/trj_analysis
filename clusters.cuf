@@ -203,7 +203,7 @@ contains
         end do
         ekclaver = ekclaver + ekincl
         ekinclsav = ekinclsav + ekincls
-        write (io_clusevol_file, '(i7,i4,f15.7)') iconf, cluster_id, 1.0 - (suma/natms)
+        write (io_clusevol_file, '(i7,i4,f15.7)') iconf, cluster_id, (suma/natms)*100
         if (iconf > 1) then
             deallocate (rclxyz)
             deallocate (rclxyzd)
@@ -395,7 +395,7 @@ contains
         ! Open output files
         open (newunit=io_centers_file, file=centers_filename)
         open (newunit=io_clusevol_file, file=clusevol_filename)
-
+        write (io_clusevol_file,"('# conf no. clusters % particles in cluster')")
     end subroutine clusters_init
 
 

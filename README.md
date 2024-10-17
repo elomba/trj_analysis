@@ -35,11 +35,71 @@ Trajectory analysis
     - Only orthogonal simulation cells
     - The number of particles MUST be constant (NpT simulations are allowed, but structure
       factors will be affected by minor errors due to changes in \Delta Q = 2\pi/L)
+    - Molecules are analyzed in terms of their atoms, so far no internal degrees of freedom 
+      taken into account
+    - LAMMPS units must be "real" (unit conversion soon to be implemented)
     - The mimimum dump information to process is 
-      `dump trj1 all netcdf ${Ndump} run.nc  id type x y z`      
+      `dump trj1 all netcdf ${Ndump} run.nc  id type x y z`   
 
+## Usageº  
+        trj_analysis.exe input.nml (input file with sequence of namelists)
 ## Input 
-The input is provided as a set of namelist directives (see attached example) 
+ 
+    !
+    ! namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread, &
+    !       ncfs_from_to, rdf_sq_cl_dyn_sqw_conf, nqw, ener_name, press_name, 
+    !       potnbins, potengmargin
+    !       Name of log file, name of netcdf trajectory file, no. of dimensions (2,3), no. of species,
+    !       no. of CUDA threads (default 128), no. of configurations-start-end, modules to run 
+    !       (logical vars: RDF, structure factor, cluster analysis, dynamics, dynamic S(q,w),
+    !       no. of Q's for dynamic analysis, name of compute for potential energy/atom in LAMMPS,
+    !       name of stress/atom, no. of bins for energy histograms (def. 100), extra margins 
+    !       in energy histograms (def. 0))
+    ! namelist /INPUT_SP/ sp_types_selected, sp_labels, mat
+    !          IDs of selected species (if nsp<ntypes in trajectory), character labels, atomic mass
+    
+    ! namelist /INPUT_RDF/ deltar, rcrdf, nrandom
+    !          grid in RDF calculation, cut-off for rdf (default half box size), no. os random origins 
+    !          for calculation of local number fluctuations
+    
+    ! namelist /INPUT_SQ/ qmax, qmin, bsc
+    !          Max value of Q for S(Q), max value for full calculations (all Qs for 0<Q<=qmin), 
+    !          scattering lengths 
+    
+    ! namelist /INPUT_CL/ rcl, dcl, jmin, minclsize, sigma
+    !          Geometric clustering distance, grid for cluster distribution, minimum cluster size for analysis,
+    !          Minimum cluster size to include in the trajectory of centers of mass, particle size
+    
+    ! namelist /INPUT_CONF/ idir, pwall, pwallp
+    !          Direction of confinement (1,2,3->x,y,z), position of left wall, position of right wall
+    
+    ! namelist /INPUT_DYN/ nbuffer, tmax
+    !           Number of buffers (time origins) for dynamic correlation analysis, maximum time for 
+    !           correlation functions (at tmax a window function is applied for FFTs), if omitted all
+    !           t values are used
+    
+    ! namelist /INPUT_SQW/ qw, tmqw
+    !          values of Q to compute F(Q,t), Fs(Q,t) and S(Q,w),Ss(Q,w) maximum times for F(Q,t),
+    !          if omitted tmax is used
+    !
+  ## OUTPUT FILES:
+    !      - dyn.dat (msd, <v(t)v(0)>, Z(w))
+    !      - fkt.dat (F(Q_i,t) for nqw Qs)
+    !      - fskt.dat (F_self(Q_i,t) for nqw Qs)
+    !      - gmixsim.dat (g_ab(r), g_clcl(r) in cluster analysis on)
+    !      - sq.dat  S_NN(Q), (S_cc(Q) , S_11, S_12, S_22 in binary systems)
+    !      - sqcl.dat Cluster-cluster S(Q)
+    !      - sqmix.dat S_ii (i<=nsp)
+    !      - sqw.dat  (S(Q_i,w), S_self(Q_i,w) for nwq Qs)
+    !      - rhoprof.dat Average cluster density profile (only for finite clusters) 
+    !      - radii.dat Distribution of cluster gyration radii
+    !      - clustdistr.dat Distribution of cluster particle size
+    !      - distUcl_N.dat Distribution of cluster internal energies per particle
+    !      - distUcltot.dat Distribution of cluster internal energies (total)
+    !      - clusevol.dat , conf no., no. of clusters, % of particles in clusters
+    !      - centers.lammpstrj trajectory of clusters centers of mass (to be visualized with
+    !         Ovito)
+    !         Particle no. not constant along the trajectory !!
 
 ## Installation
 A Makefile is included (-mno-avx512f can be removed from compilation options if AVX512 instruction set present in the CPU)
