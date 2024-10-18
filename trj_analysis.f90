@@ -104,13 +104,13 @@ program trj_analysis
     use mod_thermo
     use mod_dyn, only : dyn_init, dyn_clear, rtcorr, print_rtcor
     use mod_util, only : gpu_and_header, clean_memory, init_modules, reformat_input_conf, &
-                         basic_init, print_results, select_species, reset_confs
+                         basic_init, print_results, select_species, reset_confs, form_dependencies
     use cudafor
     implicit none
 
     integer :: io = 0, ioerr, istat, ncid_in
     integer :: argc, ncstart, i
-    logical :: clnfound = .true., first_configuration=.true. 
+    logical :: first_configuration=.true. 
     real :: t0 = 0, t1 = 0
     ! Command line arguments control
     argc = command_argument_count()
@@ -153,47 +153,15 @@ program trj_analysis
 
     ! Modules to run: check for dependencies 
     !
-
-    ! Radial ditribution function
-    if (rdf_sq_cl_dyn_sqw_conf(1) == .true.) run_rdf = .true.
-    run_sq = .false. 
-    ! Static structure factors
-    if (rdf_sq_cl_dyn_sqw_conf(2) == .true.) run_sq = .true.
-    ! Cluster analysis
-    if (rdf_sq_cl_dyn_sqw_conf(3) == .true.) then
-        !
-        ! Cluster analysis needs rdf's and s(q)'s to be computed
-        ! This is also modified in input.f90
-        !
-        run_clusters = .true.
-        run_rdf = .true.
-        run_sq = .true.
-        clnfound = .false.
-    end if
-    ! Dynamic correlations
-    if (rdf_sq_cl_dyn_sqw_conf(4) == .true.) run_dyn = .true. 
-   ! Deactivate use of cell lists if clusters not analysed 
-    if (clnfound) then
-        rcl = -1.
-        use_cell = .false.
-    endif
-    ! Activate analysis of dynamic structure factor 
-    if (rdf_sq_cl_dyn_sqw_conf(5) == .true.) then
-        run_sqw = .true.
-        run_dyn = .true.
-        run_sq = .true.
-    endif
-    ! Confined system (density profile analysis in the direction of confinement)
-    if (rdf_sq_cl_dyn_sqw_conf(6) == .true.) run_rdf = .true. 
-
+    call form_dependencies()
+    
     ! Init common variables & print outs
     call common_init(nmol, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)
-    
     ! Analysis begins from first configuration selected
     do i = 1, ncfs_from_to(1)
         ! In the first configuration basic initialization 
         if (first_configuration) call basic_init(use_cell,run_clusters,run_dyn,confined,nmol)
-        ! Read i configuration from netcdf input file
+        ! Read i-th configuration from netcdf input file
         call cpu_time(t0)
         ! Jumps configurations to be read: ncstart controls starting conf in netcdf file
         ncstart = ncfs_from_to(2) + (i - 1)*(ncfs_from_to(3) - ncfs_from_to(2))/ncfs_from_to(1)
@@ -226,16 +194,17 @@ program trj_analysis
         if (run_rdf) call RDFcomp(Nmol, i, nbcuda, nthread)
 
         ! Compute density profile along idir direction
-        if (confined) then
-            call profile_comp(nthread, ndim, idir, pwall, deltar)
-        end if
+        if (confined) call profile_comp(nthread, ndim, idir, pwall, deltar)
+        
         ! Compute SQ
         if (run_sq) call SQcalc()
-        !
+         
         ! Compute cluster properties
         if (run_clusters) call cluster_analysis(i)
+
         ! Compute potential energy
         if (run_thermo) call poteng(i, natoms)
+
         ! Compute pressure
         if (ex_stress) call stress_calc(i, ndim, natoms)
      
@@ -244,14 +213,13 @@ program trj_analysis
 
         ! Print periodic output
         call print_output(i)
+        ! For next iteration then ...
         first_configuration = .false.
     end do
 
     ! Normalize density profiles computed along the non-periodic dimension
-    if (confined) then
-        call normdenspr(nconf)
-    end if
-
+    if (confined) call normdenspr(nconf)
+        
     ! Programme printouts
     call print_results(run_sq,  run_rdf, run_dyn, run_clusters, run_thermo, &
                         ntype, nsp, lsmax, nmol, nqmin, rcl)

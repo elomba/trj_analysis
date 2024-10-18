@@ -1,14 +1,15 @@
 module mod_util
     use mod_common, only : shmsize, maxthread,  run_thermo, ex_stress, &
-                            printDevPropShort, common_clear, nit, ener_name, press_name
+                            printDevPropShort, common_clear, nit, ener_name, press_name, &
+                            run_sq, run_sqw, run_rdf, run_clusters, run_dyn
     use mod_densprof, only : prof_init, prof_clear
     use mod_sq, only : sq_init, printsq, sq_clear, sq_transfer_gpu_cpu
     use mod_rdf, only : rdf_init, printrdf, rdf_clear
     use mod_dyn, only : print_rtcor, dyn_clear, dyn_init
     use mod_log, only : log_clear, log_init, printPotEngCl, print_clusinfo
     use mod_clusters, only : clusters_clear, clusters_init, clusters_sq_init
-    use mod_input, only : input_clear, sp_types_selected, ncfs_from_to 
-    use mod_cells, only : cells_init_post_nc_read, cells_init_pre_nc_read, cells_clear
+    use mod_input, only : input_clear, sp_types_selected, ncfs_from_to, rdf_sq_cl_dyn_sqw_conf, rcl 
+    use mod_cells, only : cells_init_post_nc_read, cells_init_pre_nc_read, cells_clear, use_cell
     use mod_thermo, only : thermo_clear
     use mod_nc_conf, only : wtypes
     contains
@@ -93,6 +94,38 @@ subroutine basic_init(use_cell,run_clusters,run_dyn,confined,nmol)
     if (run_dyn) call dyn_init()
     if (confined) call prof_init()    
 end subroutine basic_init
+
+subroutine form_dependencies()
+    implicit none
+    ! Radial ditribution function
+    if (rdf_sq_cl_dyn_sqw_conf(1) == .true.) run_rdf = .true.
+    run_sq = .false. 
+    ! Static structure factors
+    if (rdf_sq_cl_dyn_sqw_conf(2) == .true.) run_sq = .true.
+    ! Cluster analysis
+    if (rdf_sq_cl_dyn_sqw_conf(3) == .true.) then
+        !
+        ! Cluster analysis needs rdf's and s(q)'s to be computed
+        ! This is also modified in input.f90
+        !
+        run_clusters = .true.
+        run_rdf = .true.
+        run_sq = .true.
+    else
+        ! Deactivate cells
+        use_cell = .false.
+    end if
+    ! Dynamic correlations
+    if (rdf_sq_cl_dyn_sqw_conf(4) == .true.) run_dyn = .true. 
+    ! Activate analysis of dynamic structure factor 
+    if (rdf_sq_cl_dyn_sqw_conf(5) == .true.) then
+        run_sqw = .true.
+        run_dyn = .true.
+        run_sq = .true.
+    endif
+    ! Confined system (density profile analysis in the direction of confinement)
+    if (rdf_sq_cl_dyn_sqw_conf(6) == .true.) run_rdf = .true. 
+end subroutine form_dependencies
 
 subroutine init_modules(use_cell,run_rdf,run_sq,run_clusters,nsp,nmol,nbcuda)
     implicit none
