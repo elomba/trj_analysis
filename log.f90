@@ -61,7 +61,7 @@ contains
             endif
          end if
          if (ex_stress) then
-            write (*, "(' ** Pressure =',f15.4,' bar, Avergage pressure=',f15.4' bar')") pressure, pressav/Iconf !kcal_a3_to_bar*pressure, kcal_a3_to_bar*pressav/Iconf
+            write (*, "(' ** Pressure =',f15.4,' bar, Average pressure=',f15.4' bar')") pressure, pressav/Iconf !kcal_a3_to_bar*pressure, kcal_a3_to_bar*pressav/Iconf
          endif
          ! Kinetic energy and temperature
          If (ex_vel) then

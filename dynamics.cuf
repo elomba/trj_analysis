@@ -198,6 +198,7 @@ subroutine print_rtcor()
    implicit none
    integer :: i, j
    real :: fconv=4.135
+   real :: sum_visc=0.0, pct, pct1
    r2tb(1:ndyn,1:nbuffer) = r2tb_d(1:ndyn,1:nbuffer)
    r2t(1:ndyn) = sum(r2tb(1:ndyn,1:nbuffer),DIM=2)
    if (ex_vel) then
@@ -238,7 +239,7 @@ subroutine print_rtcor()
    endif
    if (ex_stress) then
       open(56,file="viscor.dat")
-      write(56,"('#',2x,'t(ps)',9x,'P_off(t)')")
+      write(56,"('#',2x,'t(ps)',9x,'P_off(t)',7x,'eta_GK(t) (bar*ps))')")
    endif
    if (ex_vel) then
       write(55,"('#',2x,'t(ps)',9x,'C_r(t)',7x'C_v(t)',10x,'w(THz)',7x,'w(meV)',12x,'Z(w)')")
@@ -260,7 +261,18 @@ subroutine print_rtcor()
          write(55,"(f10.3,8f15.5)")t(i), r2t(i)
       endif
       if (ex_stress) then
-         write(56,"(f10.3,8f15.5)")t(i),sum(stcorr(i,1:nbuffer))/(3*nbuffer)
+         if (i==1) then
+            pct =  sum(stcorr(i,1:nbuffer))/(3*nbuffer*nmol)
+            write(56,"(f10.3,8f15.5)")t(i),pct,0.0
+         else 
+            pct1 = pct 
+            pct =  sum(stcorr(i,1:nbuffer))/(3*nbuffer*nmol) 
+            ! Integrate off-diagonal pressure tensor correlation (trapezoidal rule)
+            ! Use Green-Kubo relation eta_gk = (V/NkT)*\int_0^t<pxy(t')pxy(0)>dt' in (bar*s)
+            ! 
+            sum_visc = sum_visc + (pct+pct1)*(t(i)-t(i-1))/2 
+            write(56,"(f10.3,8f15.5)")t(i),pct,(volumen/temperature/c_nktv)*sum_visc
+         endif
       end if
       if (run_sqw) then
          write(65,"(f10.3,8f15.5)")t(i),fkt(1:nqw,i)
