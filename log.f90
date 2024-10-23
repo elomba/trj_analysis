@@ -19,8 +19,34 @@ contains
    end subroutine log_clear
 
    subroutine print_output(iconf)
+      integer, parameter :: nther=7
       integer, intent(in) :: iconf
-      real(myprec) :: pideal_i, pideal_av
+      logical, dimension(nther) :: mascara
+      character*15, dimension(nther) :: title =(/"     T(K)","KE (Kcal/mol)","PE Kcal/mol",&
+                  " Pressure (bar)","      Px(bar)","     Py(bar)","     Pz(bar)"/)
+      real(myprec) :: thermo_q(nther)
+      thermo_q(:) = 0
+      mascara(1) = ex_vel
+      mascara(2) = ex_vel
+      mascara(3) = run_thermo
+      mascara(4:4+ndim) = ex_stress
+      if (ex_vel) then
+          thermo_q(1) = temperature
+          thermo_q(2) = kelvintokcal*ekin*(aunit/tunit)**2/Rgas
+      endif
+      if (run_thermo) thermo_q(3) = epot
+      if (ex_stress) then
+         thermo_q(4) = pressure
+         thermo_q(5:4+ndim) = pxyz(1:ndim)
+      endif
+      if (sum(mascara)) then
+         if (iconf == 1) then
+            open(1000, file="thermo_run.dat")
+            print *, pack(title(1:nther),mascara) 
+            write(1000,"('#    Conf  ',16a15)")pack(title(1:nther),mascara)
+         endif
+         write(1000,"(i9,8f15.5)")iconf, pack(thermo_q(1:nther),mascara)
+      endif
       If (Mod(Iconf - 1, 5) .Eq. 0) Then
          call cpu_time(cpu1)
          Write (*, "(/' ** Working on MD step no. ',i8,' time =',f10.5,' ns, cpu time=',f15.2&

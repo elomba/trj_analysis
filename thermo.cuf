@@ -48,10 +48,13 @@ end subroutine thermo_kin
       real(kind=8) :: press_sum
       integer :: i
       press_sum=0
+      pxyz(:) = 0
       do i=1, natoms
+         pxyz(1:dim) = pxyz(1:dim) + stress(1:dim,i)
          Press_sum = press_sum + sum(stress(1:dim,i))
       enddo
       pressure = - press_sum/(dim*volumen)
+      pxyz(1:dim) = -pxyz(1:dim)/volumen
       pressav = pressav+pressure
    end subroutine stress_calc
 

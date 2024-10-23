@@ -51,7 +51,7 @@ module mod_common
    character :: fname99*18
    character, dimension(:), allocatable :: atoms*8
    character :: ener_name*12, press_name*12
-   real(myprec) :: epotperatom, epot,epotav, pressure, pressav
+   real(myprec) :: epotperatom, epot,epotav, pressure, pressav, pxyz(3)
    integer, allocatable, dimension(:) :: epotperatomhistomixcl, epothistomixcl
    integer(kind=2), allocatable, dimension(:) :: clusid
    integer(kind=2), device, allocatable, dimension(:) :: clusid_d

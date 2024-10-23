@@ -2,20 +2,20 @@ module mod_dyn
    use mod_precision
    use mod_common
    use cudafor
-   use mod_input 
+   use mod_input
    implicit none
    integer :: ndyn
    integer, parameter :: nbmax = 200, nblocks = 1
    real(myprec), device, allocatable, dimension(:,:,:) :: r0_d, rt_d, v0_d, fktb_d, fsktb_d
-   real(myprec), device, allocatable, dimension(:,:) :: r2tb_d, v2tb_d
+   real(myprec), device, allocatable, dimension(:,:) :: r2tb_d, v2tb_d, poff_d, stcorr_d, p0_d
    real(myprec), device, allocatable, dimension(:) :: qw_d
    integer (kind=2), device, allocatable, dimension(:,:) :: indqw_d
    real(myprec), allocatable, dimension(:,:,:) :: r0, v0, fktb, fsktb
-   real(myprec),  allocatable, dimension(:,:) :: r2tb, v2tb, fkt, fskt, sqw, ssqw
+   real(myprec),  allocatable, dimension(:,:) :: r2tb, v2tb, fkt, fskt, sqw, ssqw, stcorr
    real(myprec),  allocatable, dimension(:) :: t, r2t, v2t
    real(float), allocatable, dimension(:) :: w, ftv
-   real(float) :: sumvel=0 
-   contains
+   real(float) :: sumvel=0
+contains
 
    subroutine dyn_init()
       if (nbuffer > nbmax) then
@@ -37,6 +37,10 @@ module mod_dyn
          v2tb_d(:,:) = 0
          allocate(w(ndyn),ftv(ndyn))
       endif
+      if (ex_stress) then
+         allocate(poff_d(ndim,nmol),stcorr_d(ndyn,nbuffer),p0_d(ndim,nbuffer))
+         allocate(stcorr(ndyn,nbuffer))
+      endif
       if (run_sqw) then
          allocate(fktb(nqw,ndyn,nbuffer),fsktb(nqw,ndyn,nbuffer),fkt(nqw,ndyn),fskt(nqw,ndyn))
          allocate(sqw(ndyn,nqw),ssqw(ndyn,nqw))
@@ -44,7 +48,7 @@ module mod_dyn
          qw_d(:) = qw(:)
          fktb_d(:,:,:) = 0.0
          fsktb_d(:,:,:) = 0.0
-      endif 
+      endif
    end  subroutine dyn_init
 
    subroutine dyn_clear()
@@ -56,7 +60,11 @@ module mod_dyn
          deallocate(v0_d,v2tb_d)
          deallocate(w,ftv)
       endif
-      if (run_sqw) then 
+      if (ex_stress) then
+         deallocate(stcorr)
+         deallocate(stcorr_d,poff_d,p0_d)
+      end if
+      if (run_sqw) then
          deallocate(fkt,fktb,fskt,fsktb,sqw,ssqw)
          deallocate(fktb_d,fsktb_d)
       endif
@@ -70,9 +78,10 @@ module mod_dyn
       if (ex_vel) then
          v_d(1:ndim, 1:Nmol) = vel(1:ndim,1:Nmol)
       end if
+
       if (nmol/nblocks<1) then
          write(*,"('** Error: number of particles too small < ',i4)")nblocks
-      endif 
+      endif
       if (iconf <= nbuffer) then
          r0_d(1:ndim,1:nmol,iconf) = r_d(1:ndim,1:nmol)
          if (ex_vel) then
@@ -86,7 +95,11 @@ module mod_dyn
       if (ex_vel) then
          call vtcal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf)
       end if
-      if (iconf == 1 .and. run_sqw) then 
+      if (ex_stress) then
+         poff_d(1:ndim,1:nmol) = -stress(4:3+ndim,1:nmol)/volumen
+         call st_cal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf)
+      endif
+      if (iconf == 1 .and. run_sqw) then
          allocate(indqw_d(nqwmax,ndim))
          indqw_d(:,:) = indqw(:,:)
       endif
@@ -99,218 +112,256 @@ module mod_dyn
       tdyn = tdyn + time_gpu
    end subroutine rtcorr
 
- attributes(global) subroutine FqtnD(nqwmax, nqw, Nmol, dim, itype, ntype, bsc, fk, nsp, dq, dyn, iconf)
-        integer, intent(IN) :: itype(Nmol), ntype(nsp)
-        integer, value, intent(IN) :: Nmol, dim, nsp, nqwmax, dyn, iconf, nqw
-        integer :: ibuffer, indx
-	     real(kind=4), intent(IN) :: bsc(nsp)
-        real(kind=4) :: rkxyz, rkxyzt, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma
-        real(kind=8) :: sumcx, sumsx, sumcpx, sumspx, q2, bs
-        real(kind=8) :: sumcxt, sumsxt, sumcpxt, sumspxt, sumself
-        real(kind=4), intent(IN) :: fk(dim)
-        real(kind=4), value, intent(IN) ::  dq  
+   attributes(global) subroutine FqtnD(nqwmax, nqw, Nmol, dim, itype, ntype, bsc, fk, nsp, dq, dyn, iconf)
+   integer, intent(IN) :: itype(Nmol), ntype(nsp)
+   integer, value, intent(IN) :: Nmol, dim, nsp, nqwmax, dyn, iconf, nqw
+   integer :: ibuffer, indx
+   real(kind=4), intent(IN) :: bsc(nsp)
+   real(kind=4) :: rkxyz, rkxyzt, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma
+   real(kind=8) :: sumcx, sumsx, sumcpx, sumspx, q2, bs
+   real(kind=8) :: sumcxt, sumsxt, sumcpxt, sumspxt, sumself
+   real(kind=4), intent(IN) :: fk(dim)
+   real(kind=4), value, intent(IN) ::  dq
 
-        integer :: i, j, it, kx, ky, kz, ind, ia
-        logical :: found
-        if (blockidx%x<=nqwmax) then
-            ibuffer = threadidx%x
-            indx = iconf-ibuffer+1
-   ! Check origin and final configuration of each averaging buffer 
-            if (iconf<i.or. indx>dyn) return
-            kx = indqw_d(blockidx%x,1)
-            ky = indqw_d(blockidx%x,2)
-            fk1 = fk(1)
-            fk2 = fk(2)
-            kf1 = kx*fk1
-            kf2 = ky*fk2
-            if (dim==3) then
-               kz = indqw_d(blockidx%x,3)
-               fk3 = fk(3)
-               kf3 = kz*fk3
-               q2 = kf1*kf1 + kf2*kf2 + kf3*kf3
-            else
-               q2 = kf1*kf1 + kf2*kf2 
-            endif
-            sumcx = 0
-            sumcxt = 0
-            sumsx = 0
-            sumsxt = 0
-            sumself = 0
-            q = sqrt(q2)
-            ind = 1
-            found = .false.
-            do while (ind<=nqw.and. .not. found)
-               if (qw_d(ind)-dq/2<q .and. qw_d(ind)+dq/2>q) then
-                  found = .true.
-               else
-                  ind = ind+1
-               endif
-            enddo
-            i = 0
-            do j = 1, nsp
-               sumcpx = 0
-               sumspx = 0
-               sumcpxt = 0
-               sumspxt = 0
-    		      bs = bsc(j)
-               do it = 1, ntype(j)
-                  i = i + 1
-                  if (dim==3) then
-                     rkxyz = r0_d(3, i,ibuffer)*kf3+r0_d(2, i,ibuffer)*kf2+r0_d(1, i,ibuffer)*kf1
-                     rkxyzt = r_d(3, i)*kf3+r_d(2, i)*kf2+r_d(1, i)*kf1
-                  else
-                     rkxyz = r0_d(2, i,ibuffer)*kf2+r0_d(1, i,ibuffer)*kf1
-                     rkxyzt = r_d(2, i)*kf2+r_d(1, i)*kf1
-                  endif
-                  sumcpx = sumcpx + __cosf(rkxyz)
-                  sumspx = sumspx + __sinf(rkxyz)
-                  sumcpxt = sumcpxt + __cosf(rkxyzt)
-                  sumspxt = sumspxt + __sinf(rkxyzt)
-                  sumself = sumself + __cosf(rkxyzt-rkxyz)
-               end do
-               sumcx = sumcx + bs*sumcpx
-               sumcxt = sumcxt + bs*sumcpxt
-               sumsx = sumsx + bs*sumspx
-               sumsxt = sumsxt + bs*sumspxt
-            end do
-            tsum = (sumcx*sumcxt + sumsx*sumsxt)
-            ia = atomicadd(fktb_d(ind,indx,ibuffer), tsum)
-            ia = atomicadd(fsktb_d(ind,indx,ibuffer), real(sumself,kind=4))
-         endif
-    end subroutine FqtnD
-
-
-   subroutine print_rtcor()
-      use fftw3
-      implicit none
-      integer :: i, j
-      real :: fconv=4.135
-      r2tb(1:ndyn,1:nbuffer) = r2tb_d(1:ndyn,1:nbuffer)
-      r2t(1:ndyn) = sum(r2tb(1:ndyn,1:nbuffer),DIM=2)
-      if (ex_vel) then
-         v2tb(1:ndyn,1:nbuffer) = v2tb_d(1:ndyn,1:nbuffer)
-         v2t(1:ndyn) = sum(v2tb(1:ndyn,1:nbuffer),DIM=2)
-      end if 
-      if (run_sqw) then 
-         fkt(1:nqw,1:ndyn) = sum(fktb(1:nqw,1:ndyn,1:nbuffer),DIM=3) 
-         fskt(1:nqw,1:ndyn) = sum(fsktb(1:nqw,1:ndyn,1:nbuffer),DIM=3) 
+   integer :: i, j, it, kx, ky, kz, ind, ia
+   logical :: found
+   if (blockidx%x<=nqwmax) then
+      ibuffer = threadidx%x
+      indx = iconf-ibuffer+1
+      ! Check origin and final configuration of each averaging buffer
+      if (iconf<i.or. indx>dyn) return
+      kx = indqw_d(blockidx%x,1)
+      ky = indqw_d(blockidx%x,2)
+      fk1 = fk(1)
+      fk2 = fk(2)
+      kf1 = kx*fk1
+      kf2 = ky*fk2
+      if (dim==3) then
+         kz = indqw_d(blockidx%x,3)
+         fk3 = fk(3)
+         kf3 = kz*fk3
+         q2 = kf1*kf1 + kf2*kf2 + kf3*kf3
+      else
+         q2 = kf1*kf1 + kf2*kf2
       endif
-      t(1:ndyn) = t(1:ndyn)-t(1)
-      r2t(:) = r2t(:)/nbuffer
-      if (ex_vel) then
-         v2t(:) = v2t(:)/nbuffer
-         call fftw1d(v2t,ftv,w,ndyn,t(2)-t(1),tmax)
-      end if 
-      if (run_sqw) then
+      sumcx = 0
+      sumcxt = 0
+      sumsx = 0
+      sumsxt = 0
+      sumself = 0
+      q = sqrt(q2)
+      ind = 1
+      found = .false.
+      do while (ind<=nqw.and. .not. found)
+         if (qw_d(ind)-dq/2<q .and. qw_d(ind)+dq/2>q) then
+            found = .true.
+         else
+            ind = ind+1
+         endif
+      enddo
+      i = 0
+      do j = 1, nsp
+         sumcpx = 0
+         sumspx = 0
+         sumcpxt = 0
+         sumspxt = 0
+         bs = bsc(j)
+         do it = 1, ntype(j)
+            i = i + 1
+            if (dim==3) then
+               rkxyz = r0_d(3, i,ibuffer)*kf3+r0_d(2, i,ibuffer)*kf2+r0_d(1, i,ibuffer)*kf1
+               rkxyzt = r_d(3, i)*kf3+r_d(2, i)*kf2+r_d(1, i)*kf1
+            else
+               rkxyz = r0_d(2, i,ibuffer)*kf2+r0_d(1, i,ibuffer)*kf1
+               rkxyzt = r_d(2, i)*kf2+r_d(1, i)*kf1
+            endif
+            sumcpx = sumcpx + __cosf(rkxyz)
+            sumspx = sumspx + __sinf(rkxyz)
+            sumcpxt = sumcpxt + __cosf(rkxyzt)
+            sumspxt = sumspxt + __sinf(rkxyzt)
+            sumself = sumself + __cosf(rkxyzt-rkxyz)
+         end do
+         sumcx = sumcx + bs*sumcpx
+         sumcxt = sumcxt + bs*sumcpxt
+         sumsx = sumsx + bs*sumspx
+         sumsxt = sumsxt + bs*sumspxt
+      end do
+      tsum = (sumcx*sumcxt + sumsx*sumsxt)
+      ia = atomicadd(fktb_d(ind,indx,ibuffer), tsum)
+      ia = atomicadd(fsktb_d(ind,indx,ibuffer), real(sumself,kind=4))
+   endif
+end subroutine FqtnD
+
+
+subroutine print_rtcor()
+   use fftw3
+   implicit none
+   integer :: i, j
+   real :: fconv=4.135
+   r2tb(1:ndyn,1:nbuffer) = r2tb_d(1:ndyn,1:nbuffer)
+   r2t(1:ndyn) = sum(r2tb(1:ndyn,1:nbuffer),DIM=2)
+   if (ex_vel) then
+      v2tb(1:ndyn,1:nbuffer) = v2tb_d(1:ndyn,1:nbuffer)
+      v2t(1:ndyn) = sum(v2tb(1:ndyn,1:nbuffer),DIM=2)
+   end if
+   if (ex_stress) then
+      stcorr(1:ndyn,1:nbuffer) = stcorr_d(1:ndyn,1:nbuffer)
+   end if
+   if (run_sqw) then
+      fkt(1:nqw,1:ndyn) = sum(fktb(1:nqw,1:ndyn,1:nbuffer),DIM=3)
+      fskt(1:nqw,1:ndyn) = sum(fsktb(1:nqw,1:ndyn,1:nbuffer),DIM=3)
+   endif
+   t(1:ndyn) = t(1:ndyn)-t(1)
+   r2t(:) = r2t(:)/nbuffer
+   if (ex_vel) then
+      v2t(:) = v2t(:)/nbuffer
+      call fftw1d(v2t,ftv,w,ndyn,t(2)-t(1),tmax)
+   end if
+   if (run_sqw) then
       !
       ! set q-dependent time window for F(q,t) transforms to tmx
-         if (maxval(tmqw(:))<1.0e-6) then
-            tmqw(:) = tmax
-         endif
+      if (maxval(tmqw(:))<1.0e-6) then
+         tmqw(:) = tmax
       endif
-      open(55,file="dyn.dat")
-      if (run_sqw) then 
-         open(65,file='fkt.dat')
-         open(66,file='fskt.dat')
-         open(67,file='sqw.dat')
-         do i=1, nqw
-            fkt(i,1:ndyn)=fkt(i,1:ndyn)/(Nmol*nbuffer*nw(i))
-            fskt(i,1:ndyn)=fskt(i,1:ndyn)/(Nmol*nbuffer*nw(i))
-            call fftw1d(fkt(i,1:ndyn),sqw(1:ndyn,i),w,ndyn,t(2)-t(1),tmax)
-            call fftw1d(fskt(i,1:ndyn),ssqw(1:ndyn,i),w,ndyn,t(2)-t(1),tmax)
-         enddo
-      endif
+   endif
+   open(55,file="dyn.dat")
+   if (run_sqw) then
+      open(65,file='fkt.dat')
+      open(66,file='fskt.dat')
+      open(67,file='sqw.dat')
+      do i=1, nqw
+         fkt(i,1:ndyn)=fkt(i,1:ndyn)/(Nmol*nbuffer*nw(i))
+         fskt(i,1:ndyn)=fskt(i,1:ndyn)/(Nmol*nbuffer*nw(i))
+         call fftw1d(fkt(i,1:ndyn),sqw(1:ndyn,i),w,ndyn,t(2)-t(1),tmax)
+         call fftw1d(fskt(i,1:ndyn),ssqw(1:ndyn,i),w,ndyn,t(2)-t(1),tmax)
+      enddo
+   endif
+   if (ex_stress) then
+      open(56,file="viscor.dat")
+      write(56,"('#',2x,'t(ps)',9x,'P_off(t)')")
+   endif
+   if (ex_vel) then
+      write(55,"('#',2x,'t(ps)',9x,'C_r(t)',7x'C_v(t)',10x,'w(THz)',7x,'w(meV)',12x,'Z(w)')")
+   else
+      write(55,"('#',2x,'t(ps)',9x,'C_r(t)')")
+   endif
+   if (run_sqw) then
+      write(65,'("#",2x,"t(ps)",9x,8("F(",f6.4,",t)",4x:))')qw(1:nqw)
+      write(66,'("#",2x,"t(ps)",9x,8("Fs(",f6.4,",t)",4x:))')qw(1:nqw)
+      write(67,"('#',2x,'w(THz)',7x,'w(meV)',5x,8('S(',f6.4,',w)    Ss(',f6.4,',w)',4x:))')")(qw(j),qw(j),j=1,nqw)
+   endif
+   do i = 1, Nconf - nbuffer
       if (ex_vel) then
-          write(55,"('#',2x,'t(ps)',9x,'C_r(t)',7x'C_v(t)',10x,'w(THz)',7x,'w(meV)',12x,'Z(w)')")
+         !
+         ! transform from w(wavenumber) to f (frequency) in THz and meV
+         !
+         write(55,"(f10.3,8f15.5)")t(i), r2t(i),v2t(i),w(i)/(2*pi),fconv*w(i)/(2*pi),ftv(i)
       else
-         write(55,"('#',2x,'t(ps)',9x,'C_r(t)')")
+         write(55,"(f10.3,8f15.5)")t(i), r2t(i)
       endif
-      if (run_sqw) then 
-         write(65,'("#",2x,"t(ps)",9x,8("F(",f6.4,",t)",4x:))')qw(1:nqw)
-         write(66,'("#",2x,"t(ps)",9x,8("Fs(",f6.4,",t)",4x:))')qw(1:nqw)
-         write(67,"('#',2x,'w(THz)',7x,'w(meV)',5x,8('S(',f6.4,',w)    Ss(',f6.4,',w)',4x:))')")(qw(j),qw(j),j=1,nqw)
+      if (ex_stress) then
+         write(56,"(f10.3,8f15.5)")t(i),sum(stcorr(i,1:nbuffer))/(3*nbuffer)
+      end if
+      if (run_sqw) then
+         write(65,"(f10.3,8f15.5)")t(i),fkt(1:nqw,i)
+         write(66,"(f10.3,8f15.5)")t(i),fskt(1:nqw,i)
+         write(67,"(2f10.3,8f15.5)")w(i)/(2*pi),fconv*w(i)/(2*pi),(sqw(i,j),ssqw(i,j),j=1,nqw)
       endif
-      do i = 1, Nconf - nbuffer
-         if (ex_vel) then
-            !
-            ! transform from w(wavenumber) to f (frequency) in THz and meV
-            !
-             write(55,"(f10.3,8f15.5)")t(i), r2t(i),v2t(i),w(i)/(2*pi),fconv*w(i)/(2*pi),ftv(i)
-         else
-            write(55,"(f10.3,8f15.5)")t(i), r2t(i)
-         endif 
-         if (run_sqw) then 
-            write(65,"(f10.3,8f15.5)")t(i),fkt(1:nqw,i)
-            write(66,"(f10.3,8f15.5)")t(i),fskt(1:nqw,i)
-            write(67,"(2f10.3,8f15.5)")w(i)/(2*pi),fconv*w(i)/(2*pi),(sqw(i,j),ssqw(i,j),j=1,nqw)
-         endif
-      end do
-      close(55)
-      close(65)
-      close(66)
-      close(67)
-   end subroutine print_rtcor
+   end do
+   close(55)
+   close(65)
+   close(66)
+   close(67)
+end subroutine print_rtcor
 
 
 
-   attributes(global) subroutine vtcal(dim,mol,buffer,dyn,iconf)
-   integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf
-   real(double) :: suma8
-   real :: sumf 
-   integer :: i, j, k, npsize, nprest, ia, indx 
-   i = threadidx%x
-   indx = iconf-i+1
-   ! Check origin and final configuration of each averaging buffer 
-   if (iconf<i.or. indx>dyn) return
-   npsize = mol/nblocks
-   nprest = mod(mol,nblocks)
-   suma8 = 0.0d0
-   if (iconf>=i) then
-      do j = (blockidx%x - 1)*npsize+1, blockidx%x*npsize
-         suma8 = dot_product(v_d(1:dim,j),v0_d(1:dim,j,i)) + suma8 
-      end do
-      do j = blockidx%x*npsize+1, blockidx%x*npsize+nprest
-         suma8 = dot_product(v_d(1:dim,j),v0_d(1:dim,j,i)) + suma8 
-      end do
-      sumf = suma8/mol
-      ia = atomicadd(v2tb_d(indx,i),sumf)
-   endif 
+attributes(global) subroutine vtcal(dim,mol,buffer,dyn,iconf)
+integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf
+real(double) :: suma8
+real :: sumf
+integer :: i, j, k, npsize, nprest, ia, indx
+i = threadidx%x
+indx = iconf-i+1
+ ! Check origin and final configuration of each averaging buffer
+if (iconf<i.or. indx>dyn) return
+npsize = mol/nblocks
+nprest = mod(mol,nblocks)
+suma8 = 0.0d0
+if (iconf>=i) then
+   do j = (blockidx%x - 1)*npsize+1, blockidx%x*npsize
+      suma8 = dot_product(v_d(1:dim,j),v0_d(1:dim,j,i)) + suma8
+   end do
+   do j = blockidx%x*npsize+1, blockidx%x*npsize+nprest
+      suma8 = dot_product(v_d(1:dim,j),v0_d(1:dim,j,i)) + suma8
+   end do
+   sumf = suma8/mol
+   ia = atomicadd(v2tb_d(indx,i),sumf)
+endif
 end subroutine vtcal
-   
+
+attributes(global) subroutine st_cal(dim,mol,buffer,dyn,iconf)
+integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf
+real :: suma
+real(double) :: sumax, sumay, sumaz
+integer :: i, j, k, npsize, nprest, ia, indx
+i = threadidx%x
+indx = iconf -i + 1
+ ! Check origin and final configuration of each averaging buffer
+if (iconf<i .or. indx>dyn) return
+npsize = mol/nblocks
+nprest = mod(mol,nblocks)
+sumax = sum(poff_d(1,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
+sumay = sum(poff_d(2,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
+if(dim==3) sumaz = sum(poff_d(3,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
+if (nprest>0) then
+   sumax = sumax + sum(poff_d(1,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
+   sumay = sumay + sum(poff_d(2,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
+   if(dim==3) sumaz = sumaz + sum(poff_d(3,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
+end if
+if (i==iconf) then
+   p0_d(1,i) = sumax
+   p0_d(2,i) = sumay
+   if (dim==3) p0_d(3,i) = sumaz
+end if
+suma = sumax*p0_d(1,i)+sumay*p0_d(2,i)
+if (dim==3) suma = suma + sumaz*p0_d(3,i)
+ia = atomicadd(stcorr_d(indx,i),suma)
+end subroutine st_cal
 
 
-   attributes(global) subroutine rtcal(dim,mol,buffer,dyn,iconf)
-   integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf
-   real :: rv(3), suma
-   real(double) :: suma8
-   integer :: i, j, k, npsize, nprest, ia, indx 
-   i = threadidx%x
-   indx = iconf -i + 1
-   ! Check origin and final configuration of each averaging buffer 
-   if (iconf<i .or. indx>dyn) return
+attributes(global) subroutine rtcal(dim,mol,buffer,dyn,iconf)
+integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf
+real :: rv(3), suma
+real(double) :: suma8
+integer :: i, j, k, npsize, nprest, ia, indx
+i = threadidx%x
+indx = iconf -i + 1
+ ! Check origin and final configuration of each averaging buffer
+if (iconf<i .or. indx>dyn) return
+suma8 = 0
+npsize = mol/nblocks
+nprest = mod(mol,nblocks)
+if (i==iconf) then
+   rt_d(1:dim,1:mol,i) = r_d(1:dim,1:mol)
+end if
+if (iconf>i) then
+   ! Unwrap coordinates
+   do k = 1, dim
+      rt_d(k,1:mol,i)= r_d(k,1:mol) +sidel_d(k)&
+      & *nint((rt_d(k,1:mol,i)-r_d(k,1:mol))/sidel_d(k))
+   end do
    suma8 = 0
-   npsize = mol/nblocks
-   nprest = mod(mol,nblocks)
-   if (i==iconf) then
-      rt_d(1:dim,1:mol,i) = r_d(1:dim,1:mol)
-   end if
-   if (iconf>i) then
-      ! Unwrap coordinates
-      do k = 1, dim
-         rt_d(k,1:mol,i)= r_d(k,1:mol) +sidel_d(k)&
-                          & *nint((rt_d(k,1:mol,i)-r_d(k,1:mol))/sidel_d(k))
-      end do
-      suma8 = 0
-      do j = (blockidx%x - 1)*npsize+1, blockidx%x*npsize
-         rv(1:dim) = rt_d(1:dim,j,i)-r0_d(1:dim,j,i)
-         suma8 = dot_product(rv,rv) + suma8 
-      end do
-      do j = blockidx%x*npsize+1, blockidx%x*npsize+nprest
-         rv(1:dim) = rt_d(1:dim,j,i)-r0_d(1:dim,j,i)
-         suma8 = dot_product(rv,rv)  + suma8
-      end do
-      suma = suma8/mol 
-      ia = atomicadd(r2tb_d(indx,i),suma)
-   endif 
+   do j = (blockidx%x - 1)*npsize+1, blockidx%x*npsize
+      rv(1:dim) = rt_d(1:dim,j,i)-r0_d(1:dim,j,i)
+      suma8 = dot_product(rv,rv) + suma8
+   end do
+   do j = blockidx%x*npsize+1, blockidx%x*npsize+nprest
+      rv(1:dim) = rt_d(1:dim,j,i)-r0_d(1:dim,j,i)
+      suma8 = dot_product(rv,rv)  + suma8
+   end do
+   suma = suma8/mol
+   ia = atomicadd(r2tb_d(indx,i),suma)
+endif
 end subroutine rtcal
 end module mod_dyn
