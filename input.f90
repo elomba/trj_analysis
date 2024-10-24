@@ -5,7 +5,7 @@ module mod_input
    integer, allocatable, dimension(:) :: sp_types_selected, nw
    integer, dimension(3) :: ncfs_from_to
    character(len=2), allocatable, dimension(:) :: sp_labels
-   integer :: nthread, ndim, jmin, minclsize, idir, nsp, nbuffer, potnbins=100, nqw=0
+   integer :: nthread, ndim, jmin, minclsize, idir, nsp, nbuffer, potnbins=100, nqw=0, jump=10
    logical :: use_cell = .true.
    logical, dimension(6) :: rdf_sq_cl_dyn_sqw_conf
    real(myprec) :: deltar, rcl=-1.0, dcl, qmin, qmax, sigma, pwall, pwallp, rcrdf, tmax=100.0, potengmargin=0.0
@@ -18,7 +18,7 @@ module mod_input
    namelist /INPUT_SQ/ qmax, qmin, bsc
    namelist /INPUT_CL/ rcl, dcl, jmin, minclsize, sigma
    namelist /INPUT_CONF/ idir, pwall, pwallp
-   namelist /INPUT_DYN/ nbuffer, tmax
+   namelist /INPUT_DYN/ nbuffer, tmax, jump
    namelist /INPUT_SQW/ qw, tmqw
 contains
 

@@ -42,7 +42,6 @@ contains
       if (sum(mascara)) then
          if (iconf == 1) then
             open(1000, file="thermo_run.dat")
-            print *, pack(title(1:nther),mascara) 
             write(1000,"('#    Conf  ',16a15)")pack(title(1:nther),mascara)
          endif
          write(1000,"(i9,8f15.5)")iconf, pack(thermo_q(1:nther),mascara)
