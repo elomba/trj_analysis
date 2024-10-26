@@ -72,22 +72,29 @@ contains
         !
         implicit none
         integer, intent(IN) :: Nmol, Iconf, nbcuda, nthread
-        integer :: istart, i, ind, k, j, l, istat=0
+        integer :: istart, i, ind, k, j, l, istat=0, ierrSync
         real :: time_gpu, suma
+        type(dim3) :: bloques, hilos
         histomix_d(:, :) = 0
-        gii_d(:) = 0
-        g2ii_d(:) = 0
+        if (nrandom>0) then
+            gii_d(:) = 0
+            g2ii_d(:) = 0
+        endif
         !
         ! Note the increase in the number of threads to optimize the use of shared atomics
         ! Important : the third parameter in the kernel call is the size of dynamically allocated shared
         !             memory (assumed sized arrays for the shared histogram)
         !
         istat = cudaEventRecord(startEvent, 0)
+
         if (ndim == 3) then
-            call rdf_sh<<<nbcuda/8 + 1, 8*nthread, lsmax*nit*4>>>(r_d, Nmol, ndim, histomix_d, nit&
-                 &, nsp, nbcuda*lsmax, lsmax, itype_d, side2, sidel_d, deltar)
+            bloques = dim3(nbcuda/8+1,1,1)
+            hilos = dim3(8*nthread,1,1)
+            call rdf_sh<<<nbcuda/8 + 1, 8*nthread, lsmax*nit*4>>>(Nmol, ndim, nit&
+                 &, nsp, nbcuda*lsmax, lsmax, side2, sidel_d, deltar)
             if (nrandom>0) call s2D3_sh<<<nrandom,nthread,(lsmax+1)*4>>>(r_d, Nmol, ndim, gii_d, g2ii_d, lsmax &
             &, side2, sidel_d, deltar )
+        
         else
             call rdf2_sh<<<nbcuda/8 + 1, 8*nthread, lsmax*nit*4>>>(r_d, Nmol, ndim, histomix_d, nit&
                  &, nsp, nbcuda*lsmax, lsmax, itype_d, side2, sidel_d, deltar)
@@ -95,6 +102,8 @@ contains
             &, side2, sidel_d, deltar )
         end if
         time_gpu = gptime(stopEvent, startEvent)
+        call printcudaerror("RDF")
+
         trdf = trdf + time_gpu
 
         ! Block histograms back from device to host
@@ -105,12 +114,11 @@ contains
             gi(:) = gi(:)+gii(:)
             g2i(:) = g2i(:)+g2ii(:)
         endif
-        !
-        ! Gather histograms from each block
-        !
+        
+!        Gather histograms from each block
+        
         do i = 0, nbcuda - 1
             istart = i*lsmax
-     !       gi(0:lsmax-1) = gi(0:lsmax-1) + real(gii(istart:istart+lsmax-1))
             ind = 1
             do k = 1, nsp
                 do l = k, nsp
@@ -194,41 +202,38 @@ contains
         end do
     end subroutine rdfclcl2
 
-    attributes(global) subroutine rdf_sh(r, Nmol, dim, histomix, nit, nsp, hdim, lsmax, itype&
-    &, side2, sidel, deltar )
+    attributes(global) subroutine rdf_sh(Nmol, dim, nit, nsp, hdim, lsmax, &
+    &  side2, sidel, deltar )
        use curand_device
         !
         ! Mossively parallel rdf calculation using shared memory
         !
         integer, value, intent(IN) :: Nmol, dim, nit, lsmax, hdim, nsp
-        integer, intent(IN) :: itype(Nmol)
         integer i, j, ind, ia, fact, iti, itj, istart, ij, ix
         real ::  rr2, rr, xi, yi, zi, xd, yd, zd, xrd1, xrd2, xrd3
         real, dimension(3) :: rv
         real, value, intent(IN) :: side2, deltar
         real, intent(IN) :: sidel(3)
-        real, dimension(dim, Nmol), intent(IN) :: r
-        integer, intent(INOUT) :: histomix(hdim, nit)
         ! Assumed size histogram (memory size must be assigned in the kernel call)
         integer, shared :: histomix_s(lsmax, nit)
         i = (blockidx%x - 1)*blockdim%x + threadidx%x
         histomix_s(:, :) = 0
       
         if (i <= Nmol) then
-            iti = itype(i)
-            xi = r(1, i)
-            yi = r(2, i)
-            zi = r(3, i)
+            iti = itype_d(i)
+            xi = r_d(1, i)
+            yi = r_d(2, i)
+            zi = r_d(3, i)
             Do j = i + 1, Nmol
-                xd = r(1, j) - xi
-                yd = r(2, j) - yi
-                zd = r(3, j) - zi
+                xd = r_d(1, j) - xi
+                yd = r_d(2, j) - yi
+                zd = r_d(3, j) - zi
                 xd = xd - sidel(1)*nint(xd/sidel(1))
                 yd = yd - sidel(2)*nint(yd/sidel(2))
                 zd = zd - sidel(3)*nint(zd/sidel(3))
                 rr2 = xd*xd + yd*yd + zd*zd
                 If (rr2 .Lt. side2) Then
-                    itj = itype(j)
+                    itj = itype_d(j)
                     rr = __fsqrt_rn(rr2)
                     ind = Nint(rr/deltar)
                     !
@@ -236,7 +241,6 @@ contains
                     !
                     ij = ind_ij(iti, itj, nsp)
                     ia = atomicadd(histomix_s(ind, ij), 1)
-                    !   if (iti /= itj) ia = atomicadd(histomix_s(ind,ij),1)
                 end if
             End do
             call syncthreads()
@@ -246,9 +250,7 @@ contains
                 ! Store each block's shared memory histogram on different positions
                 ! in global memory
                 !
-            !    print *, istart, istart+lsmax-1, hdim
-         !       gii(istart:istart + lsmax-1) = gi_s(0:lsmax-1) + gii(istart:istart + lsmax-1)
-                histomix(istart + 1:istart + lsmax, :) = histomix_s(1:lsmax, :) + histomix(istart + 1:istart + lsmax, :)
+                histomix_d(istart + 1:istart + lsmax, :) = histomix_s(1:lsmax, :) + histomix_d(istart + 1:istart + lsmax, :)
             end if
         end if
 

@@ -41,7 +41,7 @@ Trajectory analysis
     - The mimimum dump information to process is 
       `dump trj1 all netcdf ${Ndump} run.nc  id type x y z`   
 
-## Usageº  
+## Usage   
         trj_analysis.exe input.nml (input file with sequence of namelists)
 ## Input 
  

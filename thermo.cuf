@@ -86,7 +86,6 @@ end subroutine thermo_kin
             if (cluster(c)%potengperatom > epotperatomcl_max) epotperatomcl_max = cluster(c)%potengperatom
          end if
       end do
-      print *, epotcl_max, epotcl_min  
       epotcl_max = epotcl_max + potengmargin * abs(epotcl_max - epotcl_min)
       epotcl_min = epotcl_min - potengmargin * abs(epotcl_max - epotcl_min)
       epotperatomcl_max = epotperatomcl_max + potengmargin * abs(epotperatomcl_max - epotperatomcl_min)

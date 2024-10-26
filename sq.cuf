@@ -9,7 +9,7 @@ contains
 
     subroutine SQcalc()
         implicit none
-        integer :: istat
+        integer :: istat, ierrSync
         real :: time_gpu
         !
         ! Sample all 3D vectors for q<qmin and
@@ -26,6 +26,9 @@ contains
                 call sqfact2<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d,&
                      & sqf_d, sqfp_d, nsp, nqmax, nqmin + 1)
             end if
+            ierrSync = cudaGetLastError()
+            if (ierrSync /= cudaSuccess) write(*,*) &
+               "SQ kernel error:", cudaGetErrorString(ierrSync)
         else
             !
             ! for very Uniform fluids and large no. of configurations

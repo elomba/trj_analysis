@@ -118,6 +118,15 @@ module mod_common
 
 contains
 
+   subroutine printcudaerror(routine)
+      use cudafor
+      character(*) :: routine
+      integer :: ierrsync
+      ierrSync = cudaGetLastError()
+      if (ierrSync /= cudaSuccess) write(*,*) &
+               trim(routine)," kernel error:", cudaGetErrorString(ierrSync)
+   end subroutine printcudaerror
+
    subroutine printDeviceProperties(prop, num)
       use cudafor
       type(cudadeviceprop) :: prop

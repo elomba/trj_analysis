@@ -46,6 +46,7 @@ contains
          endif
          write(1000,"(i9,8f15.5)")iconf, pack(thermo_q(1:nther),mascara)
       endif
+
       If (Mod(Iconf - 1, 5) .Eq. 0) Then
          call cpu_time(cpu1)
          Write (*, "(/' ** Working on MD step no. ',i8,' time =',f10.5,' ns, cpu time=',f15.2&

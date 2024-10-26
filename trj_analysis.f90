@@ -16,6 +16,7 @@ program trj_analysis
     !     - Stress tensor (pressure)  (if compute stress/atom pressent in the trajectory file)
     !       LAMMPS table file with RSQ tabulation -IMPORTANT!!-)
     !     - The code allows for selection of specific components in mixtures
+    !
     !   The input is provided as a set of namelist (see attached example) 
     !
     !   Restrictions: 
@@ -71,6 +72,7 @@ program trj_analysis
     !      - dyn.dat (msd, <v(t)v(0)>, Z(w))
     !      - fkt.dat (F(Q_i,t) for nqw Qs)
     !      - fskt.dat (F_self(Q_i,t) for nqw Qs)
+    !      - viscor.dat (<p_xy(t)p_xy(0)  eta(t) (shear viscosity integral))
     !      - gmixsim.dat (g_ab(r), g_clcl(r) in cluster analysis on)
     !      - sq.dat  S_NN(Q), (S_cc(Q) , S_11, S_12, S_22 in binary systems)
     !      - sqcl.dat Cluster-cluster S(Q)
@@ -84,8 +86,7 @@ program trj_analysis
     !      - clusevol.dat , conf no., no. of clusters, % of particles in clusters
     !      - centers.lammpstrj trajectory of clusters centers of mass (to be visualized with Ovito)
     !                          Particle no. not constant along the trajectory !!
-    !
-    !########################################################
+    !   OUTPUT Units: LAMMPS "real" units, except time (ps)
     !   Programmed in NVIDIA CUDA Fortran
     !
     !   A. Diaz-Pozuelo & E. Lomba, Madrid/Santiago de Compostela, fall 2024 
@@ -175,6 +176,7 @@ program trj_analysis
         ! Accumulate i/o time
         tread = tread + t1 - t0
         ! Over each configuration run selected modules (first initialize)
+        call printcudaerror(" antes de init modules")
         if (first_configuration) call init_modules(use_cell, run_rdf, run_sq, run_clusters, nsp, nmol, nbcuda)
         ! Linked cells for cluster analysis
         if (use_cell) then
@@ -183,7 +185,9 @@ program trj_analysis
         end if
         !
         ! Transfer data to GPU
+                call printcudaerror(" antes de transfer")
         call transfer_cpu_gpu(ndim)
+                call printcudaerror("transfer")
 
         ! BFS cluster search
         if (run_clusters) call cluster_search()
@@ -191,6 +195,7 @@ program trj_analysis
         ! kinetic energy (if velocities available) 
         if (ex_vel) call thermo_kin(i, ndim)
         ! Run RDF
+
         if (run_rdf) call RDFcomp(Nmol, i, nbcuda, nthread)
 
         ! Compute density profile along idir direction
