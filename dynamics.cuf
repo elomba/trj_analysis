@@ -1,4 +1,10 @@
 module mod_dyn
+   !
+   ! Module to calculate dynamics properties (MSD, velocity and stress self-correlation, 
+   ! and dynamic structure factors and intermediate scattering functions, total and self)
+   ! Calculations are performed simulteneously over nbuffers separated by jump configurations
+   ! with time origins shifted every itlimit configurations (corresponding to tlimit ps)
+   !
    use mod_precision
    use mod_common
    use cudafor
@@ -7,13 +13,13 @@ module mod_dyn
    integer :: ndyn, count_org=0, itlimit
    integer, allocatable, dimension(:) :: origin
    integer, device, allocatable, dimension(:) :: origin_d
-   integer, parameter :: nbmax = 1000, nblocks = 1
+   integer, parameter :: nbmax = 400, nblocks = 1
    real(myprec), device, allocatable, dimension(:,:,:) :: r0_d, rt_d, v0_d, fktb_d, fsktb_d
    real(myprec), device, allocatable, dimension(:,:) :: r2tb_d, v2tb_d, poff_d, stcorr_d, p0_d
    real(myprec), device, allocatable, dimension(:) :: qw_d
    integer (kind=2), device, allocatable, dimension(:,:) :: indqw_d
-   real(myprec), allocatable, dimension(:,:,:) :: r0, v0, fktb, fsktb
-   real(myprec),  allocatable, dimension(:,:) :: r2tb, v2tb, fkt, fskt, sqw, ssqw 
+   real(myprec), allocatable, dimension(:,:,:) :: r0, v0
+   real(myprec),  allocatable, dimension(:,:) :: fkt, fskt, sqw, ssqw
    real(myprec),  allocatable, dimension(:) :: t, r2t, v2t, stcorr
    real(float), allocatable, dimension(:) :: w, ftv
    real(float) :: sumvel=0
@@ -25,43 +31,47 @@ contains
          stop
       endif
       ndyn = Nconf-(nbuffer-1)*jump
-      Write(*,"('** ',i7,' configurations for dynamic analysis, using',&
+      Write(*,"(' *** ',i7,' configurations for dynamic analysis: ',&
          i4,' buffers starting every ',i3,' configuration ' )")ndyn, nbuffer, jump
       if (ndyn < 10) then
          write(*,"('** Error: length of dynamics to short. Reduce number of buffers !')")
          stop
       endif
       allocate(t(ndyn),r2t(ndyn))
-      allocate(r0(ndim,nmol,nbuffer),r2tb(ndyn,nbuffer))
+      allocate(r0(ndim,nmol,nbuffer))
       allocate(r0_d(ndim,nmol,nbuffer),rt_d(ndim,nmol,nbuffer),r2tb_d(ndyn,nbuffer))
       r2tb_d(:,:) = 0
+      r2t(:) = 0
       if (ex_vel) then
-         allocate(v0(ndim,nmol,nbuffer),v2t(ndyn),v2tb(ndyn,nbuffer))
+         allocate(v0(ndim,nmol,nbuffer),v2t(ndyn))
          allocate(v0_d(ndim,nmol,nbuffer),v2tb_d(ndyn,nbuffer))
          v2tb_d(:,:) = 0
+         v2t(:) = 0
          allocate(w(ndyn),ftv(ndyn))
       endif
       if (ex_stress) then
          allocate(poff_d(ndim,nmol),stcorr_d(ndyn,nbuffer),&
-                 p0_d(ndim,nbuffer), origin_d(nbuffer))
+            p0_d(ndim,nbuffer), origin_d(nbuffer))
          allocate(stcorr(ndyn),origin(nbuffer))
       endif
       if (run_sqw) then
-         allocate(fktb(nqw,ndyn,nbuffer),fsktb(nqw,ndyn,nbuffer),fkt(nqw,ndyn),fskt(nqw,ndyn))
+         allocate(fkt(nqw,ndyn),fskt(nqw,ndyn))
          allocate(sqw(ndyn,nqw),ssqw(ndyn,nqw))
          allocate(fktb_d(nqw,ndyn,nbuffer),fsktb_d(nqw,ndyn,nbuffer),qw_d(nqw))
          qw_d(:) = qw(:)
          fktb_d(:,:,:) = 0.0
          fsktb_d(:,:,:) = 0.0
+         fkt(:,:) = 0.0
+         fskt(:,:) = 0.0
       endif
    end  subroutine dyn_init
 
    subroutine dyn_clear()
       deallocate(t,r2t)
-      deallocate(r0,r2tb)
+      deallocate(r0)
       deallocate(r0_d,rt_d,r2tb_d)
       if (ex_vel) then
-         deallocate(v0,v2t,v2tb)
+         deallocate(v0,v2t)
          deallocate(v0_d,v2tb_d)
          deallocate(w,ftv)
       endif
@@ -70,7 +80,7 @@ contains
          deallocate(stcorr_d,poff_d,p0_d)
       end if
       if (run_sqw) then
-         deallocate(fkt,fktb,fskt,fsktb,sqw,ssqw)
+         deallocate(fkt,fskt,sqw,ssqw)
          deallocate(fktb_d,fsktb_d)
       endif
    end subroutine dyn_clear
@@ -79,66 +89,95 @@ contains
       integer, intent(in) :: iconf
       integer :: istat, iorg, i
       real :: time_gpu, v0(3), v(3), res
+      ! store times (in ps)
+      if (iconf <= ndyn) t(iconf) = nstep*tstep
+      ! define buffer origins
+      if (iconf==1) then
+         do i=1,nbuffer
+            origin(i) = (i-1)*jump + 1
+         enddo
+         itlimit = Nconf
+      elseif (iconf==2) then
+         if (tlimit<0) then
+            itlimit = Nconf-(nbuffer-1)*jump
+            tlimit = itlimit*(t(2)-t(1))
+         else
+            itlimit = nint(tlimit/(t(2)-t(1)))
+         endif
+         write(*,"('*** Dynamics averages using ',i5,' configurations '/)") itlimit
+         if (itlimit > Nconf) then
+            write(*, "(//'*** Unrecoverable error: tmax=',f8.3,'> trajectory lenght !!')")tmax
+            stop
+         endif
+      endif
+      origin_d(:) = origin(:)
       if (ex_vel) then
          v_d(1:ndim, 1:Nmol) = vel(1:ndim,1:Nmol)
       end if
-
       if (nmol/nblocks<1) then
          write(*,"('** Error: number of particles too small < ',i4)")nblocks
       endif
-      if (iconf/jump+1<=nbuffer) then
-         if (mod(iconf,jump) == 1) then
-            if(ex_vel) v0_d(1:ndim,1:nmol,iconf/jump+1) = v_d(1:ndim,1:nmol)
-            r0_d(1:ndim,1:nmol,iconf/jump+1) = r_d(1:ndim,1:nmol)
-         endif
-      endif
-      if (iconf <= ndyn) t(iconf) = nstep*tstep
       istat = cudaEventRecord(startEvent, 0)
-      call rtcal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf,jump)
-      if (ex_vel) then
-         call vtcal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf,jump)
-      end if
-      if (ex_stress) then
-         if (iconf==1) then
-            do i=1,nbuffer
-               origin(i) = (i-1)*jump + 1
-            enddo
-            itlimit = Nconf
-         elseif (iconf==2) then
-            itlimit = nint(tmax/(t(2)-t(1)))
-            print *, ' Dynamics averages using ',itlimit
-            if (itlimit > Nconf) then
-               write(*, "(//'*** Unrecoverable error: tmax=',f8.3,'> trajectory lenght !!')")tmax
-               stop
-            endif
+      ! Transfer origin positions and velocities for each buffer
+      do i = 1, nbuffer
+         if (iconf==origin(i)) then
+            r0_d(1:ndim,1:nmol,i) = r_d(1:ndim,1:nmol)
+            if (ex_vel) v0_d(1:ndim,1:nmol,i) = v_d(1:ndim,1:nmol)
          endif
+      enddo
+      
+      call rtcal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf,&
+           jump,origin_d)
+      
+           if (ex_vel) call vtcal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf,&
+              jump,origin_d)
+      
+      if (ex_stress) then
          poff_d(1:ndim,1:nmol) = -stress(4:3+ndim,1:nmol)/volumen
-         origin_d(:) = origin(:)
-         call st_cal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf,jump,itlimit,origin_d)
-         do i = 1, nbuffer
-            iorg = origin_d(i)
-            if(origin(i) .ne. iorg) then
-               origin(i) = iorg
+         call st_cal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf,&
+                   jump,origin_d)
+      endif
+
+      if (run_sqw) then
+         if (iconf == 1) then
+            allocate(indqw_d(nqwmax,ndim))
+            indqw_d(:,:) = indqw(:,:)
+         endif
+         call  FqtnD<<<nqwmax,nbuffer>>>(nqwmax, nqw, Nmol, ndim, itype_d,&
+            ntype_d, bsc_d, fk_d, nsp, dq, ndyn, iconf, nbuffer, jump, origin_d)
+      endif
+
+      do i = 1, nbuffer
+         iorg =  origin(i)
+         !  Shift origin position if time limit reached for buffer i
+         !  only if itlimit configurations remaining 
+         if(iconf-iorg==itlimit) iorg=iconf+1
+         if(origin(i) .ne. iorg .and. Nconf-iorg >= itlimit) then
+            ! add up buffers when itlimit reached 
+            origin(i) = iorg
+            r2t(1:ndyn) = r2t(1:ndyn) + r2tb_d(1:ndyn,i)
+            r2tb_d(1:ndyn,i) = 0
+            if (ex_stress) then
+               ! accumulate stress tensor
                stcorr(1:ndyn) = stcorr(1:ndyn) + stcorr_d(1:ndyn,i)
                stcorr_d(1:ndyn,i) = 0.0
-               count_org = count_org+1
-               print *, ' buffer ',i,' new origin ', count_org, origin(i)
             endif
-         enddo
-         print *, iconf, origin(:), count_org
-      endif
-      if (iconf == 1 .and. run_sqw) then
-         allocate(indqw_d(nqwmax,ndim))
-         indqw_d(:,:) = indqw(:,:)
-      endif
-      if (run_sqw) then
-         call  FqtnD<<<nqwmax,nbuffer>>>(nqwmax, nqw, Nmol, ndim, itype_d,&
-                            ntype_d, bsc_d, fk_d, nsp, dq, ndyn, iconf,jump)
-         fktb(:,:,:) = fktb_d(:,:,:)
-         fsktb(:,:,:) = fsktb_d(:,:,:)
-      endif
+            if (ex_vel) then
+               v2t(1:ndyn) = v2t(1:ndyn) +v2tb_d(1:ndyn,i)
+               v2tb_d(1:ndyn,i) = 0.0
+            endif
+            if (run_sqw) then
+               fkt(1:nqw,1:ndyn) = fkt(1:nqw,1:ndyn)+fktb_d(1:nqw,1:ndyn,i)
+               fskt(1:nqw,1:ndyn) = fskt(1:nqw,1:ndyn)+fsktb_d(1:nqw,1:ndyn,i)
+               fktb_d(1:nqw,1:ndyn,i) = 0
+               fsktb_d(1:nqw,1:ndyn,i) = 0 
+            endif 
+            count_org = count_org+1
+         endif
+      enddo
       time_gpu = gptime(stopEvent, startEvent)
       tdyn = tdyn + time_gpu
+      call printcudaerror("rtcorr exit")
    end subroutine rtcorr
 
    subroutine print_rtcor()
@@ -147,21 +186,12 @@ contains
       integer :: i, j
       real :: fconv=4.135
       real :: sum_visc=0.0, pct, pct1
-      r2tb(1:ndyn,1:nbuffer) = r2tb_d(1:ndyn,1:nbuffer)
-      r2t(1:ndyn) = sum(r2tb(1:ndyn,1:nbuffer),DIM=2)
-      if (ex_vel) then
-         v2tb(1:ndyn,1:nbuffer) = v2tb_d(1:ndyn,1:nbuffer)
-         v2t(1:ndyn) = sum(v2tb(1:ndyn,1:nbuffer),DIM=2)
-      end if
-      if (run_sqw) then
-         fkt(1:nqw,1:ndyn) = sum(fktb(1:nqw,1:ndyn,1:nbuffer),DIM=3)
-         fskt(1:nqw,1:ndyn) = sum(fsktb(1:nqw,1:ndyn,1:nbuffer),DIM=3)
-      endif
       t(1:ndyn) = t(1:ndyn)-t(1)
-      write(*,"(/'** Length of dynamics ',f8.3,' ps, ',i7,' configurations'/)")t(ndyn),ndyn
-      r2t(:) = r2t(:)/nbuffer
+      write(*,"(/'** Length of dynamics ',f8.3,' ps, ',i7,' configurations, '&
+      ,i4,' time origins'/)")t(ndyn),ndyn, count_org
+      r2t(:) = r2t(:)/count_org
       if (ex_vel) then
-         v2t(:) = v2t(:)/nbuffer
+         v2t(:) = v2t(:)/count_org
          call fftw1d(v2t,ftv,w,ndyn,t(2)-t(1),tmax)
       end if
       if (run_sqw) then
@@ -172,13 +202,14 @@ contains
          endif
       endif
       open(55,file="dyn.dat")
+      if(ex_vel) open(555,file="dynw.dat")
       if (run_sqw) then
          open(65,file='fkt.dat')
          open(66,file='fskt.dat')
          open(67,file='sqw.dat')
          do i=1, nqw
-            fkt(i,1:ndyn)=fkt(i,1:ndyn)/(Nmol*nbuffer*nw(i))
-            fskt(i,1:ndyn)=fskt(i,1:ndyn)/(Nmol*nbuffer*nw(i))
+            fkt(i,1:ndyn)=fkt(i,1:ndyn)/(Nmol*count_org*nw(i))
+            fskt(i,1:ndyn)=fskt(i,1:ndyn)/(Nmol*count_org*nw(i))
             call fftw1d(fkt(i,1:ndyn),sqw(1:ndyn,i),w,ndyn,t(2)-t(1),tmax)
             call fftw1d(fskt(i,1:ndyn),ssqw(1:ndyn,i),w,ndyn,t(2)-t(1),tmax)
          enddo
@@ -189,6 +220,7 @@ contains
       endif
       if (ex_vel) then
          write(55,"('#',2x,'t(ps)',9x,'C_r(t)',7x'C_v(t)',10x,'w(THz)',7x,'w(meV)',12x,'Z(w)')")
+         write(555,"('#',9x,'w(THz)',7x,'w(meV)',12x,'Z(w)')")
       else
          write(55,"('#',2x,'t(ps)',9x,'C_r(t)')")
       endif
@@ -202,29 +234,31 @@ contains
             !
             ! transform from w(wavenumber) to f (frequency) in THz and meV
             !
-            write(55,"(f10.3,8f15.5)")t(i), r2t(i),v2t(i),w(i)/(2*pi),fconv*w(i)/(2*pi),ftv(i)
+            if (i<=itlimit) write(55,"(f10.3,8f15.5)")t(i), r2t(i),v2t(i),w(i)/(2*pi),&
+                        fconv*w(i)/(2*pi),ftv(i)
+            write(555,"(8f15.5)")w(i)/(2*pi),fconv*w(i)/(2*pi),ftv(i)
          else
-            write(55,"(f10.3,8f15.5)")t(i), r2t(i)
+            if(i<=itlimit) write(55,"(f10.3,8f15.5)")t(i), r2t(i)
          endif
          if (ex_stress) then
             if (i==1) then
-               print *, count_org, stcorr(1:4)
-               print *, origin(1:nbuffer)
-               pct =  stcorr(i)/(ndim*count_org*nmol)
+               pct =  stcorr(i)/(ndim*count_org)
                write(56,"(f10.3,8f15.5)")t(i),pct,0.0
             else
                pct1 = pct
-               pct =  stcorr(i)/(ndim*count_org*nmol)
+               pct =  stcorr(i)/(ndim*count_org)
                ! Integrate off-diagonal pressure tensor correlation (trapezoidal rule)
                ! Use Green-Kubo relation eta_gk = (V/NkT)*\int_0^t<pxy(t')pxy(0)>dt' in (bar*s)
                !
                sum_visc = sum_visc + (pct+pct1)*(t(i)-t(i-1))/2
-               write(56,"(f10.3,8f15.5)")t(i),pct,(volumen/temperature/c_nktv)*sum_visc
+               if (i<=itlimit) write(56,"(f10.3,8f15.5)")t(i),pct,(volumen/temperature/c_nktv)*sum_visc
             endif
          end if
          if (run_sqw) then
-            write(65,"(f10.3,8f15.5)")t(i),fkt(1:nqw,i)
-            write(66,"(f10.3,8f15.5)")t(i),fskt(1:nqw,i)
+            if (i<=itlimit) then
+               write(65,"(f10.3,8f15.5)")t(i),fkt(1:nqw,i)
+               write(66,"(f10.3,8f15.5)")t(i),fskt(1:nqw,i)
+            endif
             write(67,"(2f10.3,8f15.5)")w(i)/(2*pi),fconv*w(i)/(2*pi),(sqw(i,j),ssqw(i,j),j=1,nqw)
          endif
       end do
@@ -232,14 +266,16 @@ contains
       close(65)
       close(66)
       close(67)
+      close(555)
    end subroutine print_rtcor
 
 
 
    attributes(global) subroutine FqtnD(nqwmax, nqw, Nmol, dim, itype, ntype, &
-                                       bsc, fk, nsp, dq, dyn, iconf, jump)
+      bsc, fk, nsp, dq, dyn, iconf, buffer, jump, origin)
    integer, intent(IN) :: itype(Nmol), ntype(nsp)
-   integer, value, intent(IN) :: Nmol, dim, nsp, nqwmax, dyn, iconf, nqw, jump
+   integer, value, intent(IN) :: Nmol, dim, nsp, nqwmax, dyn, iconf,&
+            nqw, buffer, jump
    integer :: ibuffer, indx
    real(kind=4), intent(IN) :: bsc(nsp)
    real(kind=4) :: rkxyz, rkxyzt, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma
@@ -247,12 +283,13 @@ contains
    real(kind=8) :: sumcxt, sumsxt, sumcpxt, sumspxt, sumself
    real(kind=4), intent(IN) :: fk(dim)
    real(kind=4), value, intent(IN) ::  dq
+   integer, dimension(buffer), intent(in) :: origin
 
    integer :: i, j, it, kx, ky, kz, ind, ia, iorg
    logical :: found
    if (blockidx%x<=nqwmax) then
       ibuffer = threadidx%x
-      iorg = (ibuffer-1)*jump+1
+      iorg =  origin(ibuffer)
       indx = iconf - iorg + 1
       ! Check origin and final configuration of each averaging buffer
       if (iconf>=iorg .and. indx >= 1) then
@@ -320,14 +357,91 @@ contains
 end subroutine FqtnD
 
 
+attributes(global) subroutine rtcal(dim,mol,buffer,dyn,iconf,jump,origin)
+integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf, jump
+real :: rv(3), suma
+real(double) :: suma8
+integer :: i, j, k, npsize, nprest, ia, indx, iorg
+integer, dimension(buffer), intent(in) :: origin
+i = threadidx%x
+iorg = origin(i)
+indx = iconf - iorg + 1
+! Check origin and final configuration of each averaging buffer
+if (iconf==iorg) rt_d(1:dim,1:mol,i) = r_d(1:dim,1:mol)
 
-attributes(global) subroutine vtcal(dim,mol,buffer,dyn,iconf,jump)
+if (iconf>=iorg .and. indx <= dyn) then
+   suma8 = 0
+   npsize = mol/nblocks
+   nprest = mod(mol,nblocks)
+   ! Unwrap coordinates
+   do k = 1, dim
+      rt_d(k,1:mol,i)= r_d(k,1:mol) +sidel_d(k)&
+      &  *nint((rt_d(k,1:mol,i)-r_d(k,1:mol))/sidel_d(k))
+   end do
+   suma8 = 0
+   do j = (blockidx%x - 1)*npsize+1, blockidx%x*npsize
+      rv(1:dim) = rt_d(1:dim,j,i)-r0_d(1:dim,j,i)
+      suma8 = dot_product(rv,rv) + suma8
+   end do
+   do j = blockidx%x*npsize+1, blockidx%x*npsize+nprest
+      rv(1:dim) = rt_d(1:dim,j,i)-r0_d(1:dim,j,i)
+      suma8 = dot_product(rv,rv)  + suma8
+   end do
+   suma = suma8/mol
+   if (indx <= dyn .and. i <= buffer) then
+      ia = atomicadd(r2tb_d(indx,i),suma)
+   endif
+endif
+end subroutine rtcal
+
+attributes(global) subroutine st_cal(dim,mol,buffer,dyn,iconf,&
+   jump,origin)
+integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf, jump
+real :: suma
+real(double) :: sumaxy, sumayz, sumaxz
+integer :: i, j, k, npsize, nprest, ia, indx, iorg
+integer, dimension(buffer), intent(in) :: origin
+i = threadidx%x
+iorg = origin(i)
+indx = iconf - iorg + 1
+! Check origin and final configuration of each averaging buffer
+if (iconf>=iorg .and. indx <= dyn) then
+   npsize = mol/nblocks
+   nprest = mod(mol,nblocks)
+   sumaxy = sum(poff_d(1,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
+   if(dim==3) then
+      sumaxz = sum(poff_d(3,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
+      sumayz = sum(poff_d(2,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
+   endif
+   if (nprest>0) then
+      sumaxy = sumaxy + sum(poff_d(1,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
+      if(dim==3) then
+         sumaxz = sumaxz + sum(poff_d(3,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
+         sumayz = sumayz + sum(poff_d(2,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
+      endif
+   end if
+   if (iorg==iconf) then
+      p0_d(1,i) = sumaxy
+      if (dim==3) then 
+         p0_d(3,i) = sumaxz
+         p0_d(2,i) = sumayz
+      endif
+   end if
+   suma = sumaxy*p0_d(1,i)
+   if (dim==3) suma = suma + sumaxz*p0_d(3,i)+sumayz*p0_d(2,i)
+   ia = atomicadd(stcorr_d(indx,i),suma)
+
+endif
+end subroutine st_cal
+
+attributes(global) subroutine vtcal(dim,mol,buffer,dyn,iconf,jump,origin)
 integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf, jump
 real(double) :: suma8
 real :: sumf
 integer :: i, j, k, npsize, nprest, ia, indx, iorg
+integer, dimension(buffer), intent(in) :: origin
 i = threadidx%x
-iorg = (i-1)*jump+1
+iorg = origin(i)
 indx = iconf - iorg + 1
 ! Check origin and final configuration of each averaging buffer
 if (iconf>=iorg .and. indx >= 1) then
@@ -345,7 +459,9 @@ if (iconf>=iorg .and. indx >= 1) then
 endif
 end subroutine vtcal
 
-attributes(global) subroutine rtcal(dim,mol,buffer,dyn,iconf,jump)
+
+
+attributes(global) subroutine rtcal_org(dim,mol,buffer,dyn,iconf,jump)
 integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf, jump
 real :: rv(3), suma
 real(double) :: suma8
@@ -379,45 +495,32 @@ if (iconf>=iorg .and. indx <= dyn) then
       ia = atomicadd(r2tb_d(indx,i),suma)
    endif
 endif
-end subroutine rtcal
+end subroutine rtcal_org
 
-attributes(global) subroutine st_cal(dim,mol,buffer,dyn,iconf,&
-                  jump,itlimit,origin)
-integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf, jump, itlimit
-real :: suma
-real(double) :: sumax, sumay, sumaz
+
+
+attributes(global) subroutine vtcal_org(dim,mol,buffer,dyn,iconf,jump)
+integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf, jump
+real(double) :: suma8
+real :: sumf
 integer :: i, j, k, npsize, nprest, ia, indx, iorg
-integer, dimension(buffer), intent(inout) :: origin
 i = threadidx%x
-iorg = origin(i)
+iorg = (i-1)*jump+1
 indx = iconf - iorg + 1
 ! Check origin and final configuration of each averaging buffer
-if (iconf>=iorg .and. indx <= dyn) then
+if (iconf>=iorg .and. indx >= 1) then
    npsize = mol/nblocks
    nprest = mod(mol,nblocks)
-   sumax = sum(poff_d(1,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
-   sumay = sum(poff_d(2,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
-   if(dim==3) sumaz = sum(poff_d(3,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
-   if (nprest>0) then
-      sumax = sumax + sum(poff_d(1,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
-      sumay = sumay + sum(poff_d(2,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
-      if(dim==3) sumaz = sumaz + sum(poff_d(3,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
-   end if
-   if (iorg==iconf) then
-      p0_d(1,i) = sumax
-      p0_d(2,i) = sumay
-      if (dim==3) p0_d(3,i) = sumaz
-   end if
-   suma = sumax*p0_d(1,i)+sumay*p0_d(2,i)
-   if (dim==3) suma = suma + sumaz*p0_d(3,i)
-   ia = atomicadd(stcorr_d(indx,i),suma)
-   if(iconf-iorg==itlimit) then 
-     origin(i) = iconf+1
-   endif
+   suma8 = 0.0d0
+   do j = (blockidx%x - 1)*npsize+1, blockidx%x*npsize
+      suma8 = dot_product(v_d(1:dim,j),v0_d(1:dim,j,i)) + suma8
+   end do
+   do j = blockidx%x*npsize+1, blockidx%x*npsize+nprest
+      suma8 = dot_product(v_d(1:dim,j),v0_d(1:dim,j,i)) + suma8
+   end do
+   sumf = suma8/mol
+   ia = atomicadd(v2tb_d(indx,i),sumf)
 endif
-
-end subroutine st_cal
-
-
+end subroutine vtcal_org
 
 end module mod_dyn

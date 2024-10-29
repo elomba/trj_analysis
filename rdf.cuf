@@ -102,7 +102,6 @@ contains
             &, side2, sidel_d, deltar )
         end if
         time_gpu = gptime(stopEvent, startEvent)
-        call printcudaerror("RDF")
 
         trdf = trdf + time_gpu
 

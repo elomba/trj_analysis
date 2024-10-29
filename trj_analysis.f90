@@ -60,10 +60,12 @@ program trj_analysis
     !          Minimum cluster size to include in the trajectory of centers of mass, particle size
     ! namelist /INPUT_CONF/ idir, pwall, pwallp
     !          Direction of confinement (1,2,3->x,y,z), position of left wall, position of right wall
-    ! namelist /INPUT_DYN/ nbuffer, tmax
-    !           Number of buffers (time origins) for dynamic correlation analysis, maximum time for 
+    ! namelist /INPUT_DYN/ nbuffer, tmax, tlimit, jump
+    !           Number of buffers (time origins) for dynamic correlation analysis
+    !           buffers are separated by jump configurations (def. 10), maximum time for 
     !           correlation functions (at tmax a window function is applied for FFTs), if omitted all
-    !           t values are used
+    !           t values are used.
+    !           Averages stored over tlimit only (in ps), and then origin for calculation is shifted
     ! namelist /INPUT_SQW/ qw, tmqw
     !          values of Q to compute F(Q,t), Fs(Q,t) and S(Q,w),Ss(Q,w) maximum times for F(Q,t),
     !          if omitted tmax is used
@@ -176,7 +178,6 @@ program trj_analysis
         ! Accumulate i/o time
         tread = tread + t1 - t0
         ! Over each configuration run selected modules (first initialize)
-        call printcudaerror(" antes de init modules")
         if (first_configuration) call init_modules(use_cell, run_rdf, run_sq, run_clusters, nsp, nmol, nbcuda)
         ! Linked cells for cluster analysis
         if (use_cell) then
@@ -185,9 +186,7 @@ program trj_analysis
         end if
         !
         ! Transfer data to GPU
-                call printcudaerror(" antes de transfer")
         call transfer_cpu_gpu(ndim)
-                call printcudaerror("transfer")
 
         ! BFS cluster search
         if (run_clusters) call cluster_search()

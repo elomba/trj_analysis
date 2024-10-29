@@ -1,463 +1,475 @@
 module mod_sq
-    use mod_precision
-    use mod_common
-    use mod_input
-    use cudafor
-    implicit none
+   use mod_precision
+   use mod_common
+   use mod_input
+   use cudafor
+   implicit none
 
 contains
 
-    subroutine SQcalc()
-        implicit none
-        integer :: istat, ierrSync
-        real :: time_gpu
-        !
-        ! Sample all 3D vectors for q<qmin and
-        ! (1,0,0),(0,1,0),(0,0,1) beyond
-        !
-        istat = cudaEventRecord(startEvent, 0)
-        if (nqmin > 1) then
-                call sqfnD<<<tBlock, grid>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqf_d, sqfp_d,&
-                     & nsp, nqmax, qmin2, dq)
-            if (ndim == 3) then
-                call sqfact<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d,&
-                     & sqf_d, sqfp_d, nsp, nqmax, nqmin + 1)
-            else
-                call sqfact2<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d,&
-                     & sqf_d, sqfp_d, nsp, nqmax, nqmin + 1)
-            end if
-            ierrSync = cudaGetLastError()
-            if (ierrSync /= cudaSuccess) write(*,*) &
-               "SQ kernel error:", cudaGetErrorString(ierrSync)
-        else
-            !
-            ! for very Uniform fluids and large no. of configurations
-            ! just sample   (1,0,0),(0,1,0),(0,0,1) directions
-            !
-            if (ndim == 3) then
-                call sqfact<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqf_d, &
-                                                                        sqfp_d, nsp, nqmax, nqmin)
-            else
-                call sqfact2<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqf_d, &
-                                                                         sqfp_d, nsp, nqmax, nqmin)
-            end if
-        end if
-        time_gpu = gptime(stopEvent, startEvent)
-        tsq = tsq + time_gpu
-    end subroutine SQcalc
+   subroutine SQcalc()
+      implicit none
+      integer :: istat, ierrSync
+      real :: time_gpu
+      !
+      ! Sample all 3D vectors for q<qmin and
+      ! (1,0,0),(0,1,0),(0,0,1) beyond
+      !
+      istat = cudaEventRecord(startEvent, 0)
+      if (nqmin > 1) then
+         call sqfnD<<<tBlock, grid>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqf_d, sqfp_d,&
+         & nsp, nqmax, qmin2, dq)
+         if (ndim == 3) then
+            call sqfact<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d,&
+            & sqf_d, sqfp_d, nsp, nqmax, nqmin + 1)
+         else
+            call sqfact2<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d,&
+            & sqf_d, sqfp_d, nsp, nqmax, nqmin + 1)
+         end if
+         ierrSync = cudaGetLastError()
+         if (ierrSync /= cudaSuccess) write(*,*) &
+            "SQ kernel error:", cudaGetErrorString(ierrSync)
+      else
+         !
+         ! for very Uniform fluids and large no. of configurations
+         ! just sample   (1,0,0),(0,1,0),(0,0,1) directions
+         !
+         if (ndim == 3) then
+            call sqfact<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqf_d, &
+               sqfp_d, nsp, nqmax, nqmin)
+         else
+            call sqfact2<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqf_d, &
+               sqfp_d, nsp, nqmax, nqmin)
+         end if
+      end if
+      time_gpu = gptime(stopEvent, startEvent)
+      tsq = tsq + time_gpu
+   end subroutine SQcalc
 
-    subroutine sq_transfer_gpu_cpu()
-        implicit none
+   subroutine sq_transfer_gpu_cpu()
+      implicit none
 
-        sqf(1:nqmax) = sqf_d(1:nqmax)
-        if (run_clusters) sqfcl(1:nqmax) = sqfcl_d(1:nqmax)
-        sqfp(1:nqmax, 1:nsp) = sqfp_d(1:nqmax, 1:nsp)
+      sqf(1:nqmax) = sqf_d(1:nqmax)
+      if (run_clusters) sqfcl(1:nqmax) = sqfcl_d(1:nqmax)
+      sqfp(1:nqmax, 1:nsp) = sqfp_d(1:nqmax, 1:nsp)
 
-    end subroutine sq_transfer_gpu_cpu
+   end subroutine sq_transfer_gpu_cpu
 
-    subroutine sq_init(nmol, nsp, nbcuda)
-        Implicit none
-        integer, intent(IN) :: Nmol, nsp, nbcuda
-        integer :: i, j, k, ind, indm, l, iq, kmaxz
-        real :: rr, qmm
-        logical :: found
-        ! if (idir > 0) then
-        !     width = nint((pwallp - pwall)/(2*deltar))
-        !     allocate (densprof(0:width, nsp), densprofi(0:width, nsp))
-        !     allocate (densprof_d(0:width, nsp))
-        !     densprof(:, :) = 0.0d0
-        !     densprof_d(:, :) = 0.0d0
-        ! end if
-        dq = 2*pi/sidel(1)
-        nqmax = nint(qmax/dq)
-        lmaxx = nint(qmin/(2*pi/sidel(1)))
-        lmaxy = nint(qmin/(2*pi/sidel(2)))
-        if (ndim == 3) lmaxz = nint(qmin/(2*pi/sidel(3)))
-        if (ndim == 3) then
-            grid = dim3(4, 4, 4)
-            if (mod(lmaxx, 4) .ne. 0) lmaxx = lmaxx - 4 + mod(lmaxx, 4)
-            if (mod(lmaxy, 4) .ne. 0) lmaxy = lmaxy - 4 + mod(lmaxy, 4)
-            if (mod(lmaxz, 4) .ne. 0) lmaxz = lmaxz - 4 + mod(lmaxz, 4)
-            tBlock = dim3(lmaxx/grid%x + 1, lmaxy/grid%y + 1, lmaxz/grid%z + 1)
-            nqmin = min(lmaxx, lmaxy, lmaxz)
-        else
-            grid = dim3(16, 16, 1)
-            if (mod(lmaxx, 16) .ne. 0) lmaxx = lmaxx - 16 + mod(lmaxx, 16)
-            if (mod(lmaxy, 16) .ne. 0) lmaxy = lmaxy - 16 + mod(lmaxy, 16)
-            tBlock = dim3(lmaxx/grid%x + 1, lmaxy/grid%y + 1, 1)
-            nqmin = min(lmaxx, lmaxy)
-        end if
-        fk(:) = 2*pi/sidel(:)
-        if (nqmin == 0) then
-            nqmin = 1
-            lmaxx = 1
-            lmaxy = 1
-            lmaxz = 1
-        end if
-        qmin = lmaxx*fk(1)
-        Allocate (sqf(nqmax), sqfp(nqmax, nsp), nq(0:nqmax))
-        if (run_clusters) then
-            Allocate(sqcl(nqmax), sqfcl(nqmax))
-            Allocate(sqfcl_d(nqmax))
-        endif
-        Allocate (sqf_d(nqmax), sqfp_d(nqmax, nsp))
-        gclustav(:) = 0.0
-        rhoclus(:) = 0.0
-        rhoclusav(:) = 0.0
-        gclcl(:) = 0
-        histomix(:, :, :) = 0
-        histomix_d(:, :) = 0
-        sqf_d(:) = 0.0
-        sqfcl_d(:) = 0.0
-        sqfp_d(:, :) = 0
-        sqf(:) = 0.0d0
-        sqfcl(:) = 0.0d0
-        sqfp(:, :) = 0
-        nq(:) = 0
-        if (run_sqw) Then
-            iq = 0
-            qmm = maxval(qw(1:nqw))
-            ! Loop to determine the number of i,j,k that match the input qw to calculate S(Q,w)
-            do i = 0, nint(qmm/(2*pi/sidel(1)))
-                do j = 0, nint(qmm/(2*pi/sidel(2))) 
-                    if (ndim==3) then 
-                        kmaxz = nint(qmm/(2*pi/sidel(3)))
-                    else
-                        kmaxz = 0
-                    endif
-                    do k = 0,  kmaxz
-                        if (i + j + k .ne. 0) then
-                            rr = sqrt((i*fk(1))**2 + (j*fk(2))**2 + (k*fk(3))**2)
-                            found = .false.
-                            l = 1
-                            do while(.not.found.and.l <= nqw)
-                                if (qw(l)-dq/2<rr.and.qw(l)+dq/2>rr) then 
-                                    iq = iq+1
-                                    found = .true.
-                                else
-                                    l=l+1
-                                endif
-                            enddo
+   subroutine sq_init(nmol, nsp, nbcuda)
+      Implicit none
+      integer, intent(IN) :: Nmol, nsp, nbcuda
+      integer :: i, j, k, ind, indm, l, iq, kmaxz
+      real :: rr, qmm
+      logical :: found
+      ! if (idir > 0) then
+      !     width = nint((pwallp - pwall)/(2*deltar))
+      !     allocate (densprof(0:width, nsp), densprofi(0:width, nsp))
+      !     allocate (densprof_d(0:width, nsp))
+      !     densprof(:, :) = 0.0d0
+      !     densprof_d(:, :) = 0.0d0
+      ! end if
+      dq = 2*pi/sidel(1)
+      nqmax = nint(qmax/dq)
+      lmaxx = nint(qmin/(2*pi/sidel(1)))
+      lmaxy = nint(qmin/(2*pi/sidel(2)))
+      if (ndim == 3) lmaxz = nint(qmin/(2*pi/sidel(3)))
+      if (ndim == 3) then
+         grid = dim3(4, 4, 4)
+         if (mod(lmaxx, 4) .ne. 0) lmaxx = lmaxx - 4 + mod(lmaxx, 4)
+         if (mod(lmaxy, 4) .ne. 0) lmaxy = lmaxy - 4 + mod(lmaxy, 4)
+         if (mod(lmaxz, 4) .ne. 0) lmaxz = lmaxz - 4 + mod(lmaxz, 4)
+         tBlock = dim3(lmaxx/grid%x + 1, lmaxy/grid%y + 1, lmaxz/grid%z + 1)
+         nqmin = min(lmaxx, lmaxy, lmaxz)
+      else
+         grid = dim3(16, 16, 1)
+         if (mod(lmaxx, 16) .ne. 0) lmaxx = lmaxx - 16 + mod(lmaxx, 16)
+         if (mod(lmaxy, 16) .ne. 0) lmaxy = lmaxy - 16 + mod(lmaxy, 16)
+         tBlock = dim3(lmaxx/grid%x + 1, lmaxy/grid%y + 1, 1)
+         nqmin = min(lmaxx, lmaxy)
+      end if
+      fk(:) = 2*pi/sidel(:)
+      if (nqmin == 0) then
+         nqmin = 1
+         lmaxx = 1
+         lmaxy = 1
+         lmaxz = 1
+      end if
+      qmin = lmaxx*fk(1)
+      Allocate (sqf(nqmax), sqfp(nqmax, nsp), nq(0:nqmax))
+      if (run_clusters) then
+         Allocate(sqcl(nqmax), sqfcl(nqmax))
+         Allocate(sqfcl_d(nqmax))
+         sqfcl_d(:) = 0.0
+         sqfcl(:) = 0.0d0
+      endif
+      Allocate (sqf_d(nqmax), sqfp_d(nqmax, nsp))
+      gclustav(:) = 0.0
+      rhoclus(:) = 0.0
+      rhoclusav(:) = 0.0
+      gclcl(:) = 0
+      histomix(:, :, :) = 0
+      histomix_d(:, :) = 0
+      sqf_d(:) = 0.0
+      sqfp_d(:, :) = 0
+      sqf(:) = 0.0d0
+      sqfp(:, :) = 0
+      nq(:) = 0
+      if (run_sqw) Then
+         iq = 0
+         qmm = maxval(qw(1:nqw))
+         ! Loop to determine the number of i,j,k that match the input qw to calculate S(Q,w)
+         do i = 0, nint(qmm/(2*pi/sidel(1)))
+            do j = 0, nint(qmm/(2*pi/sidel(2)))
+               if (ndim==3) then
+                  kmaxz = nint(qmm/(2*pi/sidel(3)))
+               else
+                  kmaxz = 0
+               endif
+               do k = 0,  kmaxz
+                  if (i + j + k .ne. 0) then
+                     rr = sqrt((i*fk(1))**2 + (j*fk(2))**2 + (k*fk(3))**2)
+                     found = .false.
+                     l = 1
+                     do while(.not.found.and.l <= nqw)
+                        if (qw(l)-dq/2<rr.and.qw(l)+dq/2>rr) then
+                           iq = iq+1
+                           found = .true.
+                        else
+                           l=l+1
                         endif
-                    enddo
-                enddo
+                     enddo
+                  endif
+               enddo
             enddo
-            ! allocate index matrices
-            allocate(indqw(iq,ndim))
-            iq = 0
-            nw(:) = 0
-            ! Loop to store the indices for further calculation
-            do i = 0, nint(qmm/(2*pi/sidel(1)))
-                do j = 0, nint(qmm/(2*pi/sidel(2))) 
-                    if (ndim==3) then 
-                        kmaxz = nint(qmm/(2*pi/sidel(3)))
-                    else
-                        kmaxz = 0
-                    endif
-                    do k = 0,  kmaxz
-                        if (i + j + k .ne. 0) then
-                            rr = sqrt((i*fk(1))**2 + (j*fk(2))**2 + (k*fk(3))**2)
-                            found = .false.
-                            l = 1
-                            do while(.not.found.and.l <= nqw)
-                                if (qw(l)-dq/2<rr.and.qw(l)+dq/2>rr) then 
-                                    iq = iq+1
-                                    indqw(iq,1) = i
-                                    indqw(iq,2) = j
-                                    if (ndim==3) indqw(iq,3) = k
-                                    nw(l) = nw(l)+1
-                                    found = .true.
-                                else
-                                    l=l+1
-                                endif
-                            enddo
+         enddo
+         ! allocate index matrices
+         allocate(indqw(iq,ndim))
+         iq = 0
+         nw(:) = 0
+         ! Loop to store the indices for further calculation
+         do i = 0, nint(qmm/(2*pi/sidel(1)))
+            do j = 0, nint(qmm/(2*pi/sidel(2)))
+               if (ndim==3) then
+                  kmaxz = nint(qmm/(2*pi/sidel(3)))
+               else
+                  kmaxz = 0
+               endif
+               do k = 0,  kmaxz
+                  if (i + j + k .ne. 0) then
+                     rr = sqrt((i*fk(1))**2 + (j*fk(2))**2 + (k*fk(3))**2)
+                     found = .false.
+                     l = 1
+                     do while(.not.found.and.l <= nqw)
+                        if (qw(l)-dq/2<rr.and.qw(l)+dq/2>rr) then
+                           iq = iq+1
+                           indqw(iq,1) = i
+                           indqw(iq,2) = j
+                           if (ndim==3) indqw(iq,3) = k
+                           nw(l) = nw(l)+1
+                           found = .true.
+                        else
+                           l=l+1
                         endif
-                    enddo
-                enddo
+                     enddo
+                  endif
+               enddo
             enddo
-            write(*,'("**  ", i5," vector indices defined for S(Q,w) calculation"/)')iq
-            nqwmax = iq
-        endif
-        if (nqmin > 10) then
-            indm = 0
-            if (ndim == 3) then
-                do i = 0, lmaxx - 1
-                    do j = 0, lmaxy - 1
-                        do k = 0, lmaxz - 1
-                            if (i + j + k .ne. 0) then
-                                rr = sqrt((i*fk(1))**2 + (j*fk(2))**2 + (k*fk(3))**2)
-                                if (rr .lt. qmin) then
-                                    ind = nint(rr/dq)
-                                    if (ind > indm) indm = ind
-                                    if (ind <= nqmax) nq(ind) = nq(ind) + 1
-                                end if
-                            end if
-                        end do
-                    end do
-                end do
-                write (*, "(' *** S(Q) calculation using ',i4,'x',i4,'x',i4,' vectors **'/)") lmaxx, lmaxy, lmaxz
-                nq(indm + 1:nqmax) = 3
-            else
-                do i = 0, lmaxx - 1
-                    do j = 0, lmaxy - 1
-                        if (i + j .ne. 0) then
-                            rr = sqrt((i*fk(1))**2 + (j*fk(2))**2)
-                            if (rr .lt. qmin) then
-                                ind = nint(rr/dq)
-                                if (ind > indm) indm = ind
-                                if (ind <= nqmax) nq(ind) = nq(ind) + 1
-                            end if
+         enddo
+         write(*,'(" *** ", i7," vector indices defined for S(Q,w) calculation"/)')iq
+         nqwmax = iq
+      endif
+      if (nqmin > 10) then
+         indm = 0
+         if (ndim == 3) then
+            do i = 0, lmaxx - 1
+               do j = 0, lmaxy - 1
+                  do k = 0, lmaxz - 1
+                     if (i + j + k .ne. 0) then
+                        rr = sqrt((i*fk(1))**2 + (j*fk(2))**2 + (k*fk(3))**2)
+                        if (rr .lt. qmin) then
+                           ind = nint(rr/dq)
+                           if (ind > indm) indm = ind
+                           if (ind <= nqmax) nq(ind) = nq(ind) + 1
                         end if
-                    end do
-                end do
-                nq(indm + 1:nqmax) = 2
-                write (*, "(' *** S(Q) calculation using ',i4,'x',i4,' vectors **'/)") lmaxx, lmaxy
-            end if
-            qmin2 = qmin**2
-            write (*, "(/' *** Averaging over all q-vectors for q <',f10.6,' A^-1 **')") qmin
-        else
-            if (ndim == 3) then
-                nq(1:nqmax) = 3
-            else
-                nq(1:nqmax) = 2
-            end if
-            nqmin = 1
-            write (*, "(/' *** Averaging over (100), (010) and (001)  q-vectors  **'/)")
-        end if
-
-        lty(:) = 0
-        do i = 1, Nmol
-            lty(itype(i)) = lty(itype(i)) + 1
-            ipos(itype(i), lty(itype(i))) = i
-        end do
-        !
-        ! Device data transfer
-        !
-        ntype_d(:) = ntype(:)
-        bsc_d(:) = bsc(:)
-        ipos_d(:, :) = ipos(:, :)
-        itype_d(1:Nmol) = itype(1:Nmol)
-    end subroutine sq_init
-
-
-    attributes(global) subroutine sqfact(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, kmin)
-        integer, value, intent(IN) :: Nmol, dim, nsp, kmax, kmin
-        integer, intent(IN) :: itype(Nmol), ntype(nsp), ipos(nsp, Nmol)
-        real, dimension(3, Nmol), intent(IN) :: r_d
-        real(kind=4), intent(INOUT) :: sqf(kmax), sqfp(kmax, nsp)
-	real(kind=4), intent(IN) :: bsc(nsp)
-        real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, suma, bs
-        real(kind=8) :: sumcx, sumsx, sumcy, sumsy, sumcz, sumsz,  &
-             & sumcpx, sumspx, sumcpy, sumspy, sumcpz, sumspz
-        real(kind=4), intent(IN) :: fk(dim)
-        integer :: i, j, k, ind, it, ia
-        k = (blockidx%x - 1)*blockdim%x + threadidx%x
-        if (k .le. kmax .and. k .ge. kmin) then
-            fk1 = fk(1)
-            fk2 = fk(2)
-            fk3 = fk(3)
-            sumcx = 0
-            sumsx = 0
-            sumcy = 0
-            sumsy = 0
-            sumcz = 0
-            sumsz = 0
-            kf1 = k*fk1
-            kf2 = k*fk2
-            kf3 = k*fk3
-            i = 0
-            do j = 1, nsp
-                sumcpx = 0
-                sumspx = 0
-                sumcpy = 0
-                sumspy = 0
-                sumcpz = 0
-                sumspz = 0
-		        bs = bsc(j)
-                do it = 1, ntype(j)
-                    i = i + 1
-                    rkx = r_d(1, i)*kf1
-                    rky = r_d(2, i)*kf2
-                    rkz = r_d(3, i)*kf3
-                    sumcpx = sumcpx + __cosf(rkx)
-                    sumspx = sumspx + __sinf(rkx)
-                    sumcpy = sumcpy + __cosf(rky)
-                    sumspy = sumspy + __sinf(rky)
-                    sumcpz = sumcpz + __cosf(rkz)
-                    sumspz = sumspz + __sinf(rkz)
-                end do
-                sumcx = sumcx + bs*sumcpx
-                sumsx = sumsx + bs*sumspx
-                sumcy = sumcy + bs*sumcpy
-                sumsy = sumsy + bs*sumspy
-                sumcz = sumcz + bs*sumcpz
-                sumsz = sumsz + bs*sumspz
-                suma = (sumcpx**2 + sumspx**2 + sumcpy**2 + sumspy**2 + sumcpz**2 + sumspz**2)
-                ia = atomicadd(sqfp(k, j), suma)
+                     end if
+                  end do
+               end do
             end do
-            sqf(k) = sqf(k) + (sumcx**2 + sumsx**2 + sumcy**2 + sumsy**2 + sumcz**2 + sumsz**2)
-        end if
-    end subroutine sqfact
-
-    attributes(global) subroutine sqfact2(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, kmin)
-        integer, value, intent(IN) :: Nmol, dim, nsp, kmax, kmin
-        integer, intent(IN) :: itype(Nmol), ntype(nsp), ipos(nsp, Nmol)
-        real, dimension(2, Nmol), intent(IN) :: r_d
-        real(kind=4), intent(INOUT) :: sqf(kmax), sqfp(kmax, nsp)
-	    real(kind=4), intent(IN) ::bsc(nsp)
-        real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, suma, bs
-        real(kind=8) :: sumcx, sumsx, sumcy, sumsy, sumcpx, sumspx, sumcpy, sumspy
-        real(kind=4), intent(IN) :: fk(dim)
-        integer :: i, j, k, ind, it, ia
-        k = (blockidx%x - 1)*blockdim%x + threadidx%x
-        if (k .le. kmax .and. k .ge. kmin) then
-            fk1 = fk(1)
-            fk2 = fk(2)
-            sumcx = 0
-            sumsx = 0
-            sumcy = 0
-            sumsy = 0
-            kf1 = k*fk1
-            kf2 = k*fk2
-            i = 0
-            do j = 1, nsp
-                sumcpx = 0
-                sumspx = 0
-                sumcpy = 0
-                sumspy = 0
-		        bs = bsc(j)
-                do it = 1, ntype(j)
-                    i = i + 1
-                    rkx = r_d(1, i)*kf1
-                    rky = r_d(2, i)*kf2
-                    sumcpx = sumcpx + __cosf(rkx)
-                    sumspx = sumspx + __sinf(rkx)
-                    sumcpy = sumcpy + __cosf(rky)
-                    sumspy = sumspy + __sinf(rky)
-                end do
-                sumcx = sumcx + bs*sumcpx
-                sumsx = sumsx + bs*sumspx
-                sumcy = sumcy + bs*sumcpy
-                sumsy = sumsy + bs*sumspy
-                suma = (sumcpx**2 + sumspx**2 + sumcpy**2 + sumspy**2)
-                ia = atomicadd(sqfp(k, j), suma)
+            write (*, "(' *** S(Q) calculation using ',i4,'x',i4,'x',i4,' vectors **'/)") lmaxx, lmaxy, lmaxz
+            nq(indm + 1:nqmax) = 3
+         else
+            do i = 0, lmaxx - 1
+               do j = 0, lmaxy - 1
+                  if (i + j .ne. 0) then
+                     rr = sqrt((i*fk(1))**2 + (j*fk(2))**2)
+                     if (rr .lt. qmin) then
+                        ind = nint(rr/dq)
+                        if (ind > indm) indm = ind
+                        if (ind <= nqmax) nq(ind) = nq(ind) + 1
+                     end if
+                  end if
+               end do
             end do
-            sqf(k) = sqf(k) + (sumcx**2 + sumsx**2 + sumcy**2 + sumsy**2)
-        end if
-    end subroutine sqfact2
+            nq(indm + 1:nqmax) = 2
+            write (*, "(' *** S(Q) calculation using ',i4,'x',i4,' vectors **'/)") lmaxx, lmaxy
+         end if
+         qmin2 = qmin**2
+         write (*, "(/' *** Averaging over all q-vectors for q <',f10.6,' A^-1 **')") qmin
+      else
+         if (ndim == 3) then
+            nq(1:nqmax) = 3
+         else
+            nq(1:nqmax) = 2
+         end if
+         nqmin = 1
+         write (*, "(/' *** Averaging over (100), (010) and (001)  q-vectors  **'/)")
+      end if
 
-    attributes(global) subroutine sqfnD(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, q2max, dq)
-        integer, intent(IN) :: itype(Nmol), ntype(nsp), ipos(nsp, Nmol)
-        integer, value, intent(IN) :: Nmol, dim, nsp, kmax
-        real, dimension(dim, Nmol), intent(IN) :: r_d
-	real(kind=4), intent(IN) :: bsc(nsp)
-        real(kind=4), intent(INOUT) :: sqf(kmax), sqfp(kmax, nsp)
-        real(kind=4) :: rkxyz, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma
-        real(kind=8) :: sumcx, sumsx, sumcpx, sumspx, q2, bs
-        real(kind=4), intent(IN) :: fk(dim)
-        real(kind=4), value, intent(IN) ::  dq, q2max
-
-        integer :: i, j, it, kx, ky, kz, ind, ia
-        kx = (blockidx%x - 1)*blockdim%x + threadidx%x - 1
-        ky = (blockidx%y - 1)*blockdim%y + threadidx%y - 1
-        kz = (blockidx%z - 1)*blockdim%z + threadidx%z - 1
-        fk1 = fk(1)
-        fk2 = fk(2)
-        kf1 = kx*fk1
-        kf2 = ky*fk2
-        if (dim==3) then
-            fk3 = fk(3)
-            kf3 = kz*fk3
-            q2 = kf1*kf1 + kf2*kf2 + kf3*kf3
-        else
-           q2 = kf1*kf1 + kf2*kf2 
-        endif
-        if (q2 > 0.0 .and. q2 <= q2max) then
-            sumcx = 0
-            sumsx = 0
-            q = sqrt(q2)
-            ind = int(q/dq+0.501)
-            i = 0
-            do j = 1, nsp
-                sumcpx = 0
-                sumspx = 0
-		        bs = bsc(j)
-                do it = 1, ntype(j)
-                    i = i + 1
-                    rkxyz = r_d(2, i)*kf2+r_d(1, i)*kf1
-                    if(dim==3) rkxyz = rkxyz + r_d(3, i)*kf3
-                    sumcpx = sumcpx + __cosf(rkxyz)
-                    sumspx = sumspx + __sinf(rkxyz)
-                end do
-                sumcx = sumcx + bs*sumcpx
-                sumsx = sumsx + bs*sumspx
-                suma = (sumcpx**2 + sumspx**2)
-                ia = atomicadd(sqfp(ind, j), suma)
-            end do
-            tsum = (sumcx**2 + sumsx**2)
-            ia = atomicadd(sqf(ind), tsum)
-        end if
-    end subroutine sqfnD
+      lty(:) = 0
+      do i = 1, Nmol
+         lty(itype(i)) = lty(itype(i)) + 1
+         ipos(itype(i), lty(itype(i))) = i
+      end do
+      !
+      ! Device data transfer
+      !
+      ntype_d(:) = ntype(:)
+      bsc_d(:) = bsc(:)
+      ipos_d(:, :) = ipos(:, :)
+      itype_d(1:Nmol) = itype(1:Nmol)
+   end subroutine sq_init
 
 
-    subroutine sq_clear()
-        implicit none
+   attributes(global) subroutine sqfact(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, kmin)
+   integer, value, intent(IN) :: Nmol, dim, nsp, kmax, kmin
+   integer, intent(IN) :: itype(Nmol), ntype(nsp), ipos(nsp, Nmol)
+   real, dimension(3, Nmol), intent(IN) :: r_d
+   real(kind=4), intent(INOUT) :: sqf(kmax), sqfp(kmax, nsp)
+   real(kind=4), intent(IN) :: bsc(nsp)
+   real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, suma, bs
+   real(kind=8) :: sumcx, sumsx, sumcy, sumsy, sumcz, sumsz,  &
+   & sumcpx, sumspx, sumcpy, sumspy, sumcpz, sumspz
+   real(kind=4), intent(IN) :: fk(dim)
+   integer :: i, j, k, ind, it, ia
+   k = (blockidx%x - 1)*blockdim%x + threadidx%x
+   if (k .le. kmax .and. k .ge. kmin) then
+      fk1 = fk(1)
+      fk2 = fk(2)
+      fk3 = fk(3)
+      sumcx = 0
+      sumsx = 0
+      sumcy = 0
+      sumsy = 0
+      sumcz = 0
+      sumsz = 0
+      kf1 = k*fk1
+      kf2 = k*fk2
+      kf3 = k*fk3
+      i = 0
+      do j = 1, nsp
+         sumcpx = 0
+         sumspx = 0
+         sumcpy = 0
+         sumspy = 0
+         sumcpz = 0
+         sumspz = 0
+         bs = bsc(j)
+         do it = 1, ntype(j)
+            i = i + 1
+            rkx = r_d(1, i)*kf1
+            rky = r_d(2, i)*kf2
+            rkz = r_d(3, i)*kf3
+            sumcpx = sumcpx + __cosf(rkx)
+            sumspx = sumspx + __sinf(rkx)
+            sumcpy = sumcpy + __cosf(rky)
+            sumspy = sumspy + __sinf(rky)
+            sumcpz = sumcpz + __cosf(rkz)
+            sumspz = sumspz + __sinf(rkz)
+         end do
+         sumcx = sumcx + bs*sumcpx
+         sumsx = sumsx + bs*sumspx
+         sumcy = sumcy + bs*sumcpy
+         sumsy = sumsy + bs*sumspy
+         sumcz = sumcz + bs*sumcpz
+         sumsz = sumsz + bs*sumspz
+         suma = (sumcpx**2 + sumspx**2 + sumcpy**2 + sumspy**2 + sumcpz**2 + sumspz**2)
+         ia = atomicadd(sqfp(k, j), suma)
+      end do
+      sqf(k) = sqf(k) + (sumcx**2 + sumsx**2 + sumcy**2 + sumsy**2 + sumcz**2 + sumsz**2)
+   end if
+end subroutine sqfact
 
-        ! Clean house
-        deallocate (sqf)
-        deallocate (sqfp)
-        deallocate (nq)
-        deallocate (sqf_d)
-        deallocate (sqfp_d)
-        if (run_clusters) then
-            deallocate (sqfcl)
-            deallocate (sqfcl_d)
-            deallocate (sqcl)
-        endif
+attributes(global) subroutine sqfact2(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, kmin)
+integer, value, intent(IN) :: Nmol, dim, nsp, kmax, kmin
+integer, intent(IN) :: itype(Nmol), ntype(nsp), ipos(nsp, Nmol)
+real, dimension(2, Nmol), intent(IN) :: r_d
+real(kind=4), intent(INOUT) :: sqf(kmax), sqfp(kmax, nsp)
+real(kind=4), intent(IN) ::bsc(nsp)
+real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, suma, bs
+real(kind=8) :: sumcx, sumsx, sumcy, sumsy, sumcpx, sumspx, sumcpy, sumspy
+real(kind=4), intent(IN) :: fk(dim)
+integer :: i, j, k, ind, it, ia
+k = (blockidx%x - 1)*blockdim%x + threadidx%x
+if (k .le. kmax .and. k .ge. kmin) then
+   fk1 = fk(1)
+   fk2 = fk(2)
+   sumcx = 0
+   sumsx = 0
+   sumcy = 0
+   sumsy = 0
+   kf1 = k*fk1
+   kf2 = k*fk2
+   i = 0
+   do j = 1, nsp
+      sumcpx = 0
+      sumspx = 0
+      sumcpy = 0
+      sumspy = 0
+      bs = bsc(j)
+      do it = 1, ntype(j)
+         i = i + 1
+         rkx = r_d(1, i)*kf1
+         rky = r_d(2, i)*kf2
+         sumcpx = sumcpx + __cosf(rkx)
+         sumspx = sumspx + __sinf(rkx)
+         sumcpy = sumcpy + __cosf(rky)
+         sumspy = sumspy + __sinf(rky)
+      end do
+      sumcx = sumcx + bs*sumcpx
+      sumsx = sumsx + bs*sumspx
+      sumcy = sumcy + bs*sumcpy
+      sumsy = sumsy + bs*sumspy
+      suma = (sumcpx**2 + sumspx**2 + sumcpy**2 + sumspy**2)
+      ia = atomicadd(sqfp(k, j), suma)
+   end do
+   sqf(k) = sqf(k) + (sumcx**2 + sumsx**2 + sumcy**2 + sumsy**2)
+end if
+end subroutine sqfact2
 
-    end subroutine sq_clear
+attributes(global) subroutine sqfnD(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, q2max, dq)
+integer, intent(IN) :: itype(Nmol), ntype(nsp), ipos(nsp, Nmol)
+integer, value, intent(IN) :: Nmol, dim, nsp, kmax
+real, dimension(dim, Nmol), intent(IN) :: r_d
+real(kind=4), intent(IN) :: bsc(nsp)
+real(kind=4), intent(INOUT) :: sqf(kmax), sqfp(kmax, nsp)
+real(kind=4) :: rkxyz, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma
+real(kind=8) :: sumcx, sumsx, sumcpx, sumspx, q2, bs
+real(kind=4), intent(IN) :: fk(dim)
+real(kind=4), value, intent(IN) ::  dq, q2max
 
-    attributes(global) subroutine sqfnDcl(r_d, Nmol, dim, fk, sqf, kmax, q2max, dq)
-        integer, value, intent(IN) :: Nmol, kmax, dim
-        real, dimension(dim, Nmol), intent(IN) :: r_d
-        real(kind=4), intent(INOUT) :: sqf(kmax)
-        real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma
-        real(kind=8) :: sumcx, sumsx, sumcpx, sumspx, q2
-        real(kind=4), intent(IN) :: fk(3)
-        real(kind=4), value, intent(IN) ::  dq, q2max
+integer :: i, j, it, kx, ky, kz, ind, ia
+kx = (blockidx%x - 1)*blockdim%x + threadidx%x - 1
+ky = (blockidx%y - 1)*blockdim%y + threadidx%y - 1
+kz = (blockidx%z - 1)*blockdim%z + threadidx%z - 1
+fk1 = fk(1)
+fk2 = fk(2)
+kf1 = kx*fk1
+kf2 = ky*fk2
+if (dim==3) then
+   fk3 = fk(3)
+   kf3 = kz*fk3
+   q2 = kf1*kf1 + kf2*kf2 + kf3*kf3
+else
+   q2 = kf1*kf1 + kf2*kf2
+endif
+if (q2 > 0.0 .and. q2 <= q2max) then
+   sumcx = 0
+   sumsx = 0
+   q = sqrt(q2)
+   ind = int(q/dq+0.501)
+   i = 0
+   do j = 1, nsp
+      sumcpx = 0
+      sumspx = 0
+      bs = bsc(j)
+      do it = 1, ntype(j)
+         i = i + 1
+         if (blockidx%x==3 .and. blockidx%y==3 .and. blockidx%z==3) then
+            if (threadidx%x==1 .and. threadidx%y==1.and.threadidx%z==1) then
+            endif
+         endif
+         rkxyz = r_d(2, i)*kf2+r_d(1, i)*kf1
+         if(dim==3) rkxyz = rkxyz + r_d(3, i)*kf3
+         sumcpx = sumcpx + __cosf(rkxyz)
+         sumspx = sumspx + __sinf(rkxyz)
+      end do
+      sumcx = sumcx + bs*sumcpx
+      sumsx = sumsx + bs*sumspx
+      suma = (sumcpx**2 + sumspx**2)
+      if (ind<=kmax) then
+         ia = atomicadd(sqfp(ind, j), suma)
+      endif
+   end do
+   tsum = (sumcx**2 + sumsx**2)
+   if (ind<=kmax) then
+      ia = atomicadd(sqf(ind), tsum)
+   endif
+   if (blockidx%x==3 .and. blockidx%y==3 .and. blockidx%z==3) then
+      if (threadidx%x==1 .and. threadidx%y==1.and.threadidx%z==1) then
+      endif
+   endif
+end if
+end subroutine sqfnD
 
-        integer :: i, j, it, kx, ky, kz, ind, ia
-        kx = (blockidx%x - 1)*blockdim%x + threadidx%x - 1
-        ky = (blockidx%y - 1)*blockdim%y + threadidx%y - 1
-        fk1 = fk(1)
-        fk2 = fk(2)
-        kf1 = kx*fk1
-        kf2 = ky*fk2
-        q2 = kf1*kf1 + kf2*kf2
-        if (dim==3) then 
-            kz = (blockidx%z - 1)*blockdim%z + threadidx%z - 1
-            fk3 = fk(3)
-            kf3 = kz*fk3
-            q2 = q2 + kf3*kf3
-        endif
-        if (q2 > 0.0 .and. q2 <= q2max) then
-            sumcx = 0
-            sumsx = 0
-            q = sqrt(q2)
-            ind = nint(q/dq)
-            sumcpx = 0
-            sumspx = 0
-            do i = 1, Nmol
-                rkx = r_d(1, i)*kf1
-                rky = r_d(2, i)*kf2
-                tsum = rkx+rky
-                if (dim==3) tsum=tsum + r_d(3, i)*kf3
-                sumcpx = sumcpx + cos(tsum)
-                sumspx = sumspx + sin(tsum)
-            end do
-            suma = (sumcpx**2 + sumspx**2)/Nmol
-            ia = atomicadd(sqf(ind), suma)
-        end if
-    end subroutine sqfnDcl
+
+subroutine sq_clear()
+   implicit none
+
+   ! Clean house
+   deallocate (sqf)
+   deallocate (sqfp)
+   deallocate (nq)
+   deallocate (sqf_d)
+   deallocate (sqfp_d)
+   if (run_clusters) then
+      deallocate (sqfcl)
+      deallocate (sqfcl_d)
+      deallocate (sqcl)
+   endif
+
+end subroutine sq_clear
+
+attributes(global) subroutine sqfnDcl(r_d, Nmol, dim, fk, sqf, kmax, q2max, dq)
+integer, value, intent(IN) :: Nmol, kmax, dim
+real, dimension(dim, Nmol), intent(IN) :: r_d
+real(kind=4), intent(INOUT) :: sqf(kmax)
+real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma
+real(kind=8) :: sumcx, sumsx, sumcpx, sumspx, q2
+real(kind=4), intent(IN) :: fk(3)
+real(kind=4), value, intent(IN) ::  dq, q2max
+
+integer :: i, j, it, kx, ky, kz, ind, ia
+kx = (blockidx%x - 1)*blockdim%x + threadidx%x - 1
+ky = (blockidx%y - 1)*blockdim%y + threadidx%y - 1
+fk1 = fk(1)
+fk2 = fk(2)
+kf1 = kx*fk1
+kf2 = ky*fk2
+q2 = kf1*kf1 + kf2*kf2
+if (dim==3) then
+   kz = (blockidx%z - 1)*blockdim%z + threadidx%z - 1
+   fk3 = fk(3)
+   kf3 = kz*fk3
+   q2 = q2 + kf3*kf3
+endif
+if (q2 > 0.0 .and. q2 <= q2max) then
+   sumcx = 0
+   sumsx = 0
+   q = sqrt(q2)
+   ind = nint(q/dq)
+   sumcpx = 0
+   sumspx = 0
+   do i = 1, Nmol
+      rkx = r_d(1, i)*kf1
+      rky = r_d(2, i)*kf2
+      tsum = rkx+rky
+      if (dim==3) tsum=tsum + r_d(3, i)*kf3
+      sumcpx = sumcpx + cos(tsum)
+      sumspx = sumspx + sin(tsum)
+   end do
+   suma = (sumcpx**2 + sumspx**2)/Nmol
+   ia = atomicadd(sqf(ind), suma)
+end if
+end subroutine sqfnDcl
 
 end module mod_sq

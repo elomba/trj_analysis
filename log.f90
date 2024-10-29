@@ -19,7 +19,7 @@ contains
    end subroutine log_clear
 
    subroutine print_output(iconf)
-      integer, parameter :: nther=7
+      integer, parameter :: nther=7, nprint=10
       integer, intent(in) :: iconf
       logical, dimension(nther) :: mascara
       character*15, dimension(nther) :: title =(/"     T(K)","KE (Kcal/mol)","PE Kcal/mol",&
@@ -47,10 +47,10 @@ contains
          write(1000,"(i9,8f15.5)")iconf, pack(thermo_q(1:nther),mascara)
       endif
 
-      If (Mod(Iconf - 1, 5) .Eq. 0) Then
+      If (Mod(Iconf - 1, nprint) .Eq. 0) Then
          call cpu_time(cpu1)
-         Write (*, "(/' ** Working on MD step no. ',i8,' time =',f10.5,' ns, cpu time=',f15.2&
-         &/)") nstep, nstep*tstep/1000.0, cpu1 - cpu0
+         Write (*, "(/' ** Working on MD step no. ',i8,' time =',f10.5,' ns, cpu time per conf.=',f15.2&
+         &/)") nstep, nstep*tstep/1000.0, (cpu1 - cpu0)/nprint
          cpu0 = cpu1
          if (run_thermo) then
             write (*, "(' ** Potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epot, epotperatom

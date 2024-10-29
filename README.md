@@ -73,14 +73,17 @@ Trajectory analysis
     ! namelist /INPUT_CONF/ idir, pwall, pwallp
     !          Direction of confinement (1,2,3->x,y,z), position of left wall, position of right wall
     
-    ! namelist /INPUT_DYN/ nbuffer, tmax
-    !           Number of buffers (time origins) for dynamic correlation analysis, maximum time for 
-    !           correlation functions (at tmax a window function is applied for FFTs), if omitted all
-    !           t values are used
-    
+    ! namelist /INPUT_DYN/ nbuffer, tmax, jump, tlimit
+    !           Number of buffers (time origins) for dynamic correlation analysis
+    !           buffers are separated by jump configurations (def. 10), maximum 
+    !           time for  correlation functions (at tmax a window function
+    !            is applied for FFTs), if omitted all t values are used.
+    !           Averages stored over tlimit only (in ps), and then origin
+    !           for calculation is shifted
+   
     ! namelist /INPUT_SQW/ qw, tmqw
-    !          values of Q to compute F(Q,t), Fs(Q,t) and S(Q,w),Ss(Q,w) maximum times for F(Q,t),
-    !          if omitted tmax is used
+    !          values of Q to compute F(Q,t), Fs(Q,t) and S(Q,w),Ss(Q,w) 
+    !          maximum times for F(Q,t), if omitted tmax is used
     !
   ## OUTPUT FILES:
     !      - dyn.dat (msd, <v(t)v(0)>, Z(w))

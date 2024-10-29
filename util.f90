@@ -1,7 +1,8 @@
 module mod_util
     use mod_common, only : shmsize, maxthread,  run_thermo, ex_stress, &
                             printDevPropShort, common_clear, nit, ener_name, press_name, &
-                            run_sq, run_sqw, run_rdf, run_clusters, run_dyn
+                            run_sq, run_sqw, run_rdf, run_clusters, run_dyn, &
+                            printcudaerror
     use mod_densprof, only : prof_init, prof_clear
     use mod_sq, only : sq_init, printsq, sq_clear, sq_transfer_gpu_cpu
     use mod_rdf, only : rdf_init, printrdf, rdf_clear
@@ -131,7 +132,7 @@ subroutine init_modules(use_cell,run_rdf,run_sq,run_clusters,nsp,nmol,nbcuda)
     implicit none
     logical, intent(IN) :: use_cell,run_rdf,run_sq,run_clusters 
     integer, intent(in) :: nsp, nmol, nbcuda
-     if (use_cell) call cells_init_post_nc_read() 
+     if (use_cell) call cells_init_post_nc_read()
      if (run_rdf) call RDF_init(nsp)
      if (run_sq) call sq_init(nmol, nsp, nbcuda)
      if (run_clusters) call clusters_sq_init()
@@ -167,6 +168,7 @@ subroutine print_results(run_sq,  run_rdf, run_dyn, run_clusters, run_thermo, nt
         call printSQ(Nmol)
     end if
 
+    write(*,"(/60('-'))")
     do i = 1, nsp
         write (*, '(" ** ",i6," atoms of type ",i2)') ntype(i), i
     end do
