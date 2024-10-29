@@ -50,8 +50,8 @@ contains
          allocate(w(ndyn),ftv(ndyn))
       endif
       if (ex_stress) then
-         allocate(poff_d(6,nmol),stcorr_d(ndyn,nbuffer),&
-            p0_d(6,nbuffer), origin_d(nbuffer))
+         allocate(poff_d(1:3,1:nmol),stcorr_d(ndyn,nbuffer),&
+            p0_d(1:3,1:nbuffer), origin_d(nbuffer))
          allocate(stcorr(ndyn),origin(nbuffer))
       endif
       if (run_sqw) then
@@ -88,7 +88,7 @@ contains
    subroutine rtcorr(iconf)
       integer, intent(in) :: iconf
       integer :: istat, iorg, i
-      real :: time_gpu, v0(3), v(3), res
+      real :: time_gpu, v0(3), v(3)
       ! store times (in ps)
       if (iconf <= ndyn) t(iconf) = nstep*tstep
       ! define buffer origins
@@ -133,7 +133,7 @@ contains
               jump,origin_d)
       
       if (ex_stress) then
-         poff_d(1:6,1:nmol) = -stress(1:6,1:nmol)/volumen
+         poff_d(1:3,1:nmol) = -stress(4:6,1:nmol)/volumen
          call st_cal<<<nblocks,nbuffer>>>(nmol,nbuffer,ndyn,iconf,&
                    jump,origin_d)
       endif
@@ -146,7 +146,6 @@ contains
          call  FqtnD<<<nqwmax,nbuffer>>>(nqwmax, nqw, Nmol, ndim, itype_d,&
             ntype_d, bsc_d, fk_d, nsp, dq, ndyn, iconf, nbuffer, jump, origin_d)
       endif
-
       do i = 1, nbuffer
          iorg =  origin(i)
          !  Shift origin position if time limit reached for buffer i
@@ -159,6 +158,7 @@ contains
             r2tb_d(1:ndyn,i) = 0
             if (ex_stress) then
                ! accumulate stress tensor
+   
                stcorr(1:ndyn) = stcorr(1:ndyn) + stcorr_d(1:ndyn,i)
                stcorr_d(1:ndyn,i) = 0.0
             endif
@@ -242,7 +242,7 @@ contains
          endif
          if (ex_stress) then
             if (i==1) then
-               pct =  stcorr(i)/(6*count_org)
+               pct =  stcorr(i)/(ndim*count_org)
                write(56,"(f10.3,8f15.5)")t(i),pct,0.0
             else
                pct1 = pct
@@ -251,7 +251,7 @@ contains
                ! Use Green-Kubo relation eta_gk = (V/NkT)*\int_0^t<pxy(t')pxy(0)>dt' in (bar*s)
                !
                sum_visc = sum_visc + (pct+pct1)*(t(i)-t(i-1))/2
-               if (i<=itlimit) write(56,"(f10.3,8f15.5)")t(i),pct,(volumen/temperature/c_nktv)*sum_visc
+               if (i<=itlimit) write(56,"(f10.3,9f15.5)")t(i),pct,(volumen/temperature/c_nktv)*sum_visc
             endif
          end if
          if (run_sqw) then
@@ -396,9 +396,9 @@ end subroutine rtcal
 
 attributes(global) subroutine st_cal(mol,buffer,dyn,iconf,&
    jump,origin)
-integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf, jump
+integer, value, intent(IN) :: mol, buffer, dyn, iconf, jump
 real :: suma
-real(double) :: sumaxy, sumayz, sumaxz
+real(double) :: sumaxy, sumayz, sumaxz, sumaxx, sumayy, sumazz
 integer :: i, j, k, npsize, nprest, ia, indx, iorg
 integer, dimension(buffer), intent(in) :: origin
 i = threadidx%x
@@ -408,32 +408,21 @@ indx = iconf - iorg + 1
 if (iconf>=iorg .and. indx <= dyn) then
    npsize = mol/nblocks
    nprest = mod(mol,nblocks)
-   sumaxx = sum(poff_d(1,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
-   sumayy = sum(poff_d(2,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
-   sumazz = sum(poff_d(3,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
-   sumaxy = sum(poff_d(4,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
-   sumaxz = sum(poff_d(5,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
-   sumayz = sum(poff_d(6,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
+   sumaxy = sum(poff_d(1,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
+   sumaxz = sum(poff_d(2,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
+   sumayz = sum(poff_d(3,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
    if (nprest>0) then
-      sumaxx = sumaxx + sum(poff_d(1,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
-      sumaxy = sumayy + sum(poff_d(2,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
-      sumazz = sumazz + sum(poff_d(3,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
-      sumaxy = sumaxy + sum(poff_d(4,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
-      sumaxz = sumaxz + sum(poff_d(5,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
-      sumayz = sumaxy + sum(poff_d(6,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
+      sumaxy = sumaxy + sum(poff_d(1,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
+      sumaxz = sumaxz + sum(poff_d(2,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
+      sumayz = sumayz + sum(poff_d(3,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
    end if
    if (iorg==iconf) then
-      p0_d(1,i) = sumaxx
-      p0_d(2,i) = sumayy
-      p0_d(3,i) = sumazz
-      p0_d(4,i) = sumaxy
-      p0_d(5,i) = sumaxz
-      p0_d(6,i) = sumayz
+      p0_d(1,i) = sumaxy
+      p0_d(2,i) = sumaxz
+      p0_d(3,i) = sumayz
    end if
-   suma = (sumaxx*p0_d(1,i)+sumayy*p0_d(2,i)+sumazz*p0_d(3,i))*0.75 +&
-          sumaxy*p0_d(4,i)+sumaxz*p0_d(5,i)+sumayz*p0_d(6,i)
+   suma = sumaxy*p0_d(1,i)+sumaxz*p0_d(2,i)+sumayz*p0_d(3,i)
    ia = atomicadd(stcorr_d(indx,i),suma)
-
 endif
 end subroutine st_cal
 

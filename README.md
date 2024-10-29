@@ -95,8 +95,8 @@ Trajectory analysis
     !      - fkt.dat (F(Q_i,t) for nqw Qs)
     !      - fskt.dat (F_self(Q_i,t) for nqw Qs)
     !      - sqw.dat   (S(q,w), S_self(Q,w))
-    !      - viscor.dat (<p_xy(t)p_xy(0)  eta(t) (shear viscosity integral)): uses
-    !        all components of the stress tensor 
+    !      - viscor.dat (<p_xy(t)p_xy(0)  eta(t) (stress tensor correlation,
+    !        shear viscosity GK integral))
     !        (Daivies&Evans, 1994, doi: 10.1063/1.466970.)
     !
     !      * Structure

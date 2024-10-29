@@ -19,17 +19,18 @@ contains
    end subroutine log_clear
 
    subroutine print_output(iconf)
-      integer, parameter :: nther=7, nprint=10
+      integer, parameter :: nther=10, nprint=10
       integer, intent(in) :: iconf
       logical, dimension(nther) :: mascara
       character*15, dimension(nther) :: title =(/"     T(K)","KE (Kcal/mol)","PE Kcal/mol",&
-                  " Pressure (bar)","      Px(bar)","     Py(bar)","     Pz(bar)"/)
+                  " Pressure (bar)","      Pxx(bar)","    Pyy(bar)","     Pxz(bar)",&
+                  "      Pxy(bar)","    Pxz(bar)","     Pyz(bar)"/)
       real(myprec) :: thermo_q(nther)
       thermo_q(:) = 0
       mascara(1) = ex_vel
       mascara(2) = ex_vel
       mascara(3) = run_thermo
-      mascara(4:4+ndim) = ex_stress
+      mascara(4:10) = ex_stress
       if (ex_vel) then
           thermo_q(1) = temperature
           thermo_q(2) = kelvintokcal*ekin*(aunit/tunit)**2/Rgas
@@ -37,14 +38,14 @@ contains
       if (run_thermo) thermo_q(3) = epot
       if (ex_stress) then
          thermo_q(4) = pressure
-         thermo_q(5:4+ndim) = pxyz(1:ndim)
+         thermo_q(5:10) = pxyz(1:6)
       endif
       if (sum(mascara)) then
          if (iconf == 1) then
             open(1000, file="thermo_run.dat")
             write(1000,"('#    Conf  ',16a15)")pack(title(1:nther),mascara)
          endif
-         write(1000,"(i9,8f15.5)")iconf, pack(thermo_q(1:nther),mascara)
+         write(1000,"(i9,12f15.5)")iconf, pack(thermo_q(1:nther),mascara)
       endif
 
       If (Mod(Iconf - 1, nprint) .Eq. 0) Then
