@@ -1,6 +1,8 @@
 program trj_analysis
     !
-    !  This program performs an analysis of a netcdf trajectory file from LAMMPS.
+    !  This program performs an analysis of a netcdf trajectory file from LAMMPS
+    !  molecular dynamics package (https://www.lammps.org/).
+    !
     !  At this stage it computes:
     !     - Pair distribution functions
     !     - Static structure factors
@@ -21,7 +23,7 @@ program trj_analysis
     !
     !   Restrictions: 
     !                1. Only orthogonal cells are allowed
-    !                2. Particle numbers must remain constant all along the simulation
+    !                2. Particle numbers must remain constant all along the trajectory
     !                3. Molecules are analyzed in terms of their atoms, 
     !                   so far no internal degrees of freedom taken into account
     !                4. LAMMPS units must be "real" (unit conversion soon to be implemented)
@@ -71,15 +73,24 @@ program trj_analysis
     !          if omitted tmax is used
     !
     !    OUTPUT FILES:
-    !      - dyn.dat (msd, <v(t)v(0)>, Z(w))
+    !      * Thermodynamics
+    !      - thermo_run.dat (Instantaneous values of thermod. quantities)
+    !      * Dynamics
+    !      - dyn.dat (msd, <v(t)v(0)>)
+    !      - dynw.dat w, Z(w)
     !      - fkt.dat (F(Q_i,t) for nqw Qs)
     !      - fskt.dat (F_self(Q_i,t) for nqw Qs)
+    !      - sqw.dat   (S(q,w), S_self(Q,w))
     !      - viscor.dat (<p_xy(t)p_xy(0)  eta(t) (shear viscosity integral))
+    !
+    !      * Structure
     !      - gmixsim.dat (g_ab(r), g_clcl(r) in cluster analysis on)
     !      - sq.dat  S_NN(Q), (S_cc(Q) , S_11, S_12, S_22 in binary systems)
     !      - sqcl.dat Cluster-cluster S(Q)
     !      - sqmix.dat S_ii (i<=nsp)
     !      - sqw.dat  (S(Q_i,w), S_self(Q_i,w) for nwq Qs)
+    !
+    !      * Cluster analysis
     !      - rhoprof.dat Average cluster density profile (only for finite clusters) 
     !      - radii.dat Distribution of cluster gyration radii
     !      - clustdistr.dat Distribution of cluster particle size
@@ -88,6 +99,8 @@ program trj_analysis
     !      - clusevol.dat , conf no., no. of clusters, % of particles in clusters
     !      - centers.lammpstrj trajectory of clusters centers of mass (to be visualized with Ovito)
     !                          Particle no. not constant along the trajectory !!
+    !
+           
     !   OUTPUT Units: LAMMPS "real" units, except time (ps)
     !   Programmed in NVIDIA CUDA Fortran
     !

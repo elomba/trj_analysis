@@ -16,8 +16,8 @@ Trajectory analysis
 - Potential energy (if compute pe/peratom pressent in the trajectory file)
 - Stress tensor (pressure)  (if compute stress/atom pressent in the trajectory file)
 
--   **Important notice:** in LAMMPS script the following computes must be included in the dump
-                     in order to compute potential energies and pressures
+-   **Important notice:** in LAMMPS script the following computes must be 
+    included in the dump in order to compute potential energies and pressures
       
 ```
       compute stress all stress/atom NULL
@@ -26,16 +26,17 @@ Trajectory analysis
 ```
 
 
--    In the first INPUT namelist optional character variables "ener_name" and "press_name" 
-     refer to the  names of the computes
+-    In the first INPUT namelist optional character variables
+     "ener_name" and "press_name" refer to the  names of the computes
 
 *Restrictions*
 
     - The trajectory file **MUST** us NETDCF format 
     - Only orthogonal simulation cells
-    - The number of particles MUST be constant (NpT simulations are allowed, but structure
-      factors will be affected by minor errors due to changes in \Delta Q = 2\pi/L)
-    - Molecules are analyzed in terms of their atoms, so far no internal degrees of freedom 
+    - The number of particles MUST be constant (NpT simulations are allowed, 
+      but structure factors will be affected by minor errors due to changes in \Delta Q = 2\pi/L)
+    - Molecules are analyzed in terms of their atoms, so far no internal
+      degrees of freedom 
       taken into account
     - LAMMPS units must be "real" (unit conversion soon to be implemented)
     - The mimimum dump information to process is 
@@ -86,23 +87,36 @@ Trajectory analysis
     !          maximum times for F(Q,t), if omitted tmax is used
     !
   ## OUTPUT FILES:
-    !      - dyn.dat (msd, <v(t)v(0)>, Z(w))
+    !      * Thermodynamics
+    !      - thermo_run.dat (Instantaneous values of thermod. quantities)
+    !      * Dynamics
+    !      - dyn.dat (msd, <v(t)v(0)>)
+    !      - dynw.dat w, Z(w)
     !      - fkt.dat (F(Q_i,t) for nqw Qs)
     !      - fskt.dat (F_self(Q_i,t) for nqw Qs)
+    !      - sqw.dat   (S(q,w), S_self(Q,w))
+    !      - viscor.dat (<p_xy(t)p_xy(0)  eta(t) (shear viscosity integral)): uses
+    !        all components of the stress tensor 
+    !        (Daivies&Evans, 1994, doi: 10.1063/1.466970.)
+    !
+    !      * Structure
     !      - gmixsim.dat (g_ab(r), g_clcl(r) in cluster analysis on)
     !      - sq.dat  S_NN(Q), (S_cc(Q) , S_11, S_12, S_22 in binary systems)
     !      - sqcl.dat Cluster-cluster S(Q)
     !      - sqmix.dat S_ii (i<=nsp)
     !      - sqw.dat  (S(Q_i,w), S_self(Q_i,w) for nwq Qs)
-    !      - rhoprof.dat Average cluster density profile (only for finite clusters) 
+    !
+    !      * Cluster analysis
+    !      - rhoprof.dat Average cluster density profile 
+    !        (only for finite clusters) 
     !      - radii.dat Distribution of cluster gyration radii
     !      - clustdistr.dat Distribution of cluster particle size
     !      - distUcl_N.dat Distribution of cluster internal energies per particle
     !      - distUcltot.dat Distribution of cluster internal energies (total)
     !      - clusevol.dat , conf no., no. of clusters, % of particles in clusters
-    !      - centers.lammpstrj trajectory of clusters centers of mass (to be visualized with
-    !         Ovito)
-    !         Particle no. not constant along the trajectory !!
+    !      - centers.lammpstrj trajectory of clusters centers of mass
+    !        (to be visualized with Ovito)
+    !         No. of clusters not constant along the trajectory !!
 
 ## Installation
 A Makefile is included (-mno-avx512f can be removed from compilation options if AVX512 instruction set present in the CPU)

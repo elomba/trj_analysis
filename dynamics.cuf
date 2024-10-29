@@ -50,8 +50,8 @@ contains
          allocate(w(ndyn),ftv(ndyn))
       endif
       if (ex_stress) then
-         allocate(poff_d(ndim,nmol),stcorr_d(ndyn,nbuffer),&
-            p0_d(ndim,nbuffer), origin_d(nbuffer))
+         allocate(poff_d(6,nmol),stcorr_d(ndyn,nbuffer),&
+            p0_d(6,nbuffer), origin_d(nbuffer))
          allocate(stcorr(ndyn),origin(nbuffer))
       endif
       if (run_sqw) then
@@ -133,8 +133,8 @@ contains
               jump,origin_d)
       
       if (ex_stress) then
-         poff_d(1:ndim,1:nmol) = -stress(4:3+ndim,1:nmol)/volumen
-         call st_cal<<<nblocks,nbuffer>>>(ndim,nmol,nbuffer,ndyn,iconf,&
+         poff_d(1:6,1:nmol) = -stress(1:6,1:nmol)/volumen
+         call st_cal<<<nblocks,nbuffer>>>(nmol,nbuffer,ndyn,iconf,&
                    jump,origin_d)
       endif
 
@@ -242,7 +242,7 @@ contains
          endif
          if (ex_stress) then
             if (i==1) then
-               pct =  stcorr(i)/(ndim*count_org)
+               pct =  stcorr(i)/(6*count_org)
                write(56,"(f10.3,8f15.5)")t(i),pct,0.0
             else
                pct1 = pct
@@ -394,7 +394,7 @@ if (iconf>=iorg .and. indx <= dyn) then
 endif
 end subroutine rtcal
 
-attributes(global) subroutine st_cal(dim,mol,buffer,dyn,iconf,&
+attributes(global) subroutine st_cal(mol,buffer,dyn,iconf,&
    jump,origin)
 integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf, jump
 real :: suma
@@ -408,27 +408,30 @@ indx = iconf - iorg + 1
 if (iconf>=iorg .and. indx <= dyn) then
    npsize = mol/nblocks
    nprest = mod(mol,nblocks)
-   sumaxy = sum(poff_d(1,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
-   if(dim==3) then
-      sumaxz = sum(poff_d(3,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
-      sumayz = sum(poff_d(2,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
-   endif
+   sumaxx = sum(poff_d(1,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
+   sumayy = sum(poff_d(2,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
+   sumazz = sum(poff_d(3,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
+   sumaxy = sum(poff_d(4,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
+   sumaxz = sum(poff_d(5,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
+   sumayz = sum(poff_d(6,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
    if (nprest>0) then
-      sumaxy = sumaxy + sum(poff_d(1,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
-      if(dim==3) then
-         sumaxz = sumaxz + sum(poff_d(3,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
-         sumayz = sumayz + sum(poff_d(2,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
-      endif
+      sumaxx = sumaxx + sum(poff_d(1,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
+      sumaxy = sumayy + sum(poff_d(2,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
+      sumazz = sumazz + sum(poff_d(3,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
+      sumaxy = sumaxy + sum(poff_d(4,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
+      sumaxz = sumaxz + sum(poff_d(5,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
+      sumayz = sumaxy + sum(poff_d(6,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
    end if
    if (iorg==iconf) then
-      p0_d(1,i) = sumaxy
-      if (dim==3) then 
-         p0_d(3,i) = sumaxz
-         p0_d(2,i) = sumayz
-      endif
+      p0_d(1,i) = sumaxx
+      p0_d(2,i) = sumayy
+      p0_d(3,i) = sumazz
+      p0_d(4,i) = sumaxy
+      p0_d(5,i) = sumaxz
+      p0_d(6,i) = sumayz
    end if
-   suma = sumaxy*p0_d(1,i)
-   if (dim==3) suma = suma + sumaxz*p0_d(3,i)+sumayz*p0_d(2,i)
+   suma = (sumaxx*p0_d(1,i)+sumayy*p0_d(2,i)+sumazz*p0_d(3,i))*0.75 +&
+          sumaxy*p0_d(4,i)+sumaxz*p0_d(5,i)+sumayz*p0_d(6,i)
    ia = atomicadd(stcorr_d(indx,i),suma)
 
 endif
