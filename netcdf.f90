@@ -61,7 +61,8 @@ module mod_nc_conf
     type(config), dimension(:), allocatable :: conf
     type(dimens), dimension(:), allocatable :: mydims
     type(globalat), dimension(:), allocatable :: myglobatts
-    real(myprec), dimension(:, :, :), allocatable :: r, v, fxyz, stress_i
+    real(myprec), dimension(:, :, :), allocatable :: r, v, fxyz
+    real(double), dimension(:, :, :), allocatable :: stress_i
     real(myprec), dimension(:,:), allocatable :: u_pi
     real(myprec), dimension(3, 1) :: org, cell, cell_a
     real(myprec) :: time, scale

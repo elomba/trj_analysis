@@ -13,14 +13,16 @@ module mod_dyn
    integer :: ndyn, count_org=0, itlimit
    integer, allocatable, dimension(:) :: origin
    integer, device, allocatable, dimension(:) :: origin_d
-   integer, parameter :: nbmax = 400, nblocks = 1
+   integer, parameter :: nbmax = 1000, nblocks = 1
    real(myprec), device, allocatable, dimension(:,:,:) :: r0_d, rt_d, v0_d, fktb_d, fsktb_d
    real(myprec), device, allocatable, dimension(:,:) :: r2tb_d, v2tb_d, poff_d, stcorr_d, p0_d
    real(myprec), device, allocatable, dimension(:) :: qw_d
    integer (kind=2), device, allocatable, dimension(:,:) :: indqw_d
    real(myprec), allocatable, dimension(:,:,:) :: r0, v0
    real(myprec),  allocatable, dimension(:,:) :: fkt, fskt, sqw, ssqw
-   real(myprec),  allocatable, dimension(:) :: t, r2t, v2t, stcorr
+   real(myprec),  allocatable, dimension(:) :: t, v2t
+   real(kind=8),  allocatable, dimension(:) :: r2t, stcorr
+   real(double), allocatable, dimension(:,:) :: stcorrb 
    real(float), allocatable, dimension(:) :: w, ftv
    real(float) :: sumvel=0
 contains
@@ -52,7 +54,7 @@ contains
       if (ex_stress) then
          allocate(poff_d(1:3,1:nmol),stcorr_d(ndyn,nbuffer),&
             p0_d(1:3,1:nbuffer), origin_d(nbuffer))
-         allocate(stcorr(ndyn),origin(nbuffer))
+         allocate(stcorr(ndyn),origin(nbuffer),stcorrb(ndyn,nbuffer))
       endif
       if (run_sqw) then
          allocate(fkt(nqw,ndyn),fskt(nqw,ndyn))
@@ -134,8 +136,9 @@ contains
       
       if (ex_stress) then
          poff_d(1:3,1:nmol) = -stress(4:6,1:nmol)/volumen
-         call st_cal<<<nblocks,nbuffer>>>(nmol,nbuffer,ndyn,iconf,&
-                   jump,origin_d)
+         poff_d(1:3,1:nmol) = -stress(4:6,1:nmol)/volumen
+      !   call st_cal<<<nblocks,nbuffer>>>(nmol,nbuffer,ndyn,iconf,&
+      !             jump,origin_d)
       endif
 
       if (run_sqw) then
@@ -159,7 +162,8 @@ contains
             if (ex_stress) then
                ! accumulate stress tensor
    
-               stcorr(1:ndyn) = stcorr(1:ndyn) + stcorr_d(1:ndyn,i)
+!               stcorr(1:ndyn) = stcorr(1:ndyn) + stcorr_d(1:ndyn,i)
+               stcorr(1:ndyn) = stcorr(1:ndyn) + stcorrb(1:ndyn,i)
                stcorr_d(1:ndyn,i) = 0.0
             endif
             if (ex_vel) then
@@ -267,8 +271,31 @@ contains
       close(66)
       close(67)
       close(555)
-   end subroutine print_rtcor
+   end subroutine printrtcor
 
+attributes(global) subroutine st_cal(mol,buffer,dyn,iconf,&
+   jump,origin, i)
+integer, value, intent(IN) :: mol, buffer, dyn, iconf, jump, i
+real :: suma
+real(double) :: sumaxy, sumayz, sumaxz, sumaxx, sumayy, sumazz
+integer :: i, j, k, npsize, nprest, ia, indx, iorg
+integer, dimension(buffer), intent(in) :: origin
+iorg = origin(i)
+indx = iconf - iorg + 1
+! Check origin and final configuration of each averaging buffer
+if (iconf>=iorg .and. indx <= dyn) then
+   sumaxy = sum(poff_d(1,1:mol))
+   sumaxz = sum(poff_d(2,1:mol))
+   sumayz = sum(poff_d(3,1:mol))
+   if (iorg==iconf) then
+      p0(1,i) = sumaxy
+      p0(2,i) = sumaxz
+      p0(3,i) = sumayz
+   end if
+   suma = sumaxy*p0(1,i)+sumaxz*p0(2,i)+sumayz*p0(3,i)
+   stcorrb(indx,i) = stcorrb(indx,i)+suma
+endif
+end subroutine stcal
 
 
    attributes(global) subroutine FqtnD(nqwmax, nqw, Nmol, dim, itype, ntype, &

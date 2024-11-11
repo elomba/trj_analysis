@@ -6,7 +6,7 @@
   nqw=3
   nthread=128
   ncfs_from_to=20000 1 20000
-  rdf_sq_cl_dyn_sqw_conf=T F F T F  F
+  rdf_sq_cl_dyn_sqw_conf=T T F T T  F
   ener_name="ener" 
   press_name="stress"
 /
@@ -30,7 +30,7 @@
   sigma=4.0
 /
 &INPUT_DYN
-nbuffer=400
+nbuffer=200
 tmax=10.0
 tlimit=10.0
 /

@@ -34,7 +34,8 @@ module mod_common
    real(myprec), allocatable, dimension(:) :: masa, bscat, sig2n, gaver, u_p
    real(kind=8), allocatable, dimension(:) :: gi, g2i, gii, g2ii
    real, device, allocatable, dimension(:) :: sqf_d, sqfcl_d, bsc_d
-   real(myprec), allocatable, dimension(:, :) :: r, vel, force, stress, densprof
+   real(myprec), allocatable, dimension(:, :) :: r, vel, force, densprof
+   real(double),allocatable, dimension(:, :) :: stress 
    real, device, allocatable, dimension(:, :) :: r_d, v_d, rclxyzd, sqfp_d
    logical, allocatable, dimension(:) :: bigcl
    logical,  device, allocatable, dimension(:) :: bigcl_d
@@ -51,7 +52,8 @@ module mod_common
    character :: fname99*18
    character, dimension(:), allocatable :: atoms*8
    character :: ener_name*12, press_name*12
-   real(myprec) :: epotperatom, epot,epotav, pressure, pressav, pxyz(6)
+   real(myprec) :: epotperatom, epot,epotav
+   real(double) :: pressure, pressav, pxyz(6)
    integer, allocatable, dimension(:) :: epotperatomhistomixcl, epothistomixcl
    integer(kind=2), allocatable, dimension(:) :: clusid
    integer(kind=2), device, allocatable, dimension(:) :: clusid_d
