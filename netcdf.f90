@@ -323,7 +323,7 @@ subroutine reset_nmol(nmoln)
     do i = 1, natoms
         if (any(wtypes == ity_in(i,1)))then
             if(count(wtypes==ity_in(i,1))>1) then
-                write(*,"('*** Error: type',i2,' appears more than onces in selection ')")ity_in(i,1)
+                write(*,"(' !!*** Error: type',i2,' appears more than onces in selection ')")ity_in(i,1)
                 stop
             endif
             index=index+1
@@ -331,9 +331,9 @@ subroutine reset_nmol(nmoln)
     enddo
     Nmoln = index
     if (Nmoln >0) then
-        write(*,"('*** Nmol reset to',i7)") nmoln
+        write(*,"(' !!*** Only ',i7,' atoms selected: Nmol reset ...')") nmoln
     else 
-        write(*,"('*** Error: selected type not in netcdf trajectory file ..')")
+        write(*,"(' !!*** Error: selected types not in netcdf trajectory file: ',8i3)")wtypes
         stop
     endif
 end subroutine reset_nmol

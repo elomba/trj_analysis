@@ -12,7 +12,7 @@ module mod_util
     use mod_input, only : input_clear, sp_types_selected, ncfs_from_to, rdf_sq_cl_dyn_sqw_conf, rcl 
     use mod_cells, only : cells_init_post_nc_read, cells_init_pre_nc_read, cells_clear, use_cell
     use mod_thermo, only : thermo_clear
-    use mod_nc_conf, only : wtypes
+    use mod_nc_conf, only : wtypes, nmconf
     contains
 subroutine gpu_and_header(startEvent,stopEvent)
     use cudafor
@@ -47,7 +47,7 @@ subroutine gpu_and_header(startEvent,stopEvent)
      ! Check that maximum number of threads is not surpassed
     if (nthread > maxthread/8) then
         nthread = maxthread/8
-        write(*,'("** Warning: number of threads reset to",I3)')nthread
+        write(*,'(" !! *** Warning: number of threads reset to",I3)')nthread
     endif
 end subroutine gpu_and_header
 
@@ -84,6 +84,10 @@ subroutine reset_confs(nconf_i,nconf)
     end if
     nconf = ncfs_from_to(1)
     ncfs_from_to(3) = ncfs_from_to(3) + 1
+    if (nconf > nmconf) then
+        write(*,"(/' !!*** Warning: resetting Nconf to ',i5,', last conf. in trajectory !'/)") nmconf
+        nconf = nmconf
+    endif
 end subroutine reset_confs
 
 subroutine basic_init(use_cell,run_clusters,run_dyn,confined,nmol)

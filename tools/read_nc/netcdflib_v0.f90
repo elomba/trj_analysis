@@ -288,7 +288,7 @@ subroutine read_nc_cfg(ncid,ncstart,io,unit)
           &ttrs ',/)")
   endif
   if (ncstart > nmconf) then
-     write(*,"(' ** Warning : trying to read past last configuration no. ',i7 )") nmconf
+     write(*,"(' !!*** Warning : trying to read past last configuration no. ',i7 )") nmconf
      io = -1
      return
   end if
@@ -421,7 +421,7 @@ subroutine read_nc_cfg(ncid,ncstart,io,unit)
         end do
      endif
   else
-     print *, " **** Warning no atom types defined in trajectory file"
+     print *, " !!*** Warning no atom types defined in trajectory file"
   endif
   if (iunit.ne. 6 .and. first) close(iunit)
   first = .false.
