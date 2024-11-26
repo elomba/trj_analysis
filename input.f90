@@ -11,6 +11,8 @@ module mod_input
    real(myprec) :: deltar, rcl=-1.0, dcl, qmin, qmax, sigma, pwall, pwallp, rcrdf, tmax=100.0, tlimit=-1, potengmargin=0.0
    real(myprec), allocatable, dimension(:) :: mat, bsc, qw, tmqw
    character(len=128) :: input_filename, log_output_file, trj_input_file
+   !
+   ! Input namelists 
    namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread, &
       ncfs_from_to, rdf_sq_cl_dyn_sqw_conf, nqw, ener_name, press_name, potnbins, potengmargin 
    namelist /INPUT_SP/ sp_types_selected, sp_labels, mat 

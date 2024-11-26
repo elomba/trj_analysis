@@ -13,7 +13,8 @@ module mod_dyn
    integer :: ndyn, count_org=0, itlimit
    integer, allocatable, dimension(:) :: origin
    integer, device, allocatable, dimension(:) :: origin_d
-   integer, parameter :: nbmax = 1000, nblocks = 1
+   integer, parameter :: nbmax = 1000, nblocks = 100 ! Max. number of buffers, number of blocks to split
+                                                     ! operations with particles
    real(myprec), device, allocatable, dimension(:,:,:) :: r0_d, rt_d, v0_d, fktb_d, fsktb_d
    real(myprec), device, allocatable, dimension(:,:) :: r2tb_d, v2tb_d, poff_d, stcorr_d, p0_d
    real(myprec), device, allocatable, dimension(:) :: qw_d
@@ -120,7 +121,7 @@ contains
          v_d(1:ndim, 1:Nmol) = vel(1:ndim,1:Nmol)
       end if
       if (nmol/nblocks<1) then
-         write(*,"('** Error: number of particles too small < ',i4)")nblocks
+         write(*,"(' !!** Error: number of particles too small < ',i4)")nblocks
       endif
       istat = cudaEventRecord(startEvent, 0)
       ! Transfer origin positions and velocities for each buffer
