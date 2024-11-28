@@ -76,11 +76,15 @@ Trajectory analysis
     
     ! namelist /INPUT_DYN/ nbuffer, tmax, jump, tlimit
     !           Number of buffers (time origins) for dynamic correlation analysis
-    !           buffers are separated by jump configurations (def. 10), maximum 
-    !           time for  correlation functions (at tmax a window function
-    !            is applied for FFTs), if omitted all t values are used.
-    !           Averages stored over tlimit only (in ps), and then origin
-    !           for calculation is shifted
+    !           buffers are separated by jump configurations (def. 1), maximum
+    !           time for correlation functions (at tmax a window function is 
+    !           applied for FFTs, if omitted tmax=tlimit), if omitted all
+    !           t values are used. For viscosity a window function is used at
+    !           tmaxp (if omitted =tmax).
+    !           Averages stored over tlimit only (in ps), and then origin for
+    !           calculation is shifted if tlimit is 
+    !           omitted is calculated as a function of the trajectory length,
+    !           no. buffers, and jump.
    
     ! namelist /INPUT_SQW/ qw, tmqw
     !          values of Q to compute F(Q,t), Fs(Q,t) and S(Q,w),Ss(Q,w) 
