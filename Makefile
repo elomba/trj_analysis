@@ -1,6 +1,8 @@
 # Makefile to build trj_analysis.
 # A word of warning: when making changes in commo
 # Specify main local directory
+#
+PATH := /usr/local/nvidia/hpc_sdk/Linux_x86_64/2024/compilers/bin:$(PATH)
 PROG_DIR = /usr/local
 # Specify directory to Netcdf libs. The must be compiled with NVIDIA's nvfortran !!
 NETCDF = nv_netcdf

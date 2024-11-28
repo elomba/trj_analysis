@@ -13,7 +13,7 @@ module mod_dyn
    integer :: ndyn, count_org=0, itlimit
    integer, allocatable, dimension(:) :: origin
    integer, device, allocatable, dimension(:) :: origin_d
-   integer, parameter :: nbmax = 1000, nblocks = 100 ! Max. number of buffers, number of blocks to split
+   integer, parameter :: nbmax = 1000, nblocks = 5 ! Max. number of buffers, number of blocks to split
                                                      ! operations with particles
    real(myprec), device, allocatable, dimension(:,:,:) :: r0_d, rt_d, v0_d, fktb_d, fsktb_d
    real(myprec), device, allocatable, dimension(:,:) :: r2tb_d, v2tb_d, poff_d, stcorr_d, p0_d
@@ -24,11 +24,15 @@ module mod_dyn
    real(myprec),  allocatable, dimension(:) :: t, v2t
    real(kind=8),  allocatable, dimension(:) :: r2t, stcorr
    real(double), allocatable, dimension(:,:) :: stcorrb, p0
+   real(double), allocatable, dimension(:) :: pxy, pxz, pyz
    real(float), allocatable, dimension(:) :: w, ftv
    real(float) :: sumvel=0
 contains
 
    subroutine dyn_init()
+      ! 
+      ! Initialize dynamic correlation vars and utils
+      !
       if (nbuffer > nbmax) then
          write(*,'("** Error: nbuffer > ",i3,", redimension if possible !")') nbmax
          stop
@@ -60,6 +64,7 @@ contains
             p0_d(:,:) = 0.0
          allocate(stcorr(ndyn),stcorrb(ndyn,nbuffer),&
             p0(1:3,1:nbuffer))
+         allocate(pxy(nmol),pxz(nmol),pyz(nmol))
       endif
       if (run_sqw) then
          allocate(fkt(nqw,ndyn),fskt(nqw,ndyn))
@@ -74,6 +79,7 @@ contains
    end  subroutine dyn_init
 
    subroutine dyn_clear()
+      ! Deallocate memory
       deallocate(t,r2t)
       deallocate(r0)
       deallocate(r0_d,rt_d,r2tb_d)
@@ -93,6 +99,9 @@ contains
    end subroutine dyn_clear
 
    subroutine rtcorr(iconf)
+      !
+      ! Calculate averages of time correlation functions
+      !
       integer, intent(in) :: iconf
       integer :: istat, iorg, i
       real :: time_gpu, v0(3), v(3)
@@ -115,6 +124,8 @@ contains
             write(*, "(//' !!! *** Unrecoverable error: tmax=',f8.3,'> trajectory lenght !!')")tmax
             stop
          endif
+         if (tmax<0) tmax=tlimit
+         if (tmaxp<0) tmaxp=tmax
       endif
       origin_d(:) = origin(:)
       if (ex_vel) then
@@ -140,15 +151,23 @@ contains
 
       if (ex_stress) then
          ! CPU code for viscosity
-         ! do i = 1, nbuffer
-         !    call stcal(nmol,nbuffer,ndyn,iconf,origin,i)
-         ! enddo
+         pxy(1:nmol) = -stress(4,1:nmol)
+         pxz(1:nmol) = -stress(5,1:nmol)
+         pyz(1:nmol) = -stress(6,1:nmol)
+         do i = 1, nbuffer
+            call stcal(nmol,nbuffer,ndyn,iconf,origin,i)
+         enddo
          ! CPU code ends here
          !
          ! uncomment for GPU code for viscosity
-         poff_d(1:3,1:nmol) = -stress(4:6,1:nmol)/volumen
-         call st_cal<<<nblocks,nbuffer>>>(nmol,nbuffer,ndyn,iconf,&
-                      origin_d)
+         !poff_d(1:3,1:nmol) = -stress(4:6,1:nmol)/volumen
+         !do i = 1, nbuffer
+         !   if (origin(i)==iconf) then
+         !      p0_d(1:3,i) = -sum(stress(4:6,1:nmol),dim=2)/volumen
+         !   endif
+         !enddo
+         !call st_cal<<<nblocks,nbuffer>>>(nmol,nbuffer,ndyn,iconf,&
+         !             origin_d)
       endif
 
       if (run_sqw) then
@@ -176,12 +195,11 @@ contains
             if (ex_stress) then
                ! accumulate stress tensor
 !               Uncomment for GPU
-               stcorr(1:ndyn) = stcorr(1:ndyn) + stcorr_d(1:ndyn,i)
-               stcorr_d(1:ndyn,i) = 0.0
-               p0_d(1:3,i) = 0.0
+               !stcorr(1:ndyn) = stcorr(1:ndyn) + stcorr_d(1:ndyn,i)
+               !stcorr_d(1:ndyn,i) = 0.0
                ! CPU code 
-               !stcorr(1:ndyn) = stcorr(1:ndyn) + stcorrb(1:ndyn,i)
-               !stcorrb(1:ndyn,i) = 0.0
+               stcorr(1:ndyn) = stcorr(1:ndyn) + stcorrb(1:ndyn,i)
+               stcorrb(1:ndyn,i) = 0.0
             endif
             if (ex_vel) then
                v2t(1:ndyn) = v2t(1:ndyn) +v2tb_d(1:ndyn,i)
@@ -198,15 +216,18 @@ contains
       enddo
       time_gpu = gptime(stopEvent, startEvent)
       tdyn = tdyn + time_gpu
-      call printcudaerror("rtcorr exit")
+      call printcudaerror(" **! rtcorr GPU kernel exit")
    end subroutine rtcorr
 
    subroutine print_rtcor()
+      !
+      ! Print out time correlations
+      !
       use fftw3
       implicit none
       integer :: i, j
       real :: fconv=4.135
-      real :: sum_visc=0.0, pct, pct1
+      real :: sum_visc=0.0, pct, pct1, alpha=10.0, fw
       t(1:ndyn) = t(1:ndyn)-t(1)
       write(*,"(/'** Length of dynamics ',f8.3,' ps, ',i7,' configurations, '&
          ,i5,' time origins'/)")t(ndyn),ndyn, count_org
@@ -261,12 +282,14 @@ contains
             if(i<=itlimit) write(55,"(f10.3,8f15.5)")t(i), r2t(i)
          endif
          if (ex_stress) then
+            fw = 0.5*(1-tanh((alpha/tmaxP)*(t(i)-tmaxP)))
             if (i==1) then
-               pct =  stcorr(i)/(ndim*count_org)
+               pct =  fw*stcorr(i)/(ndim*count_org)
                write(56,"(f10.3,8f15.5)")t(i),pct,0.0
             else
                pct1 = pct
-               pct =  stcorr(i)/(ndim*count_org)
+
+               pct =  fw*stcorr(i)/(ndim*count_org)
                ! Integrate off-diagonal pressure tensor correlation (trapezoidal rule)
                ! Use Green-Kubo relation eta_gk = (V/NkT)*\int_0^t<pxy(t')pxy(0)>dt' in (bar*s)
                !
@@ -290,6 +313,9 @@ contains
    end subroutine print_rtcor
 
    subroutine stcal(mol,buffer,dyn,iconf,origin, i)
+      !
+      ! off-diagonal pressure tensor time correlation. CPU version
+      !
       integer, value, intent(IN) :: mol, buffer, dyn, iconf, i
       real(double) :: sumaxy, sumayz, sumaxz, sumaxx, sumayy, sumazz, suma
       integer :: j, k, npsize, nprest, ia, indx, iorg
@@ -298,9 +324,9 @@ contains
       indx = iconf - iorg + 1
 ! Check origin and final configuration of each averaging buffer
       if (iconf>=iorg .and. indx <= dyn) then
-         sumaxy = -sum(stress(4,1:mol)/volumen)
-         sumaxz = -sum(stress(5,1:mol)/volumen)
-         sumayz = -sum(stress(6,1:mol)/volumen)
+         sumaxy = sum(pxy(1:mol))/volumen
+         sumaxz = sum(pxz(1:mol))/volumen
+         sumayz = sum(pyz(1:mol))/volumen
          if (iorg==iconf) then
             p0(1,i) = sumaxy
             p0(2,i) = sumaxz
@@ -314,6 +340,9 @@ contains
 
    attributes(global) subroutine FqtnD(nqwmax, nqw, Nmol, dim, itype, ntype, &
       bsc, fk, nsp, dq, dyn, iconf, buffer, origin)
+      !
+      ! F(Q,t): GPU version parallelization over Q vectors
+      !
    integer, intent(IN) :: itype(Nmol), ntype(nsp)
    integer, value, intent(IN) :: Nmol, dim, nsp, nqwmax, dyn, iconf,&
       nqw, buffer
@@ -399,10 +428,14 @@ end subroutine FqtnD
 
 
 attributes(global) subroutine rtcal(dim,mol,buffer,dyn,iconf,origin)
+!
+!   C(t,t0) = <r(t)r(t0)> time correlation. Parallelization over buffers (time origin)
+!   (threads) and particles (blocks)
+!
 integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf
 real :: rv(3), suma
 real(double) :: suma8
-integer :: i, j, k, npsize, nprest, ia, indx, iorg
+integer :: i, j, k, npsize, nprest, ia, indx, iorg, jmax
 integer, dimension(buffer), intent(in) :: origin
 i = threadidx%x
 iorg = origin(i)
@@ -420,13 +453,11 @@ if (iconf>=iorg .and. indx <= dyn) then
       &  *nint((rt_d(k,1:mol,i)-r_d(k,1:mol))/sidel_d(k))
    end do
    suma8 = 0
-   do j = (blockidx%x - 1)*npsize+1, blockidx%x*npsize
+   jmax = blockidx%x*npsize
+   if (jmax + nprest == mol) jmax = mol
+   do j = (blockidx%x - 1)*npsize+1, jmax
       rv(1:dim) = rt_d(1:dim,j,i)-r0_d(1:dim,j,i)
       suma8 = dot_product(rv,rv) + suma8
-   end do
-   do j = blockidx%x*npsize+1, blockidx%x*npsize+nprest
-      rv(1:dim) = rt_d(1:dim,j,i)-r0_d(1:dim,j,i)
-      suma8 = dot_product(rv,rv)  + suma8
    end do
    suma = suma8/mol
    if (indx <= dyn .and. i <= buffer) then
@@ -440,7 +471,7 @@ attributes(global) subroutine st_cal(mol,buffer,dyn,iconf,&
 integer, value, intent(IN) :: mol, buffer, dyn, iconf
 real :: suma
 real(double) :: sumaxy, sumayz, sumaxz, sumaxx, sumayy, sumazz
-integer :: i, j, k, npsize, nprest, ia, indx, iorg
+integer :: i, j, k, npsize, nprest, ia, indx, iorg, jmax
 integer, dimension(buffer), intent(in) :: origin
 i = threadidx%x
 iorg = origin(i)
@@ -449,27 +480,16 @@ indx = iconf - iorg + 1
 if (iconf>=iorg .and. indx <= dyn) then
    npsize = mol/nblocks
    nprest = mod(mol,nblocks)
-   sumaxy = sum(poff_d(1,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
-   sumaxz = sum(poff_d(2,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
-   sumayz = sum(poff_d(3,(blockidx%x - 1)*npsize+1:blockidx%x*npsize))
-   if (nprest>0) then
-      sumaxy = sumaxy + sum(poff_d(1,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
-      sumaxz = sumaxz + sum(poff_d(2,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
-      sumayz = sumayz + sum(poff_d(3,blockidx%x*npsize+1:blockidx%x*npsize+nprest))
-   end if
    sumaxy = 0.0d0
    sumaxz = 0.0d0
    sumayz = 0.0d0
-   do j = (blockidx%x - 1)*npsize+1, blockidx%x*npsize+nprest
+   jmax = blockidx%x*npsize
+   if (jmax + nprest == mol) jmax = mol
+   do j = (blockidx%x - 1)*npsize+1, jmax
       sumaxy = sumaxy + poff_d(1,j)
       sumaxz = sumaxz + poff_d(2,j)
       sumayz = sumayz + poff_d(3,j)
    enddo
-   if (iorg==iconf) then
-      ia = atomicadd(p0_d(1,i),real(sumaxy))
-      ia = atomicadd(p0_d(2,i),real(sumaxz))
-      ia = atomicadd(p0_d(3,i),real(sumayz))
-   end if
    suma = sumaxy*p0_d(1,i)+sumaxz*p0_d(2,i)+sumayz*p0_d(3,i)
    ia = atomicadd(stcorr_d(indx,i),suma)
 endif
@@ -479,7 +499,7 @@ attributes(global) subroutine vtcal(dim,mol,buffer,dyn,iconf,origin)
 integer, value, intent(IN) :: mol, dim, buffer, dyn, iconf
 real(double) :: suma8
 real :: sumf
-integer :: i, j, k, npsize, nprest, ia, indx, iorg
+integer :: i, j, k, npsize, nprest, ia, indx, iorg, jmax
 integer, dimension(buffer), intent(in) :: origin
 i = threadidx%x
 iorg = origin(i)
@@ -489,10 +509,9 @@ if (iconf>=iorg .and. indx >= 1) then
    npsize = mol/nblocks
    nprest = mod(mol,nblocks)
    suma8 = 0.0d0
-   do j = (blockidx%x - 1)*npsize+1, blockidx%x*npsize
-      suma8 = dot_product(v_d(1:dim,j),v0_d(1:dim,j,i)) + suma8
-   end do
-   do j = blockidx%x*npsize+1, blockidx%x*npsize+nprest
+   jmax = blockidx%x*npsize
+   if (jmax + nprest == mol) jmax = mol
+   do j = (blockidx%x - 1)*npsize+1, jmax
       suma8 = dot_product(v_d(1:dim,j),v0_d(1:dim,j,i)) + suma8
    end do
    sumf = suma8/mol

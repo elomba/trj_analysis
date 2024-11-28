@@ -23,7 +23,7 @@ contains
       integer, intent(in) :: iconf
       logical, dimension(nther) :: mascara
       character*15, dimension(nther) :: title =(/"     T(K)","KE (Kcal/mol)","PE Kcal/mol",&
-                  " Pressure (bar)","      Pxx(bar)","    Pyy(bar)","     Pxz(bar)",&
+                  " Pressure (bar)","      Pxx(bar)","    Pyy(bar)","     Pzz(bar)",&
                   "      Pxy(bar)","    Pxz(bar)","     Pyz(bar)"/)
       real(myprec) :: thermo_q(nther)
       thermo_q(:) = 0
@@ -45,7 +45,7 @@ contains
             open(1000, file="thermo_run.dat")
             write(1000,"('#    Conf  ',16a15)")pack(title(1:nther),mascara)
          endif
-         write(1000,"(i9,12f15.5)")iconf, pack(thermo_q(1:nther),mascara)
+         write(1000,"(i9,12f15.5)")nstep, pack(thermo_q(1:nther),mascara)
       endif
 
       If (Mod(Iconf - 1, nprint) .Eq. 0) Then
