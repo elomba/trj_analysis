@@ -152,7 +152,7 @@ contains
       else
          write (100, "('#           Q       S_NN(Q)          n(Q)')")
       end if
-      write (110, "('#       Q',14x,6('S_',2i1,'(Q)',9x:))") ((j, j), j=1, nsp)
+      write (110, "('#       Q',14x,15('S_',2i1,'(Q)',9x:))") ((j, j), j=1, nsp)
       do i = 1, nqmax
          if (i*dq <= qmin .or. dq > 0.2) then
             if (nsp == 2 .and. bsc_one) then
@@ -165,7 +165,7 @@ contains
             else
                write (100, '(2f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i))), nq(i)
             end if
-            write (110, '(7f15.7)') i*dq, (sqfp(i, j)/(ntype(j)*Nconf&
+            write (110, '(15f15.7)') i*dq, (sqfp(i, j)/(ntype(j)*Nconf&
             &*real(nq(i))), j=1, nsp)
          end if
       end do
@@ -181,7 +181,7 @@ contains
             else
                write (100, '(2f15.7,i12)') i*dq, sum(sqf(i - 2:i + 2)/(Nmol*Nconf*real(nq(i - 2:i + 2))))/5, nq(i)
             end if
-            write (110, '(7f15.7)') i*dq, (sum(sqfp(i - 2:i + 2, j)/(ntype(j)*Nconf&
+            write (110, '(15f15.7)') i*dq, (sum(sqfp(i - 2:i + 2, j)/(ntype(j)*Nconf&
             &*real(nq(i - 2:i + 2))))/5, j=1, nsp)
          end do
       end if
@@ -198,15 +198,28 @@ contains
       Real(myprec) :: gmix(nspmax, nspmax), deltav, ri, xfj
       integer, intent(in) :: lsmax
       integer :: i, j, l, k
-      fname99 = 'gmixsim.dat'
-      Open (99, file=fname99)
+      if (nsp<=6) then
+         fname99 = 'gmixsim.dat'
+         Open (99, file=fname99)
+      else
+         do k=1, nsp
+            write(fname99,'("gmixsim",i1,".dat")') k
+            open(887+k,file=fname99)
+         enddo
+      endif
       if (nrandom>0) Open (199, file="s2n.dat")
       if (rcl > 0) then
          write (99, "('#       r',16x,'g_cl(r)        g_cl-cl(r)        ',5x,16('g_',2i1,'(r)',8x:))")&
          & (((j, k), k=j, nsp), j=1, nsp)
          if (nrandom>0)  write (199, "('#       r',16x,'s2n(cl)       s2n')")
       else
-         write (99, "('#       r        ',16x,16('g_',2i1,'(r)',9x:))") (((j, k), k=j, nsp), j=1, nsp)
+         if (nsp<=6) then
+            write (99, "('#       r        ',16x,16('g_',2i1,'(r)',9x:))") (((j, k), k=j, nsp), j=1, nsp)
+         else
+            do k=1, nsp
+               write (887+k, "('#       r        ',16x,16('g_',2i1,'(r)',9x:))") ((k, j), j=1, nsp)
+            enddo
+         endif 
          if (nrandom>0)  write (199, "('#       r',16x,'s2n')")
       end if
 
@@ -244,10 +257,22 @@ contains
             Write (99, '(18f16.5)') i*deltar,&
             & gclustav(i)/(deltaV*Nconf), 2*gclcl(i)/(deltaV*Nconf),(gmix(j, j:nsp), j=1, nsp)
          else
-            Write (99, '(18f16.5)') i*deltar,  (gmix(j, j:nsp), j=1, nsp)
+            if (nsp <= 6) then
+                Write (99, '(16f16.5)') i*deltar,  (gmix(j, j:nsp), j=1, nsp)
+            else
+               do k=1, nsp
+                write(887+k,'(16f16.5)') i*deltar,  (gmix(j, 1:nsp), j=1, nsp)
+               enddo
+            endif
          end if
       End Do
-      close (99)
+      if (nsp<=6) then
+         close (99)
+      else
+         do k=1,nsp
+            close(887+k)
+         end do
+      endif 
       if (nrandom>0) close (199)
    end subroutine printrdf
 

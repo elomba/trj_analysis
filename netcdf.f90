@@ -76,7 +76,7 @@ module mod_nc_conf
     integer :: start(3), count(3), starti(2), counti(2),&
          & cstart(2), ccount(2), csstart(1), cscount(1), ln, ntm&
          &, status, varid, numatts, numdims, natoms, nconf_i, nlen, nwty
-    integer, dimension(:), allocatable :: ndimid, nvarid, atypes, wtypes
+    integer, dimension(:), allocatable :: ndimid, nvarid, atypes, wtypes, orgty
 end module mod_nc_conf
    
 
@@ -88,8 +88,9 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
     integer, intent(in) :: ncid, ncstart
     integer, intent(in), optional :: unit
     integer, intent(out) :: io
+    integer, dimension(:), allocatable :: tempty 
     logical, save :: first = .true., typedefined = .false.
-    integer :: i, j, tipo, iunit, k, ioerr
+    integer :: i, j, tipo, iunit, k, ioerr, tmty(1)
     if (present(unit)) then
         iunit = unit
     else
@@ -295,15 +296,38 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
     end do
     if (typedefined) then
         if (first) then
-            ntypes = maxval(ity)
+            allocate(tempty(100))
+            tempty(:) = -1
+            tempty(1) = ity(1,1)
+            ntypes = 1
+            do i = 1, natoms
+                if (.not. any(tempty(1:ntypes) == ity(i,1))) then
+                    ntypes = ntypes+1
+                    tempty(ntypes) = ity(i,1)
+                endif
+            end do
             write (iunit, "(/' ** Number of atoms types =',i3)") ntypes
-            allocate (atypes(ntypes))
+
+            allocate (atypes(ntypes),orgty(ntypes))
+            orgty(1:ntypes) = tempty(1:ntypes)
+            deallocate(tempty)
             atypes(:) = 0
             do i = 1, natoms
+                ! Remap types
+                tmty = findloc(orgty(1:ntypes),ity(i,1))
+                ity(i,1) = tmty(1)
                 atypes(ity(i, 1)) = atypes(ity(i, 1)) + 1
             end do
             do i = 1, ntypes
-                write (iunit, "(/'       Number of atoms of types ',i2,'=',i8)") i, atypes(i)
+                write (iunit, "(/'       Number of atoms of types ',i2,' (',i2,')=',i8)") i, orgty(i),atypes(i)
+            end do
+        else
+            !
+            ! Atoms types must be remapped every configuration
+            do i = 1, natoms
+                ! Remap types
+                tmty = findloc(orgty(1:ntypes),ity(i,1))
+                ity(i,1) = tmty(1)
             end do
         end if
     else
