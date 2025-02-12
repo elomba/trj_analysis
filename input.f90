@@ -26,13 +26,16 @@ module mod_input
 contains
 
    subroutine read_input_file()
-      integer :: io_input_file
+      integer :: io_input_file, i
 
       rdf_sq_cl_dyn_sqw_conf(:) = .false.
       open (newunit=io_input_file, file=input_filename, action='read')
       read (unit=io_input_file, nml=INPUT)
       allocate(sp_types_selected(nsp))
-      sp_types_selected(:)=0
+      ! By default assign selected types to the number of species in growing orde
+      do i = 1, nsp
+         sp_types_selected(:) = i
+      end do
       allocate(sp_labels(nsp))
       allocate(mat(nsp))
       allocate(bsc(nsp))
