@@ -165,7 +165,7 @@ contains
             else
                write (100, '(2f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i))), nq(i)
             end if
-            write (110, '(15f15.7)') i*dq, (sqfp(i, j)/(ntype(j)*Nconf&
+            write (110, '(15f16.7)') i*dq, (sqfp(i, j)/(ntype(j)*Nconf&
             &*real(nq(i))), j=1, nsp)
          end if
       end do
@@ -181,7 +181,7 @@ contains
             else
                write (100, '(2f15.7,i12)') i*dq, sum(sqf(i - 2:i + 2)/(Nmol*Nconf*real(nq(i - 2:i + 2))))/5, nq(i)
             end if
-            write (110, '(15f15.7)') i*dq, (sum(sqfp(i - 2:i + 2, j)/(ntype(j)*Nconf&
+            write (110, '(15f16.7)') i*dq, (sum(sqfp(i - 2:i + 2, j)/(ntype(j)*Nconf&
             &*real(nq(i - 2:i + 2))))/5, j=1, nsp)
          end do
       end if
@@ -217,7 +217,7 @@ contains
             write (99, "('#       r        ',16x,16('g_',2i1,'(r)',9x:))") (((j, k), k=j, nsp), j=1, nsp)
          else
             do k=1, nsp
-               write (887+k, "('#       r        ',16x,16('g_',2i1,'(r)',9x:))") ((k, j), j=1, nsp)
+               write (887+k, "('#       r        ',9x,16('g_',2i1,'(r)',9x:))") ((k, j), j=1, nsp)
             enddo
          endif 
          if (nrandom>0)  write (199, "('#       r',16x,'s2n')")
@@ -239,6 +239,7 @@ contains
             Do l = j, nsp
                xfj = real(ntype(j), kind=8)/Real(natms, kind=8)
                gmix(j, l) = (j/l + 1)*volumen*histomix(i, j, l)/(deltaV*ntype(l)*ntype(j)*Nconf)
+               gmix(l,j) = gmix(j,l)
                if (idir > 0) gmix(j, l) = densty*gmix(j, l)/rdenst
 
             End Do
@@ -261,7 +262,7 @@ contains
                 Write (99, '(16f16.5)') i*deltar,  (gmix(j, j:nsp), j=1, nsp)
             else
                do k=1, nsp
-                write(887+k,'(16f16.5)') i*deltar,  (gmix(j, 1:nsp), j=1, nsp)
+                write(887+k,'(16f16.5)') i*deltar,  gmix(k, 1:nsp)
                enddo
             endif
          end if
