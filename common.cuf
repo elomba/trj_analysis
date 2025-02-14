@@ -19,6 +19,8 @@ module mod_common
    integer :: nbcuda, natms, nmol, width, nqmax, nqwmax, lmaxx, lmaxy, lmaxz, &
       lsmax, nqmin, ndr, shmsize, maxthread, nit, nconf, nmzero = 0, maxcln,&
       voigt, nrandom=0
+   integer :: cntch(100), ncharge
+   real, dimension(100) :: chgh
    integer, allocatable, dimension(:) :: ntype, itype, lty, list, done, nq
    integer, allocatable, dimension(:, :) :: ipos, densprofi, histomixi
    integer (kind=2), allocatable, dimension(:,:) :: indqw
@@ -31,7 +33,7 @@ module mod_common
    real(myprec), dimension(3) :: sidel, rlow
    real, device, dimension(3) :: fk_d, sidel_d
    real(myprec), dimension(3, 3) :: cell
-   real(myprec), allocatable, dimension(:) :: masa, bscat, sig2n, gaver, u_p
+   real(myprec), allocatable, dimension(:) :: masa, qcharge, bscat, sig2n, gaver, u_p
    real(kind=8), allocatable, dimension(:) :: gi, g2i, gii, g2ii
    real, device, allocatable, dimension(:) :: sqf_d, sqfcl_d, bsc_d
    real(myprec), allocatable, dimension(:, :) :: r, vel, force, densprof
@@ -61,7 +63,7 @@ module mod_common
    real(myprec), allocatable, dimension(:) :: epotclcldata
    real(myprec) :: epotclclmean, epotclclstdv
    logical :: ex_vel = .false., ex_force = .false., ex_stress = .false., &
-   &  ex_mol = .false., periodic(3) = .true.
+   &  ex_mol = .false., ex_qc = .false., periodic(3) = .true.
 
    type clus
       sequence
@@ -262,6 +264,9 @@ contains
       allocate (ipos(nsp, nmol))
       allocate (bscat(nmol))
       allocate (masa(nmol))
+      if (ex_qc) then
+         allocate (qcharge(nmol))
+      endif
       allocate (list(nmol))
       allocate (done(nmol))
       allocate (r(ndim, nmol))

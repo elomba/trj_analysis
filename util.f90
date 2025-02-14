@@ -2,7 +2,7 @@ module mod_util
     use mod_common, only : shmsize, maxthread,  run_thermo, ex_stress, &
                             printDevPropShort, common_clear, nit, ener_name, press_name, &
                             run_sq, run_sqw, run_rdf, run_clusters, run_dyn, &
-                            printcudaerror
+                            printcudaerror, ex_qc
     use mod_densprof, only : prof_init, prof_clear
     use mod_sq, only : sq_init, printsq, sq_clear, sq_transfer_gpu_cpu
     use mod_rdf, only : rdf_init, printrdf, rdf_clear
@@ -12,7 +12,7 @@ module mod_util
     use mod_input, only : input_clear, sp_types_selected, ncfs_from_to, rdf_sq_cl_dyn_sqw_conf, rcl 
     use mod_cells, only : cells_init_post_nc_read, cells_init_pre_nc_read, cells_clear, use_cell
     use mod_thermo, only : thermo_clear
-    use mod_nc_conf, only : wtypes, nmconf, orgty
+    use mod_nc_conf, only : wtypes, nmconf, orgty, wtypes
     contains
 subroutine gpu_and_header(startEvent,stopEvent)
     use cudafor
@@ -55,14 +55,19 @@ subroutine select_species(nsp,ntypes,nmol,natoms)
     implicit none
     integer, intent(in) :: nsp, ntypes, natoms
     integer, intent(inout) :: nmol
-       if (nsp > ntypes) then 
+    if (nsp > ntypes) then 
         print *, ' ERROR: number of species in input file is',nsp,' larger than that in netcdf file ',ntypes
         STOP
     else if (nsp == ntypes) Then
         nmol = natoms
-    else if (nsp < ntypes) then 
-        allocate(wtypes(nsp))
-        wtypes = sp_types_selected        
+    else if (nsp < ntypes) then
+        if (any(sp_types_selected == 0)) then
+            write(*,'("*** Error: select the species to analyze")')
+            write(*,'("    when less than those in trajectory: must be among ")')
+            write(*,'("    sp_types_selected=",15i3)')orgty(1:ntypes)
+            stop
+        endif
+        wtypes(1:nsp) = sp_types_selected(1:nsp)
         call reset_nmol(nmol)
         run_thermo = .false.
         ex_stress = .false.
@@ -159,6 +164,7 @@ end subroutine clean_memory
 
 subroutine print_results(run_sq,  run_rdf, run_dyn, run_clusters, run_thermo, ntype, nsp, lsmax, nmol, nqmin, rcl)
     use mod_precision
+    use mod_input, only : mat, charge, sp_labels
     implicit none
     real(myprec) :: rcl
     integer, intent(in) :: nsp, lsmax, nmol, nqmin
@@ -174,7 +180,14 @@ subroutine print_results(run_sq,  run_rdf, run_dyn, run_clusters, run_thermo, nt
 
     write(*,"(/60('-'))")
     do i = 1, nsp
-        write (*, '(" ** ",i6," atoms of type ",i2,", in LAMMPS (",i2,")")') ntype(i), i, orgty(i)
+        if (ex_qc) then
+            write (*, '(" ** ",i6," atoms of type ",i2,", in LAMMPS (",i2,"), ",f8.4,&
+            & " amu, average charge ",f8.4," e (",a4,")")') &
+            & ntype(i), i, wtypes(i), mat(i), charge(i), sp_labels(i)
+        else 
+            write (*, '(" ** ",i6," atoms of type ",i2,", in LAMMPS (",i2,"), ",f8.4, &
+            & " amu,  (",a4,")")') ntype(i), i, wtypes(i), mat(i), sp_labels(i)
+        endif
     end do
 
     ! Print partial pair distribution functions

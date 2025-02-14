@@ -165,13 +165,11 @@ program trj_analysis
     call select_species(nsp, ntypes, nmol, natoms)
 
     ! Reset configurations to read: if first arg=0 all confs in file are read
-
     call reset_confs(nconf_i,nconf)
 
     ! Modules to run: check for dependencies 
     !
     call form_dependencies()
-    
     ! Init common variables & print outs
     call common_init(nmol, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)
     ! Analysis begins from first configuration selected

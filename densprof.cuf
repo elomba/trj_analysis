@@ -51,12 +51,12 @@ contains
         end do
         high = (pwallp + high)/2
         low = (pwall + low)/2
-        write(*,"('   Highest accesible constrained coordinate for fluid',f15.7,/'   Lowest accessible constrained coordinate for fluid',f15.7)")high,low
+        write(*,"(//'   # Highest accesible constrained coordinate for fluid',f15.7,/'   # Lowest accessible constrained coordinate for fluid',f15.7)")high,low
         volumen_r = (high - low)*product(sidel, pdir)
         rdenst = natms/volumen_r
         write (*, '(/" ** Total renormalized density =",f10.6)') rdenst
         do i = 1, nsp
-            write (*, '(/"     - Renormalized density per species",i1," =",f10.6)') i, ntype(i)/volumen_r
+            write (*, '(/"     - Renormalized density per species ",i2," =",f10.6)') i, ntype(i)/volumen_r
         end do
         open (222, file='densprof.dat')
         !

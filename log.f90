@@ -7,11 +7,11 @@ module mod_log
    use cudafor
    use mod_thermo, only : engclus, engclpa
    implicit none
-   integer :: io_log_file
+   integer :: io_log_file=55
 contains
    subroutine log_init()
       use mod_input
-      open (newunit=io_log_file, file=log_output_file)
+      open (unit=io_log_file, file=log_output_file)
    end subroutine log_init
 
    subroutine log_clear()
@@ -23,8 +23,8 @@ contains
       integer, intent(in) :: iconf
       logical, dimension(nther) :: mascara
       character*15, dimension(nther) :: title =(/"     T(K)","KE (Kcal/mol)","PE Kcal/mol",&
-                  " Pressure (bar)","      Pxx(bar)","    Pyy(bar)","     Pzz(bar)",&
-                  "      Pxy(bar)","    Pxz(bar)","     Pyz(bar)"/)
+         " Pressure (bar)","      Pxx(bar)","    Pyy(bar)","     Pzz(bar)",&
+         "      Pxy(bar)","    Pxz(bar)","     Pyz(bar)"/)
       real(myprec) :: thermo_q(nther)
       thermo_q(:) = 0
       mascara(1) = ex_vel
@@ -32,8 +32,8 @@ contains
       mascara(3) = run_thermo
       mascara(4:10) = ex_stress
       if (ex_vel) then
-          thermo_q(1) = temperature
-          thermo_q(2) = kelvintokcal*ekin*(aunit/tunit)**2/Rgas
+         thermo_q(1) = temperature
+         thermo_q(2) = kelvintokcal*ekin*(aunit/tunit)**2/Rgas
       endif
       if (run_thermo) thermo_q(3) = epot
       if (ex_stress) then
@@ -219,7 +219,7 @@ contains
             do k=1, nsp
                write (887+k, "('#       r        ',9x,16('g_',2i1,'(r)',9x:))") ((k, j), j=1, nsp)
             enddo
-         endif 
+         endif
          if (nrandom>0)  write (199, "('#       r',16x,'s2n')")
       end if
 
@@ -259,10 +259,10 @@ contains
             & gclustav(i)/(deltaV*Nconf), 2*gclcl(i)/(deltaV*Nconf),(gmix(j, j:nsp), j=1, nsp)
          else
             if (nsp <= 6) then
-                Write (99, '(16f16.5)') i*deltar,  (gmix(j, j:nsp), j=1, nsp)
+               Write (99, '(16f16.5)') i*deltar,  (gmix(j, j:nsp), j=1, nsp)
             else
                do k=1, nsp
-                write(887+k,'(16f16.5)') i*deltar,  gmix(k, 1:nsp)
+                  write(887+k,'(16f16.5)') i*deltar,  gmix(k, 1:nsp)
                enddo
             endif
          end if
@@ -273,7 +273,7 @@ contains
          do k=1,nsp
             close(887+k)
          end do
-      endif 
+      endif
       if (nrandom>0) close (199)
    end subroutine printrdf
 
