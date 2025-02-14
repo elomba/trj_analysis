@@ -78,11 +78,12 @@ module mod_nc_conf
    & cstart(2), ccount(2), csstart(1), cscount(1), ln, ntm&
    &, status, varid, numatts, numdims, natoms, nconf_i, nlen, nwty
    integer, dimension(:), allocatable :: ndimid, nvarid, atypes, wtypes, orgty
+   integer, dimension(:), allocatable :: counter, nct
 end module mod_nc_conf
 
 
 subroutine read_nc_cfg(ncid, ncstart, io, unit)
-    ! Read netcdf configurations from file
+   ! Read netcdf configurations from file
    use mod_nc
    use netcdf
    use mod_nc_conf
@@ -369,16 +370,17 @@ end subroutine reset_nmol
 
 subroutine trans_ncdfinput()
    use mod_nc_conf, only: org, cell_in => cell, r_in => r, v_in => v, f_in => fxyz, &
-      ity_in => ity, nstep_in => step, natoms, ntypes, wtypes, u_pi, stress_i, qc
+      ity_in => ity, nstep_in => step, natoms, ntypes, wtypes, u_pi, stress_i, qc, &
+      nct, counter
    use mod_common, only: vel, r, force, cell, sidel, side, volumen, itype, bscat, tunit, &
       ntype, masa, qcharge, nstep, vector_product, nmol, ex_vel, ex_force, ex_qc, &
       tuniti, side2, stress, u_p, voigt, run_thermo, ex_stress, cntch, ncharge, chgh
-   use mod_input, only: ndim, mat, bsc, rcrdf, nsp
+   use mod_input, only: ndim, mat, bsc, rcrdf, nsp, charge
    implicit none
-   integer, dimension(:), allocatable :: counter, nct
    integer :: i, j, it, index, ipch(1)
-   logical :: pass = .true., compcharge=.true.
-   allocate (nct(nsp), counter(nsp))
+   logical :: pass = .true., compcharge=.true., first = .true.
+   if (.not.allocated(nct)) allocate(nct(nsp))
+   if (.not.allocated(counter)) allocate(counter(nsp))
    nstep = nstep_in(1)
    sidel(:) = cell_in(:, 1)
    side = Minval(sidel(1:ndim))
@@ -425,31 +427,32 @@ subroutine trans_ncdfinput()
       &/sidel(1:ndim))
       itype(j) = it
       if (ex_qc) then
-        qcharge(j) = qc(j,1)
-        if (compcharge) then
+         qcharge(j) = qc(j,1)
+         if (compcharge) then
             if (pass) then
-                cntch(:) = 0
-                cntch(1) = 1
-                chgh(1) = qcharge(j)
-                ncharge = 1
-                pass = .false.
+               cntch(:) = 0
+               cntch(1) = 1
+               chgh(1) = qcharge(j)
+               ncharge = 1
+               pass = .false.
             else
-                if (any(chgh(1:ncharge)==qcharge(j))) then
-                    ipch = findloc(chgh(1:ncharge),qcharge(j))
-                    cntch(ipch(1)) = cntch(ipch(1))+1
-                else
-                    ncharge = ncharge+1
-                    chgh(ncharge) = qcharge(j)
-                    cntch(ncharge) = cntch(ncharge)+1
-                endif
+               if (any(chgh(1:ncharge)==qcharge(j))) then
+                  ipch = findloc(chgh(1:ncharge),qcharge(j))
+                  cntch(ipch(1)) = cntch(ipch(1))+1
+               else
+                  ncharge = ncharge+1
+                  chgh(ncharge) = qcharge(j)
+                  cntch(ncharge) = cntch(ncharge)+1
+               endif
             endif
-        endif
-     endif
+         endif
+      endif
    end do
    compcharge = .false.
    do i = 1, nsp
       masa(nct(i) + 1:nct(i) + ntype(i)) = mat(i)
       bscat(nct(i) + 1:nct(i) + ntype(i)) = bscat(i)
+      if(ex_qc) charge(i) = sum(qcharge(nct(i) + 1:nct(i) + ntype(i)))/ntype(i)
    end do
 
    compcharge = .false.
@@ -460,16 +463,17 @@ end subroutine trans_ncdfinput
 subroutine select_ncdfinput()
    ! Select atoms in wtypes from netcdf file and remap coordinates in species order
    use mod_nc_conf, only: org, cell_in => cell, r_in => r, v_in => v, f_in => fxyz, &
-      ity_in => ity, nstep_in => step, natoms, ntypes, wtypes, u_pi, stress_i, orgty, qc
+      ity_in => ity, nstep_in => step, natoms, ntypes, wtypes, u_pi, stress_i, orgty, qc, &
+      nct, counter
    use mod_common, only: vel, r, force, cell, sidel, side, volumen, itype, bscat, tunit, &
       ntype, masa, nstep, vector_product, nmol, ex_vel, ex_force, ex_qc, &
       tuniti, side2, u_p, stress, voigt, run_thermo, ex_stress, qcharge, chgh, ncharge, cntch
-   use mod_input, only: ndim, mat, bsc, rcrdf, nsp
+   use mod_input, only: ndim, mat, bsc, rcrdf, nsp, charge
    implicit none
-   integer, dimension(:), allocatable :: counter, nct
    integer :: i, j, it(1), index, ipch(1)
-   logical :: pass = .true., compcharge = .true.
-   allocate (nct(nsp), counter(nsp))
+   logical :: pass = .true., compcharge = .true., first=.true.
+   if (.not.allocated(nct)) allocate(nct(nsp))
+   if (.not.allocated(counter)) allocate(counter(nsp))
    nstep = nstep_in(1)
    sidel(:) = cell_in(:, 1)
    side = Minval(sidel(1:ndim))
@@ -518,22 +522,22 @@ subroutine select_ncdfinput()
          if (ex_qc) then
             qcharge(j) = qc(i,1)
             if (compcharge) then
-                if (pass) then
-                    cntch(:) = 0
-                    cntch(1) = 1
-                    chgh(1) = qcharge(j)
-                    ncharge = 1
-                    pass = .false.
-                else
-                    if (any(chgh(1:ncharge)==qcharge(j))) then
-                        ipch = findloc(chgh(1:ncharge),qcharge(j))
-                        cntch(ipch(1)) = cntch(ipch(1))+1
-                    else
-                        ncharge = ncharge+1
-                        chgh(ncharge) = qcharge(j)
-                        cntch(ncharge) = cntch(ncharge)+1
-                    endif
-                endif
+               if (pass) then
+                  cntch(:) = 0
+                  cntch(1) = 1
+                  chgh(1) = qcharge(j)
+                  ncharge = 1
+                  pass = .false.
+               else
+                  if (any(chgh(1:ncharge)==qcharge(j))) then
+                     ipch = findloc(chgh(1:ncharge),qcharge(j))
+                     cntch(ipch(1)) = cntch(ipch(1))+1
+                  else
+                     ncharge = ncharge+1
+                     chgh(ncharge) = qcharge(j)
+                     cntch(ncharge) = cntch(ncharge)+1
+                  endif
+               endif
             endif
          endif
          ! Coordinates are folded back into the simulation cell under PBC
@@ -546,5 +550,6 @@ subroutine select_ncdfinput()
    do i = 1, nsp
       masa(nct(i) + 1:nct(i) + ntype(i)) = mat(i)
       bscat(nct(i) + 1:nct(i) + ntype(i)) = bscat(i)
+      if(ex_qc) charge(i) = sum(qcharge(nct(i) + 1:nct(i) + ntype(i)))/ntype(i)
    end do
 end subroutine select_ncdfinput

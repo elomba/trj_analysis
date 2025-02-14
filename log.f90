@@ -26,6 +26,7 @@ contains
          " Pressure (bar)","      Pxx(bar)","    Pyy(bar)","     Pzz(bar)",&
          "      Pxy(bar)","    Pxz(bar)","     Pyz(bar)"/)
       real(myprec) :: thermo_q(nther)
+      integer :: i, j
       thermo_q(:) = 0
       mascara(1) = ex_vel
       mascara(2) = ex_vel
