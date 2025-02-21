@@ -8,18 +8,17 @@ module mod_thermo
 contains
 
    subroutine thermo_kin(iconf, ndim)
-       !
+      !
       ! Compute kinetic energy and temperature
       !
       integer, intent(in) :: iconf, ndim
       integer :: i
 
-       densty = natms/volumen
-
-       ekin = 0.0
-       Do i = 1, natms 
-           ekin = ekin + masa(i)*Dot_product(vel(1:ndim, i)&
-               &, vel(1:ndim, i))
+      densty = natms/volumen
+      ekin = 0.0
+      Do i = 1, natms
+         ekin = ekin + masa(i)*Dot_product(vel(1:ndim, i)&
+         &, vel(1:ndim, i))
       End Do
       ekin = 0.5d0*ekin
       ecaver = ecaver + ekin
@@ -27,13 +26,13 @@ contains
       Tfact = (natms - nmzero - 1)*ndim
       taver = 2*ecaver*(aunit/tunit)**2/(Tfact*Rgas*Iconf)
       temperature = 2*ekin*(aunit/tunit)**2/(Tfact*Rgas)
-end subroutine thermo_kin
- 
+   end subroutine thermo_kin
+
    subroutine poteng(iconf,natoms)
       integer, intent(IN) :: iconf, natoms
       real(kind=8) :: sumener
       integer :: i
-      sumener = 0 
+      sumener = 0
       do i = 1, natoms
          sumener = sumener + u_p(i)
       enddo
@@ -74,7 +73,7 @@ end subroutine thermo_kin
       do c = 1, maxcln
          if (cluster(c)%clsize >= minclsize) then
             engcls(c) = 0
-            do j = 1, cluster(c)%clsize 
+            do j = 1, cluster(c)%clsize
                id = cluster(c)%members(j)
                engcls(c) = engcls(c)+u_p(id)
             enddo
@@ -99,16 +98,16 @@ end subroutine thermo_kin
       allocate(epotclcldata(nconf))
    end subroutine thermo_init_cluster
 
-   
+
    subroutine clusener(iconf,maxcln, cluster)
-      integer, intent(IN) :: maxcln,iconf 
+      integer, intent(IN) :: maxcln,iconf
       type(clus), dimension(maxcln), intent(inout) :: cluster
       real(myprec) :: energcl
       integer :: ind, c, id, j
       engclpa = 0.0
       do c = 1, maxcln
          engcls(c) = 0
-         do j = 1, cluster(c)%clsize 
+         do j = 1, cluster(c)%clsize
             id = cluster(c)%members(j)
             engcls(c) = engcls(c)+u_p(id)
          enddo
@@ -125,7 +124,7 @@ end subroutine thermo_kin
       engclpa = engclpa/maxcln
    end subroutine clusener
 
-   
+
    subroutine thermo_clear()
       deallocate (u_p)
       if (run_clusters)then

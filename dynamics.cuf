@@ -14,7 +14,7 @@ module mod_dyn
    integer, allocatable, dimension(:) :: origin
    integer, device, allocatable, dimension(:) :: origin_d
    integer, parameter :: nbmax = 1000, nblocks = 5 ! Max. number of buffers, number of blocks to split
-                                                     ! operations with particles
+   ! operations with particles
    real(myprec), device, allocatable, dimension(:,:,:) :: r0_d, rt_d, v0_d, fktb_d, fsktb_d
    real(myprec), device, allocatable, dimension(:,:) :: r2tb_d, v2tb_d, poff_d, stcorr_d, p0_d
    real(myprec), device, allocatable, dimension(:) :: qw_d
@@ -22,7 +22,7 @@ module mod_dyn
    real(myprec), allocatable, dimension(:,:,:) :: r0, v0
    real(myprec),  allocatable, dimension(:,:) :: fkt, fskt, sqw, ssqw
    real(myprec),  allocatable, dimension(:) :: t, v2t
-   real(kind=8),  allocatable, dimension(:) :: r2t, stcorr
+   real(double),  allocatable, dimension(:) :: r2t, stcorr
    real(double), allocatable, dimension(:,:) :: stcorrb, p0
    real(double), allocatable, dimension(:) :: pxy, pxz, pyz
    real(float), allocatable, dimension(:) :: w, ftv
@@ -30,7 +30,7 @@ module mod_dyn
 contains
 
    subroutine dyn_init()
-      ! 
+      !
       ! Initialize dynamic correlation vars and utils
       !
       if (nbuffer > nbmax) then
@@ -61,7 +61,7 @@ contains
       if (ex_stress) then
          allocate(poff_d(1:3,1:nmol),stcorr_d(ndyn,nbuffer),&
             p0_d(1:3,1:nbuffer))
-            p0_d(:,:) = 0.0
+         p0_d(:,:) = 0.0
          allocate(stcorr(ndyn),stcorrb(ndyn,nbuffer),&
             p0(1:3,1:nbuffer))
          allocate(pxy(nmol),pxz(nmol),pyz(nmol))
@@ -183,7 +183,7 @@ contains
          !  Shift origin position if time limit reached for buffer i
          !  only if itlimit configurations remaining
          if(iconf-iorg==itlimit) iorg=iconf+1
-         ! 
+         !
          ! Partial averages are not included in final results, only when itlimit
          ! confs have been read
          !
@@ -197,7 +197,7 @@ contains
 !               Uncomment for GPU
                !stcorr(1:ndyn) = stcorr(1:ndyn) + stcorr_d(1:ndyn,i)
                !stcorr_d(1:ndyn,i) = 0.0
-               ! CPU code 
+               ! CPU code
                stcorr(1:ndyn) = stcorr(1:ndyn) + stcorrb(1:ndyn,i)
                stcorrb(1:ndyn,i) = 0.0
             endif
@@ -340,19 +340,19 @@ contains
 
    attributes(global) subroutine FqtnD(nqwmax, nqw, Nmol, dim, itype, ntype, &
       bsc, fk, nsp, dq, dyn, iconf, buffer, origin)
-      !
-      ! F(Q,t): GPU version parallelization over Q vectors
-      !
+   !
+   ! F(Q,t): GPU version parallelization over Q vectors
+   !
    integer, intent(IN) :: itype(Nmol), ntype(nsp)
    integer, value, intent(IN) :: Nmol, dim, nsp, nqwmax, dyn, iconf,&
       nqw, buffer
    integer :: ibuffer, indx
-   real(kind=4), intent(IN) :: bsc(nsp)
-   real(kind=4) :: rkxyz, rkxyzt, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma
-   real(kind=8) :: sumcx, sumsx, sumcpx, sumspx, q2, bs
-   real(kind=8) :: sumcxt, sumsxt, sumcpxt, sumspxt, sumself
-   real(kind=4), intent(IN) :: fk(dim)
-   real(kind=4), value, intent(IN) ::  dq
+   real(myprec), intent(IN) :: bsc(nsp)
+   real(myprec) :: rkxyz, rkxyzt, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma
+   real(double) :: sumcx, sumsx, sumcpx, sumspx, q2, bs
+   real(double) :: sumcxt, sumsxt, sumcpxt, sumspxt, sumself
+   real(myprec), intent(IN) :: fk(dim)
+   real(myprec), value, intent(IN) ::  dq
    integer, dimension(buffer), intent(in) :: origin
 
    integer :: i, j, it, kx, ky, kz, ind, ia, iorg

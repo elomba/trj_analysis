@@ -2,7 +2,7 @@ module mod_nc
    use mod_precision
    use mod_common, Only : ex_vel, ex_force, ex_stress, run_thermo, &
       u_p, stress, ex_mol, ex_qc, periodic, voigt, &
-      ener_name, press_name
+      ener_name, press_name, pwall, pwallp
    interface
       subroutine read_nc_cfg(ncid, ncstart, io, unit)
          integer, intent(in) :: ncid, ncstart
@@ -221,8 +221,12 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          do k = 1, 3
             if (cell(k, 1) == 0) then
                periodic(k) = .false.
-               cell(k, 1) = max(abs(maxval(r(k, 1:natoms, 1)) - minval(r(k&
-               &, 1:natoms, 1))) + 10.0, 2*abs(org(k, 1)))
+               cell(k, 1) = abs(maxval(r(k, 1:natoms, 1)) - minval(r(k&
+               &, 1:natoms, 1))) + 10.0
+               if (first) then
+                  pwall = minval(r(k,1:natoms,1))-5.0
+                  pwallp = pwall + cell(k,1)
+               endif
             end if
          end do
       else if (conf(i)%varname == "velocities") then
@@ -448,7 +452,6 @@ subroutine trans_ncdfinput()
          endif
       endif
    end do
-   compcharge = .false.
    do i = 1, nsp
       masa(nct(i) + 1:nct(i) + ntype(i)) = mat(i)
       bscat(nct(i) + 1:nct(i) + ntype(i)) = bscat(i)
@@ -506,6 +509,7 @@ subroutine select_ncdfinput()
       nct(i) = nct(i - 1) + ntype(i - 1)
    end do
    counter(:) = nct(:)
+   qcharge(:) = 0.0
    do i = 1, natoms
       if (any(wtypes == orgty(ity_in(i,1)))) then
          it = findloc(wtypes,orgty(ity_in(i, 1)))
@@ -546,6 +550,7 @@ subroutine select_ncdfinput()
          itype(j) = it(1)
       endif
    end do
+
    compcharge = .false.
    do i = 1, nsp
       masa(nct(i) + 1:nct(i) + ntype(i)) = mat(i)

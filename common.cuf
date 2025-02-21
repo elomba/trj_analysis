@@ -20,7 +20,7 @@ module mod_common
       lsmax, nqmin, ndr, shmsize, maxthread, nit, nconf, nmzero = 0, maxcln,&
       voigt, nrandom=0
    integer :: cntch(100), ncharge
-   real, dimension(100) :: chgh
+   real(double), dimension(100) :: chgh
    integer, allocatable, dimension(:) :: ntype, itype, lty, list, done, nq
    integer, allocatable, dimension(:, :) :: ipos, densprofi, histomixi
    integer (kind=2), allocatable, dimension(:,:) :: indqw
@@ -29,15 +29,16 @@ module mod_common
    integer, device, allocatable, dimension(:, :) :: ipos_d, densprof_d, histomix_d
    real(kind=8) :: ecaver
    real(myprec) :: tuniti, volumen, side, side2, dq, densty, Tfact, taver, &
-      temperature, rdenst, volumen_r, tstep
+      temperature, rdenst, volumen_r, tstep, pwall, pwallp
    real(myprec), dimension(3) :: sidel, rlow
    real, device, dimension(3) :: fk_d, sidel_d
    real(myprec), dimension(3, 3) :: cell
-   real(myprec), allocatable, dimension(:) :: masa, qcharge, bscat, sig2n, gaver, u_p
-   real(kind=8), allocatable, dimension(:) :: gi, g2i, gii, g2ii
+   real(myprec), allocatable, dimension(:) :: masa, bscat, sig2n, gaver, u_p
+   real(kind=8), allocatable, dimension(:) :: gi, g2i, gii, g2ii, qcharge
    real, device, allocatable, dimension(:) :: sqf_d, sqfcl_d, bsc_d
    real(myprec), allocatable, dimension(:, :) :: r, vel, force, densprof
-   real(double),allocatable, dimension(:, :) :: stress 
+   real(double), allocatable, dimension(:) :: qdensprof, dqminus, dqplus
+   real(double),allocatable, dimension(:, :) :: stress
    real, device, allocatable, dimension(:, :) :: r_d, v_d, rclxyzd, sqfp_d
    logical, allocatable, dimension(:) :: bigcl
    logical,  device, allocatable, dimension(:) :: bigcl_d
@@ -128,7 +129,7 @@ contains
       integer :: ierrsync
       ierrSync = cudaGetLastError()
       if (ierrSync /= cudaSuccess) write(*,*) &
-               trim(routine)," kernel error:", cudaGetErrorString(ierrSync)
+         trim(routine)," kernel error:", cudaGetErrorString(ierrSync)
    end subroutine printcudaerror
 
    subroutine printDeviceProperties(prop, num)

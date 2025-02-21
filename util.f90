@@ -182,7 +182,7 @@ contains
       do i = 1, nsp
          if (ex_qc) then
             write (*, '(" ** ",i6," atoms of type ",i2,", in LAMMPS (",i2,"), ",f8.4,&
-            & " amu, average charge ",f8.4," e (",a4,")")') &
+            & " amu, average charge ",f9.5," e (",a4,")")') &
             & ntype(i), i, wtypes(i), mat(i), charge(i), sp_labels(i)
          else
             write (*, '(" ** ",i6," atoms of type ",i2,", in LAMMPS (",i2,"), ",f8.4, &
@@ -217,7 +217,8 @@ contains
          ! Pre configuration analysis data transformations, corrections and format
          if (ntypes == nsp) then
             ! All species selected
-            call trans_ncdfinput()
+            ! call trans_ncdfinput()
+            call select_ncdfinput()
          else
             ! Only some species selected from the configuration
             call select_ncdfinput()

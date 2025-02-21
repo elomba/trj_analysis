@@ -71,8 +71,8 @@ Trajectory analysis
     !          Geometric clustering distance, grid for cluster distribution, minimum cluster size for analysis,
     !          Minimum cluster size to include in the trajectory of centers of mass, particle size
     
-    ! namelist /INPUT_CONF/ idir, pwall, pwallp
-    !          Direction of confinement (1,2,3->x,y,z), position of left wall, position of right wall
+    ! namelist /INPUT_CONF/ idir
+    !          Direction of confinement (1,2,3->x,y,z)
     
     ! namelist /INPUT_DYN/ nbuffer, tmax, jump, tlimit
     !           Number of buffers (time origins) for dynamic correlation analysis
