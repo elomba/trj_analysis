@@ -7,12 +7,13 @@ module mod_clusters
     use mod_densprof
     use mod_thermo
     use cudafor
-    use mod_nc_conf, only : conf
+    use mod_nc_conf, only : conf, wtypes, natoms, imol
  
     implicit none
-    integer :: io_centers_file, io_clusevol_file
+    integer :: io_centers_file, io_clusevol_file, io_last_filter
     character(len=17) :: centers_filename = 'centers.lammpstrj'
     character(len=12) :: clusevol_filename = 'clusevol.dat'
+    character(len=15) :: last_filter_filename = 'last_filter.dat'
    interface
         function minj(dim, members, nm, center, sidel, side2)
             use mod_precision
@@ -52,7 +53,7 @@ contains
         implicit none
         integer, intent(IN) :: Iconf
         integer :: i, j, k, cluster_id, icl, ip, ind, indr, maxcl,&
-             & imaxcl, clsz, nbigcl, clussize, cmin
+             & imaxcl, clsz, nbigcl, clussize, cmin, NP_lconf, icount
         Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
         Real(myprec) :: denscl
         Real(kind=8) ::  mcl, ekcls, suma, rclus, rcluster, rgsum, averg, volcl, factorv=1.0
@@ -127,6 +128,7 @@ contains
         end if
         icl = 0
         cluster(:)%rg = 0
+        if (Iconf == Nconf) NP_lconf = 0 
         do I = 1, cluster_id
             j = cluster(i)%clsize
             ! Calculate cluster size distro
@@ -185,8 +187,67 @@ contains
                       write (io_centers_file, '(2i10,6f15.7)') icl, 1, cluster(i)%center(1:ndim), 0.0
                    end if
                 endif  
+                if (Iconf == Nconf) NP_lconf = NP_lconf + j
             end if
         end do
+        if (Iconf == Nconf) then
+            open (newunit=io_last_filter, file=last_filter_filename)
+            write(io_last_filter,"('LAMMPS last configuration filtered for cluster size > minclsize')")
+            write (io_last_filter,"(/i9,'   atoms'/i3,'   atom types')") NP_lconf, nsp
+            if (ndim==3) then
+                write (io_last_filter,"(3f12.4,' xlo xhi'/3f12.4,' ylo yhi'/3f12.4,' zlo zhi')") &
+                &     (0.0,sidel(i), i=1, ndim)
+            else
+                write (io_last_filter,"(2f12.4,' xlo xhi'/2f12.4,' ylo yhi')") &
+                &     (0.0,sidel(i), i=1, ndim)
+               write (io_last_filter,"(2f12.4,' zlo zhi')") -0.5, 0.5  
+            end if
+            write (io_last_filter,"(/'Masses'/)")
+            do i = 1, nsp
+                write(io_last_filter,'(i4,f15.7)') wtypes(i), masa(i)
+            end do
+            write (io_last_filter,"(/'Atoms'/)")
+            icount = 1
+            do i = 1, cluster_id
+                j = cluster(i)%clsize
+                if (j >= minclsize) then
+                    do k = 1, j
+                        ip = cluster(i)%members(k)
+                        if (ndim==3) then
+                            if (ex_mol) then
+                                write(io_last_filter,'(3i10,6f15.7)') icount, imol(ip,1), itype(ip), r(1:ndim,ip)
+                            else
+                                write(io_last_filter,'(3i10,6f15.7)') icount, icount, itype(ip), r(1:ndim,ip)
+                            end if
+                        else
+                            if (ex_mol) then
+                                write(io_last_filter,'(3i10,6f15.7)') icount, imol(ip,1), itype(ip), r(1:ndim,ip), 0.0
+                            else
+                                write(io_last_filter,'(3i10,6f15.7)') icount, icount, itype(ip), 0.0, r(1:ndim,ip), 0.0
+                            endif
+                        end if
+                        icount = icount + 1
+                  enddo
+                end if
+            end do
+            write(io_last_filter,"(/'Velocities'/)")
+            icount = 1
+            do i = 1, cluster_id
+                j = cluster(i)%clsize
+                if (j >= minclsize) then
+                    do k = 1, j
+                        ip = cluster(i)%members(k)
+                        if (ndim==3) then
+                            write(io_last_filter,'(i10,6f15.7)') icount, vel(1:ndim,ip)
+                        else
+                            write(io_last_filter,'(i10,6f15.7)') icount, vel(1:ndim,ip), 0.0
+                        end if  
+                        icount = icount + 1
+                  enddo
+                end if
+            end do
+            close(io_last_filter)
+        end if
         ekincl = 0
         ekincls = 0
         suma = 0
