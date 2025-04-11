@@ -1,588 +1,588 @@
 module mod_clusters
-    use mod_precision
-    use mod_common
-    use mod_input
-    use mod_sq
-    use mod_rdf
-    use mod_densprof
-    use mod_thermo
-    use cudafor
-    use mod_nc_conf, only : conf, wtypes, natoms, imol
- 
-    implicit none
-    integer :: io_centers_file, io_clusevol_file, io_last_filter
-    character(len=17) :: centers_filename = 'centers.lammpstrj'
-    character(len=12) :: clusevol_filename = 'clusevol.dat'
-    character(len=15) :: last_filter_filename = 'last_filter.dat'
+   use mod_precision
+   use mod_common
+   use mod_input
+   use mod_sq
+   use mod_rdf
+   use mod_densprof
+   use mod_thermo
+   use cudafor
+   use mod_nc_conf, only : conf, wtypes, natoms, imol
+
+   implicit none
+   integer :: io_centers_file, io_clusevol_file, io_last_filter
+   character(len=17) :: centers_filename = 'centers.lammpstrj'
+   character(len=12) :: clusevol_filename = 'clusevol.dat'
+   character(len=15) :: last_filter_filename = 'last_filter.dat'
    interface
-        function minj(dim, members, nm, center, sidel, side2)
-            use mod_precision
-            integer, intent(IN) :: nm, dim
-            integer, intent(IN) :: members(nm)
-            real, intent(IN) :: center(3), sidel(3), side2
-        end function minj
+      function minj(dim, members, nm, center, sidel, side2)
+         use mod_precision
+         integer, intent(IN) :: nm, dim
+         integer, intent(IN) :: members(nm)
+         real, intent(IN) :: center(3), sidel(3), side2
+      end function minj
 
-        function cldens(dim, members, nm, sidel, side2, center, rclus)
-            use mod_precision
-            integer, intent(IN) :: nm, dim
-            integer, intent(IN) :: members(nm)
-            real, intent(IN) :: sidel(3), side2, center(3), rclus
-            real :: avcldens
-        end function cldens
+      function cldens(dim, members, nm, sidel, side2, center, rclus)
+         use mod_precision
+         integer, intent(IN) :: nm, dim
+         integer, intent(IN) :: members(nm)
+         real, intent(IN) :: sidel(3), side2, center(3), rclus
+         real :: avcldens
+      end function cldens
 
-        function radius(members, nm, center, sidel)
-            use mod_precision
-            integer, intent(IN) :: nm
-            integer, intent(IN) :: members(nm)
-            real(myprec), intent(IN) :: center(3), sidel(3)
-        end function radius
+      function radius(members, nm, center, sidel)
+         use mod_precision
+         integer, intent(IN) :: nm
+         integer, intent(IN) :: members(nm)
+         real(myprec), intent(IN) :: center(3), sidel(3)
+      end function radius
 
-        function radiusRg(members, nm, center, sidel, masat)
-            use mod_precision
-            integer, intent(IN) :: nm
-            integer, intent(IN) :: members(nm)
-            real(myprec), intent(IN) :: center(3), sidel(3), masat
-        end function radiusRg
-    end interface
+      function radiusRg(members, nm, center, sidel, masat)
+         use mod_precision
+         integer, intent(IN) :: nm
+         integer, intent(IN) :: members(nm)
+         real(myprec), intent(IN) :: center(3), sidel(3), masat
+      end function radiusRg
+   end interface
 contains
 
-    subroutine cluster_analysis(Iconf)
-        !
-        ! Compute cluster properties
-        !
-        implicit none
-        integer, intent(IN) :: Iconf
-        integer :: i, j, k, cluster_id, icl, ip, ind, indr, maxcl,&
-             & imaxcl, clsz, nbigcl, clussize, cmin, NP_lconf, icount
-        Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
-        Real(myprec) :: denscl
-        Real(kind=8) ::  mcl, ekcls, suma, rclus, rcluster, rgsum, averg, volcl, factorv=1.0
-        if (conf(4)%units == 'femtosecond' ) factorv = 0.001
-        if (Nu_clus < 1) then
-            maxcln = 1
-        else
-            maxcln = Nu_clus
-        end if
-        if (Iconf > 1) then
-            deallocate (cluster, contador)
-            if (run_thermo) then
-                deallocate(bigcl_d)
-                deallocate(engcls,bigcl)
-            endif
-        else
-            allocate(clusid(1:nmol))
-            allocate(clusid_d(1:nmol))
-        end if
-        allocate (cluster(maxcln), contador(maxcln))
-        if (run_thermo) then
-            allocate(bigcl_d(maxcln))
-            allocate(engcls(maxcln),bigcl(maxcln))
-        endif
-        Cluster_id = maxcln
-        contador(:) = 0
-        maxcl = 0
-        do i = 1, cluster_id
-            clsz = count(done == i)
-            if (clsz > maxcl) then
-                maxcl = clsz
-                imaxcl = i
-            end if
-            cluster(i)%clsize = clsz
-            allocate (cluster(i)%members(clsz))
+   subroutine cluster_analysis(Iconf)
+      !
+      ! Compute cluster properties
+      !
+      implicit none
+      integer, intent(IN) :: Iconf
+      integer :: i, j, k, cluster_id, icl, ip, ind, indr, maxcl,&
+      & imaxcl, clsz, nbigcl, clussize, cmin, NP_lconf, icount
+      Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
+      Real(myprec) :: denscl
+      Real(kind=8) ::  mcl, ekcls, suma, rclus, rcluster, rgsum, averg, volcl, factorv=1.0
+      if (conf(4)%units == 'femtosecond' ) factorv = 0.001
+      if (Nu_clus < 1) then
+         maxcln = 1
+      else
+         maxcln = Nu_clus
+      end if
+      if (Iconf > 1) then
+         deallocate (cluster, contador)
+         if (run_thermo) then
+            deallocate(bigcl_d)
+            deallocate(engcls,bigcl)
+         endif
+      else
+         allocate(clusid(1:nmol))
+         allocate(clusid_d(1:nmol))
+      end if
+      allocate (cluster(maxcln), contador(maxcln))
+      if (run_thermo) then
+         allocate(bigcl_d(maxcln))
+         allocate(engcls(maxcln),bigcl(maxcln))
+      endif
+      Cluster_id = maxcln
+      contador(:) = 0
+      maxcl = 0
+      do i = 1, cluster_id
+         clsz = count(done == i)
+         if (clsz > maxcl) then
+            maxcl = clsz
+            imaxcl = i
+         end if
+         cluster(i)%clsize = clsz
+         allocate (cluster(i)%members(clsz))
+         !
+      end do
+      contador(:) = 0
+      do i = 1, Nmol
+         j = done(i)
+         if (j > 0) then
+            contador(j) = contador(j) + 1
+            cluster(j)%members(contador(j)) = i
+         end if
+      end do
+      nbigcl = 0
+      clusid(:) = 0
+      if (run_thermo) bigcl(:) = .false.
+      do i = 1, cluster_id
+         if (cluster(i)%clsize >= minclsize)then
+            nbigcl = nbigcl + 1
+            if (run_thermo) bigcl(i) = .true.
+         endif
+         ! identify to which cluster belongs each particle
+         do j = 1, cluster(i)%clsize
+            clusid(cluster(i)%members(j)) = I
+         end do
+      end do
+      if (run_thermo) bigcl_d(1:cluster_id) = bigcl(1:cluster_id)
+      clusid_d(1:nmol) = clusid(1:nmol)
+      !
+      ! Write trajectory file with centers of mass of clusters with size >= minclsize
+      !
+      write (io_centers_file, "('ITEM: TIMESTEP'/I12/'ITEM: NUMBER OF ATOMS'/I12/'ITE&
+      &M: BOX BOUNDS pp pp pp')") nstep, nbigcl
+      write (io_centers_file, "(2f15.7)") (0.0, sidel(i), i=1, ndim)
+      if (ndim == 2) write (io_centers_file, "('-0.5 0.5')")
+      if (ex_vel) then
+         write (io_centers_file, "('ITEM: ATOMS id type x y z vx vy vz')")
+      else
+         write (io_centers_file, "('ITEM: ATOMS id type x y z')")
+      end if
+      icl = 0
+      cluster(:)%rg = 0
+      if (Iconf == Nconf) NP_lconf = 0
+      do I = 1, cluster_id
+         j = cluster(i)%clsize
+         ! Calculate cluster size distro
+         ind = nint(real(j)/real(dcl))
+         sizedist(ind) = sizedist(ind) + 1
+         if (j >= jmin) then
+            ! Determine center of mass with PBC
+            ! https://en.wikipedia.org/wiki/Center_of_mass#Systems_with_periodic_boundary_conditions
+            xss(:) = 0
+            sss(:) = 0
+            vcl(:) = 0
+            mcl = 0
+            ekcls = 0
+            rgsum = 0.0
+            do k = 1, j
+               ip = cluster(i)%members(k)
+               rv(1:ndim) = r(1:ndim, ip)
+               theta(1:ndim) = 2*pi*rv(1:ndim)/sidel(1:ndim)
+               xss(1:ndim) = xss(1:ndim) + cos(theta(1:ndim))
+               sss(1:ndim) = sss(1:ndim) + sin(theta(1:ndim))
+               vcl(1:ndim) = vcl(1:ndim) + masa(ip)*vel(1:ndim, ip)
+               mcl = mcl + masa(ip)
+            end do
+            xss(1:ndim) = xss(1:ndim)/j
+            sss(1:ndim) = sss(1:ndim)/j
+            theta(1:ndim) = atan2(-sss(1:ndim), -xss(1:ndim)) + pi
             !
-        end do
-        contador(:) = 0
-        do i = 1, Nmol
-            j = done(i)
-            if (j > 0) then
-                contador(j) = contador(j) + 1
-                cluster(j)%members(contador(j)) = i
-            end if
-        end do
-        nbigcl = 0
-        clusid(:) = 0
-        if (run_thermo) bigcl(:) = .false.
-        do i = 1, cluster_id
-            if (cluster(i)%clsize >= minclsize)then
-                 nbigcl = nbigcl + 1
-                 if (run_thermo) bigcl(i) = .true.
+            ! Restore origin for centers of mass position to the original coordinate
+            !
+            cluster(i)%center(1:ndim) = sidel(1:ndim)*theta(1:ndim)/(2*pi) + rlow(1:ndim)
+            !
+            ! Store cluster's center of mass velocity and net mass
+            !
+            cluster(i)%vl(1:ndim) = vcl(1:ndim)/mcl
+            cluster(i)%mass = mcl
+            ekcls = 0
+            do k = 1, j
+               ip = cluster(i)%members(k)
+               ekcls = ekcls + 0.5*masa(ip)*dot_product(vel(:, ip)&
+               &- cluster(i)%vl(:), vel(:, ip) - cluster(i)%vl(:))
+            end do
+            cluster(i)%ekin = ekcls
+         end if
+         if (j >= minclsize) then
+            icl = icl + 1
+            if (ex_vel) then
+               if (ndim == 3) then
+                  write (io_centers_file, '(2i10,6f15.7)') icl, 1, cluster(i)%center(1:ndim), factorv*cluster(i)%vl(1:ndim)
+               else
+                  write (io_centers_file, '(2i10,6f15.7)') icl, 1, cluster(i)%center(1:ndim), 0.0,factorv*cluster(i)%vl(1:ndim),0.0
+               end if
+            else
+               if (ndim == 3) then
+                  write (io_centers_file, '(2i10,6f15.7)') icl, 1, cluster(i)%center(1:ndim)
+               else
+                  write (io_centers_file, '(2i10,6f15.7)') icl, 1, cluster(i)%center(1:ndim), 0.0
+               end if
             endif
-            ! identify to which cluster belongs each particle
-            do j = 1, cluster(i)%clsize
-                clusid(cluster(i)%members(j)) = I
-            end do
-        end do
-        if (run_thermo) bigcl_d(1:cluster_id) = bigcl(1:cluster_id)
-        clusid_d(1:nmol) = clusid(1:nmol)
-        !
-        ! Write trajectory file with centers of mass of clusters with size >= minclsize
-        !
-        write (io_centers_file, "('ITEM: TIMESTEP'/I12/'ITEM: NUMBER OF ATOMS'/I12/'ITE&
-             &M: BOX BOUNDS pp pp pp')") nstep, nbigcl
-        write (io_centers_file, "(2f15.7)") (0.0, sidel(i), i=1, ndim)
-        if (ndim == 2) write (io_centers_file, "('-0.5 0.5')")
-        if (ex_vel) then
-            write (io_centers_file, "('ITEM: ATOMS id type x y z vx vy vz')")
-        else
-            write (io_centers_file, "('ITEM: ATOMS id type x y z')")
-        end if
-        icl = 0
-        cluster(:)%rg = 0
-        if (Iconf == Nconf) NP_lconf = 0 
-        do I = 1, cluster_id
+            if (Iconf == Nconf) NP_lconf = NP_lconf + j
+         end if
+      end do
+      if (Iconf == Nconf) then
+         open (newunit=io_last_filter, file=last_filter_filename)
+         write(io_last_filter,"('LAMMPS last configuration filtered for cluster size > minclsize')")
+         write (io_last_filter,"(/i9,'   atoms'/i3,'   atom types')") NP_lconf, nsp
+         if (ndim==3) then
+            write (io_last_filter,"(3f12.4,' xlo xhi'/3f12.4,' ylo yhi'/3f12.4,' zlo zhi')") &
+            &     (0.0,sidel(i), i=1, ndim)
+         else
+            write (io_last_filter,"(2f12.4,' xlo xhi'/2f12.4,' ylo yhi')") &
+            &     (0.0,sidel(i), i=1, ndim)
+            write (io_last_filter,"(2f12.4,' zlo zhi')") -0.5, 0.5
+         end if
+         write (io_last_filter,"(/'Masses'/)")
+         do i = 1, nsp
+            write(io_last_filter,'(i4,f15.7)') wtypes(i), masa(i)
+         end do
+         write (io_last_filter,"(/'Atoms'/)")
+         icount = 1
+         do i = 1, cluster_id
             j = cluster(i)%clsize
-            ! Calculate cluster size distro
-            ind = nint(real(j)/real(dcl))
-            sizedist(ind) = sizedist(ind) + 1
-            if (j >= jmin) then
-                ! Determine center of mass with PBC
-                ! https://en.wikipedia.org/wiki/Center_of_mass#Systems_with_periodic_boundary_conditions
-                xss(:) = 0
-                sss(:) = 0
-                vcl(:) = 0
-                mcl = 0
-                ekcls = 0
-                rgsum = 0.0
-                do k = 1, j
-                    ip = cluster(i)%members(k)
-                    rv(1:ndim) = r(1:ndim, ip)
-                    theta(1:ndim) = 2*pi*rv(1:ndim)/sidel(1:ndim)
-                    xss(1:ndim) = xss(1:ndim) + cos(theta(1:ndim))
-                    sss(1:ndim) = sss(1:ndim) + sin(theta(1:ndim))
-                    vcl(1:ndim) = vcl(1:ndim) + masa(ip)*vel(1:ndim, ip)
-                    mcl = mcl + masa(ip)
-                end do
-                xss(1:ndim) = xss(1:ndim)/j
-                sss(1:ndim) = sss(1:ndim)/j
-                theta(1:ndim) = atan2(-sss(1:ndim), -xss(1:ndim)) + pi
-                !
-                ! Restore origin for centers of mass position to the original coordinate
-                !
-                cluster(i)%center(1:ndim) = sidel(1:ndim)*theta(1:ndim)/(2*pi) + rlow(1:ndim)
-                !
-                ! Store cluster's center of mass velocity and net mass
-                !
-                cluster(i)%vl(1:ndim) = vcl(1:ndim)/mcl
-                cluster(i)%mass = mcl
-                ekcls = 0
-                do k = 1, j
-                    ip = cluster(i)%members(k)
-                    ekcls = ekcls + 0.5*masa(ip)*dot_product(vel(:, ip)&
-                         &- cluster(i)%vl(:), vel(:, ip) - cluster(i)%vl(:))
-                end do
-                cluster(i)%ekin = ekcls
-            end if
             if (j >= minclsize) then
-                icl = icl + 1
-                if (ex_vel) then
-                 if (ndim == 3) then
-                      write (io_centers_file, '(2i10,6f15.7)') icl, 1, cluster(i)%center(1:ndim), factorv*cluster(i)%vl(1:ndim)
-                 else
-                    write (io_centers_file, '(2i10,6f15.7)') icl, 1, cluster(i)%center(1:ndim), 0.0,factorv*cluster(i)%vl(1:ndim),0.0
-                 end if
-                else
-                    if (ndim == 3) then
-                        write (io_centers_file, '(2i10,6f15.7)') icl, 1, cluster(i)%center(1:ndim)
-                   else
-                      write (io_centers_file, '(2i10,6f15.7)') icl, 1, cluster(i)%center(1:ndim), 0.0
-                   end if
-                endif  
-                if (Iconf == Nconf) NP_lconf = NP_lconf + j
+               do k = 1, j
+                  ip = cluster(i)%members(k)
+                  if (ndim==3) then
+                     if (ex_qc) then
+                        write(io_last_filter,'(3i10,6f15.7)') icount, itype(ip), qcharge(ip), r(1:ndim,ip)
+                     else
+                        write(io_last_filter,'(3i10,6f15.7)') icount, itype(ip), 0.0, r(1:ndim,ip)
+                     end if
+                  else
+                     if (ex_qc) then
+                        write(io_last_filter,'(2i10,6f15.7)') icount, itype(ip), qcharge(ip),r(1:ndim,ip), 0.0
+                     else
+                        write(io_last_filter,'(2i10,6f15.7)') icount, itype(ip), 0.0, r(1:ndim,ip), 0.0
+                     endif
+                  end if
+                  icount = icount + 1
+               enddo
             end if
-        end do
-        if (Iconf == Nconf) then
-            open (newunit=io_last_filter, file=last_filter_filename)
-            write(io_last_filter,"('LAMMPS last configuration filtered for cluster size > minclsize')")
-            write (io_last_filter,"(/i9,'   atoms'/i3,'   atom types')") NP_lconf, nsp
-            if (ndim==3) then
-                write (io_last_filter,"(3f12.4,' xlo xhi'/3f12.4,' ylo yhi'/3f12.4,' zlo zhi')") &
-                &     (0.0,sidel(i), i=1, ndim)
-            else
-                write (io_last_filter,"(2f12.4,' xlo xhi'/2f12.4,' ylo yhi')") &
-                &     (0.0,sidel(i), i=1, ndim)
-               write (io_last_filter,"(2f12.4,' zlo zhi')") -0.5, 0.5  
+         end do
+         write(io_last_filter,"(/'Velocities'/)")
+         icount = 1
+         do i = 1, cluster_id
+            j = cluster(i)%clsize
+            if (j >= minclsize) then
+               do k = 1, j
+                  ip = cluster(i)%members(k)
+                  if (ndim==3) then
+                     write(io_last_filter,'(i10,6f15.7)') icount, vel(1:ndim,ip)
+                  else
+                     write(io_last_filter,'(i10,6f15.7)') icount, vel(1:ndim,ip), 0.0
+                  end if
+                  icount = icount + 1
+               enddo
             end if
-            write (io_last_filter,"(/'Masses'/)")
-            do i = 1, nsp
-                write(io_last_filter,'(i4,f15.7)') wtypes(i), masa(i)
-            end do
-            write (io_last_filter,"(/'Atoms'/)")
-            icount = 1
-            do i = 1, cluster_id
-                j = cluster(i)%clsize
-                if (j >= minclsize) then
-                    do k = 1, j
-                        ip = cluster(i)%members(k)
-                        if (ndim==3) then
-                            if (ex_mol) then
-                                write(io_last_filter,'(3i10,6f15.7)') icount, imol(ip,1), itype(ip), r(1:ndim,ip)
-                            else
-                                write(io_last_filter,'(3i10,6f15.7)') icount, icount, itype(ip), r(1:ndim,ip)
-                            end if
-                        else
-                            if (ex_mol) then
-                                write(io_last_filter,'(3i10,6f15.7)') icount, imol(ip,1), itype(ip), r(1:ndim,ip), 0.0
-                            else
-                                write(io_last_filter,'(3i10,6f15.7)') icount, icount, itype(ip), 0.0, r(1:ndim,ip), 0.0
-                            endif
-                        end if
-                        icount = icount + 1
-                  enddo
-                end if
-            end do
-            write(io_last_filter,"(/'Velocities'/)")
-            icount = 1
-            do i = 1, cluster_id
-                j = cluster(i)%clsize
-                if (j >= minclsize) then
-                    do k = 1, j
-                        ip = cluster(i)%members(k)
-                        if (ndim==3) then
-                            write(io_last_filter,'(i10,6f15.7)') icount, vel(1:ndim,ip)
-                        else
-                            write(io_last_filter,'(i10,6f15.7)') icount, vel(1:ndim,ip), 0.0
-                        end if  
-                        icount = icount + 1
-                  enddo
-                end if
-            end do
-            close(io_last_filter)
-        end if
-        ekincl = 0
-        ekincls = 0
-        suma = 0
-        !
-        ! Determine single cluster kinetic energies and inter-cluster kinetic contribution
-        !
-        do i = 1, cluster_id
-            suma = suma + cluster(i)%clsize
-            if (cluster(i)%clsize >= minclsize) then
-                ekincl = ekincl + 0.5*cluster(i)%mass&
-                        &*dot_product(cluster(i)%vl(:), cluster(i)%vl(:))
-                ekincls = ekincls + cluster(i)%ekin
-            end if
-        end do
-        ekclaver = ekclaver + ekincl
-        ekinclsav = ekinclsav + ekincls
-        write (io_clusevol_file, '(i7,i4,f15.7)') iconf, cluster_id, (suma/natms)*100
-        if (iconf > 1) then
-            deallocate (rclxyz)
-            deallocate (rclxyzd)
-            deallocate (densav)
-        end if
-        allocate (rclxyz(ndim, cluster_id), densav(cluster_id))
-        allocate (rclxyzd(ndim, cluster_id))
-        gcluster(:) = 0
-        rhoclus(:) = 0
-        denscl = 0.0
-        rclus = 0.0
-        !
-        ! Determine cluster radii, density ..
-        !
-        averg = 0
-        do i = 1, cluster_id
-            clussize = cluster(i)%clsize
-            clcent(:) = cluster(i)%center(1:ndim)
-            rclxyz(1:ndim, i) = clcent(1:ndim)
-            rcluster = radius(cluster(i)%members(:), clussize, clcent, sidel)
-            cluster(i)%radio = rcluster
-            ! Radius of gyration
-            cluster(i)%rg = radiusrg(cluster(i)%members(:), clussize, &
-            & clcent, sidel,cluster(i)%mass)
-            averg = averg+cluster(i)%rg 
-            if (ndim == 3) then
-                volcl = (4*pi*rcluster**3/3.0)
-            else
-                volcl = pi*rcluster**2
-            end if
-            cluster(i)%cldens = real(clussize)/volcl
-            if (ndim == 3) then
-                ind = nint(cluster(i)%cldens*sigma**3/drho)
-            else
-                ind = nint(cluster(i)%cldens*sigma**2/drho)
-            end if
-            indr = nint(cluster(i)%rg/deltar)
-            if (ind <= ndrho) densclus(ind) = densclus(ind) + 1
-            if (indr <= ndr) radii(indr) = radii(indr) + 1
-            denscl = denscl + cluster(i)%cldens
-            rclus = rclus + rcluster
-        end do
-        avrg = avrg +averg/cluster_id
-        rclxyzd(:, :) = rclxyz(:, :)
-        !
-        ! Compute cluster-cluster structure factor
-        !
-        call sqfnDcl<<<tBlock, grid>>>(rclxyzd, cluster_id, ndim, fk_d, sqfcl_d, nqmax, qmin2, dq)
-        averdens = averdens + denscl/cluster_id
-        avradio = avradio + rclus/cluster_id
-        ! Determine average cluster density, cluster g(r) and density profiles
-        do i = 1, cluster_id
-            densav(i) = cldens(ndim, cluster(i)%members(:), cluster(i)%clsize, sidel&
-                 &, side2, cluster(i)%center(1:ndim), 0.8*cluster(i)%radio)
-            if (cluster(i)%clsize >= minclsize) then
-                cmin = minj(ndim, cluster(i)%members, cluster(i)%clsize&
-                     &, cluster(i)%center, sidel, side2)
-                call rdfcl(ndim, cluster(i)%members(:), cluster(i)%clsize, sidel&
-                     &, side2, gcluster, lsmax, deltar, densav(i), cmin)
-                call denspcl(ndim, cluster(i)%members(:), cluster(i)%clsize, sidel&
-                     &, side2, rhoclus(0:lsmax), lsmax, deltar, cluster(i)%center(1:ndim))
-            end if
-        end do
-        gclustav(:) = gclustav(:) + gcluster(:)/nbigcl
-        rhoclusav(:) = rhoclusav(:) + rhoclus(:)/nbigcl
-        !
-        ! Cluster-cluster pdf
-        !
-        !call rdfclcl(ndim, rclxyz(1:ndim, 1:cluster_id), cluster_id, sidel&
-             !&, side2, gclcl, lsmax, deltar, volumen)
-        call rdfclcl2(ndim, rclxyz(1:ndim, 1:cluster_id), cluster_id, sidel&
-             &, nrandom, side2, gclcl, gclr, gclr2, lsmax, deltar, volumen)
-        NTclus = suma + NTclus
-        ! Potential Energy
-        if (run_thermo .and. iconf ==1 ) call thermo_init_cluster(natms, ndim, sidel, side2, maxcln, cluster)
-    end subroutine cluster_analysis
+         end do
+         close(io_last_filter)
+      end if
+      ekincl = 0
+      ekincls = 0
+      suma = 0
+      !
+      ! Determine single cluster kinetic energies and inter-cluster kinetic contribution
+      !
+      do i = 1, cluster_id
+         suma = suma + cluster(i)%clsize
+         if (cluster(i)%clsize >= minclsize) then
+            ekincl = ekincl + 0.5*cluster(i)%mass&
+            &*dot_product(cluster(i)%vl(:), cluster(i)%vl(:))
+            ekincls = ekincls + cluster(i)%ekin
+         end if
+      end do
+      ekclaver = ekclaver + ekincl
+      ekinclsav = ekinclsav + ekincls
+      write (io_clusevol_file, '(i7,i4,f15.7)') iconf, cluster_id, (suma/natms)*100
+      if (iconf > 1) then
+         deallocate (rclxyz)
+         deallocate (rclxyzd)
+         deallocate (densav)
+      end if
+      allocate (rclxyz(ndim, cluster_id), densav(cluster_id))
+      allocate (rclxyzd(ndim, cluster_id))
+      gcluster(:) = 0
+      rhoclus(:) = 0
+      denscl = 0.0
+      rclus = 0.0
+      !
+      ! Determine cluster radii, density ..
+      !
+      averg = 0
+      do i = 1, cluster_id
+         clussize = cluster(i)%clsize
+         clcent(:) = cluster(i)%center(1:ndim)
+         rclxyz(1:ndim, i) = clcent(1:ndim)
+         rcluster = radius(cluster(i)%members(:), clussize, clcent, sidel)
+         cluster(i)%radio = rcluster
+         ! Radius of gyration
+         cluster(i)%rg = radiusrg(cluster(i)%members(:), clussize, &
+         & clcent, sidel,cluster(i)%mass)
+         averg = averg+cluster(i)%rg
+         if (ndim == 3) then
+            volcl = (4*pi*rcluster**3/3.0)
+         else
+            volcl = pi*rcluster**2
+         end if
+         cluster(i)%cldens = real(clussize)/volcl
+         if (ndim == 3) then
+            ind = nint(cluster(i)%cldens*sigma**3/drho)
+         else
+            ind = nint(cluster(i)%cldens*sigma**2/drho)
+         end if
+         indr = nint(cluster(i)%rg/deltar)
+         if (ind <= ndrho) densclus(ind) = densclus(ind) + 1
+         if (indr <= ndr) radii(indr) = radii(indr) + 1
+         denscl = denscl + cluster(i)%cldens
+         rclus = rclus + rcluster
+      end do
+      avrg = avrg +averg/cluster_id
+      rclxyzd(:, :) = rclxyz(:, :)
+      !
+      ! Compute cluster-cluster structure factor
+      !
+      call sqfnDcl<<<tBlock, grid>>>(rclxyzd, cluster_id, ndim, fk_d, sqfcl_d, nqmax, qmin2, dq)
+      averdens = averdens + denscl/cluster_id
+      avradio = avradio + rclus/cluster_id
+      ! Determine average cluster density, cluster g(r) and density profiles
+      do i = 1, cluster_id
+         densav(i) = cldens(ndim, cluster(i)%members(:), cluster(i)%clsize, sidel&
+         &, side2, cluster(i)%center(1:ndim), 0.8*cluster(i)%radio)
+         if (cluster(i)%clsize >= minclsize) then
+            cmin = minj(ndim, cluster(i)%members, cluster(i)%clsize&
+            &, cluster(i)%center, sidel, side2)
+            call rdfcl(ndim, cluster(i)%members(:), cluster(i)%clsize, sidel&
+            &, side2, gcluster, lsmax, deltar, densav(i), cmin)
+            call denspcl(ndim, cluster(i)%members(:), cluster(i)%clsize, sidel&
+            &, side2, rhoclus(0:lsmax), lsmax, deltar, cluster(i)%center(1:ndim))
+         end if
+      end do
+      gclustav(:) = gclustav(:) + gcluster(:)/nbigcl
+      rhoclusav(:) = rhoclusav(:) + rhoclus(:)/nbigcl
+      !
+      ! Cluster-cluster pdf
+      !
+      !call rdfclcl(ndim, rclxyz(1:ndim, 1:cluster_id), cluster_id, sidel&
+      !&, side2, gclcl, lsmax, deltar, volumen)
+      call rdfclcl2(ndim, rclxyz(1:ndim, 1:cluster_id), cluster_id, sidel&
+      &, nrandom, side2, gclcl, gclr, gclr2, lsmax, deltar, volumen)
+      NTclus = suma + NTclus
+      ! Potential Energy
+      if (run_thermo .and. iconf ==1 ) call thermo_init_cluster(natms, ndim, sidel, side2, maxcln, cluster)
+   end subroutine cluster_analysis
 
-    subroutine cluster_search()
-        !
-        ! Main cluster search call
-        !
-        use mod_common
-        use mod_thrust
-        use mod_input
-        use mod_cells
-        implicit none
-        integer :: cluster_id, i, j, istat
-        real :: time_gpu
-        Character :: error_msg*64
-        !
-        ! Build neighbor tables for graph constructtion
-        !
-        istat = cudaEventRecord(startEvent, 0)
-        if (use_cell) then
-            call gpu_graph_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, jmin)
-        else
-            call gpu_graf<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, jmin)
-        end if
-        time_gpu = gptime(stopEvent, startEvent)
-        tgraph = tgraph + time_gpu
-        goffset(:) = gneighbors(:)
-        neighbors(:) = gneighbors(:)
-        core(:) = gcore(:)
-        istat = cudaEventRecord(startEvent, 0)
-        call thrustscan(goffset, Nmol, 1)
-        time_gpu = gptime(stopEvent, startEvent)
-        tthrus = tthrus + time_gpu
-        offset(:) = goffset(:)
+   subroutine cluster_search()
+      !
+      ! Main cluster search call
+      !
+      use mod_common
+      use mod_thrust
+      use mod_input
+      use mod_cells
+      implicit none
+      integer :: cluster_id, i, j, istat
+      real :: time_gpu
+      Character :: error_msg*64
+      !
+      ! Build neighbor tables for graph constructtion
+      !
+      istat = cudaEventRecord(startEvent, 0)
+      if (use_cell) then
+         call gpu_graph_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, jmin)
+      else
+         call gpu_graf<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, jmin)
+      end if
+      time_gpu = gptime(stopEvent, startEvent)
+      tgraph = tgraph + time_gpu
+      goffset(:) = gneighbors(:)
+      neighbors(:) = gneighbors(:)
+      core(:) = gcore(:)
+      istat = cudaEventRecord(startEvent, 0)
+      call thrustscan(goffset, Nmol, 1)
+      time_gpu = gptime(stopEvent, startEvent)
+      tthrus = tthrus + time_gpu
+      offset(:) = goffset(:)
 !       !
 !       ! Determine adjacency between nodes
 !       !
-        istat = cudaEventRecord(startEvent, 0)
-        if (use_cell) then
-            call gpu_adj_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d)
-        else
-            call gpu_adj<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d)
-        end if
-        time_gpu = gptime(stopEvent, startEvent)
-        tadj = tadj + time_gpu
-        adjacency(:) = gadjacency(:)
-        gdone(:) = 0
-        done(:) = 0
-        cluster_id = 0
-        visited(:) = .false.
-        ! Recursive BFS search of connected clusters
-        istat = cudaEventRecord(startEvent, 0)
-        do i = 1, nmol
-            if (core(i) .and. done(i) == 0) then
-                gvisited(:) = .false.
-                cluster_id = cluster_id + 1
-                call breadfirst(i, nbcuda, nthread, Nmol, jmin, cluster_id, border, visited, done)
-            end if
-        end do
-        time_gpu = gptime(stopEvent, startEvent)
-        tbfs = tbfs + time_gpu
-        if (maxval(neighbors(:)) > 50) then
-            write (error_msg, '(" Warning:redimension next to at least ", i5)') maxval(neighbors(:))
-            stop(error_msg)
-        end if
-        Nu_clus = cluster_id
-    end subroutine cluster_search
+      istat = cudaEventRecord(startEvent, 0)
+      if (use_cell) then
+         call gpu_adj_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d)
+      else
+         call gpu_adj<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d)
+      end if
+      time_gpu = gptime(stopEvent, startEvent)
+      tadj = tadj + time_gpu
+      adjacency(:) = gadjacency(:)
+      gdone(:) = 0
+      done(:) = 0
+      cluster_id = 0
+      visited(:) = .false.
+      ! Recursive BFS search of connected clusters
+      istat = cudaEventRecord(startEvent, 0)
+      do i = 1, nmol
+         if (core(i) .and. done(i) == 0) then
+            gvisited(:) = .false.
+            cluster_id = cluster_id + 1
+            call breadfirst(i, nbcuda, nthread, Nmol, jmin, cluster_id, border, visited, done)
+         end if
+      end do
+      time_gpu = gptime(stopEvent, startEvent)
+      tbfs = tbfs + time_gpu
+      if (maxval(neighbors(:)) > 50) then
+         write (error_msg, '(" Warning:redimension next to at least ", i5)') maxval(neighbors(:))
+         stop(error_msg)
+      end if
+      Nu_clus = cluster_id
+   end subroutine cluster_search
 
-    subroutine breadfirst(i, nbcuda, nthread, Nmol, jmin, cluster_id, border, visited, done)
-        use mod_cells
-        integer, intent(IN) :: Nmol, cluster_id, jmin, i, nbcuda, nthread
-        integer, intent(INOUT) :: done(Nmol)
-        logical(kind=1), intent(INOUT) :: visited(Nmol), border(Nmol)
-        logical(kind=1) :: gb
-        integer :: j
-        border(i) = .true.
-        gborder(i) = .true.
-        do while (count(border == .true.) .ne. 0)
-            call gbfs<<<nbcuda, nthread>>>(Nmol, gvisited, gborder, cluster_id, jmin)
-            border(:) = gborder(:)
-        end do
-        visited(:) = gvisited(:)
-        do j = 1, nmol
-            if (visited(j)) then
-                done(j) = cluster_id
-            end if
-        end do
-    end subroutine breadfirst
+   subroutine breadfirst(i, nbcuda, nthread, Nmol, jmin, cluster_id, border, visited, done)
+      use mod_cells
+      integer, intent(IN) :: Nmol, cluster_id, jmin, i, nbcuda, nthread
+      integer, intent(INOUT) :: done(Nmol)
+      logical(kind=1), intent(INOUT) :: visited(Nmol), border(Nmol)
+      logical(kind=1) :: gb
+      integer :: j
+      border(i) = .true.
+      gborder(i) = .true.
+      do while (count(border == .true.) .ne. 0)
+         call gbfs<<<nbcuda, nthread>>>(Nmol, gvisited, gborder, cluster_id, jmin)
+         border(:) = gborder(:)
+      end do
+      visited(:) = gvisited(:)
+      do j = 1, nmol
+         if (visited(j)) then
+            done(j) = cluster_id
+         end if
+      end do
+   end subroutine breadfirst
 
-    subroutine clusters_sq_init()
-        use mod_common, only: ndr
-        implicit none
+   subroutine clusters_sq_init()
+      use mod_common, only: ndr
+      implicit none
 
-        drho = 0.05
-        ndrho = nint(1.4/drho)
-        allocate (densclus(0:ndrho))
-        allocate (radii(0:ndr))
-        densclus(:) = 0
-        radii(:) = 0
+      drho = 0.05
+      ndrho = nint(1.4/drho)
+      allocate (densclus(0:ndrho))
+      allocate (radii(0:ndr))
+      densclus(:) = 0
+      radii(:) = 0
 
-    end subroutine clusters_sq_init
+   end subroutine clusters_sq_init
 
-    subroutine clusters_init(nmol)
-        implicit none
-        integer, intent(in) :: nmol
+   subroutine clusters_init(nmol)
+      implicit none
+      integer, intent(in) :: nmol
 
-        ! Allocate CPU memory
-        allocate (sizedist(nmol))
+      ! Allocate CPU memory
+      allocate (sizedist(nmol))
 
-        ! Init variables
-        sizedist(:) = 0.0
-        ekclaver = 0.0
-        ekinclsav = 0.0
+      ! Init variables
+      sizedist(:) = 0.0
+      ekclaver = 0.0
+      ekinclsav = 0.0
 
-        ! Open output files
-        open (newunit=io_centers_file, file=centers_filename)
-        open (newunit=io_clusevol_file, file=clusevol_filename)
-        write (io_clusevol_file,"('# conf no. clusters % particles in cluster')")
-    end subroutine clusters_init
-
-
-    
-
-    subroutine clusters_clear()
-        implicit none
+      ! Open output files
+      open (newunit=io_centers_file, file=centers_filename)
+      open (newunit=io_clusevol_file, file=clusevol_filename)
+      write (io_clusevol_file,"('# conf no. clusters % particles in cluster')")
+   end subroutine clusters_init
 
 
-        ! Clean house
-       ! deallocate (sizedist)
-        deallocate (densclus)
-        deallocate (radii)
 
-        ! Close open files
-        close (io_centers_file)
-        close (io_clusevol_file)
 
-    end subroutine clusters_clear
+   subroutine clusters_clear()
+      implicit none
 
-    subroutine denspcl(dim, members, nm, sidel, side2, rho, lsmax, deltar, center)
-        integer, intent(IN) :: nm, lsmax, dim
-        integer, intent(IN) :: members(nm)
-        real, intent(IN) :: sidel(3), center(3), side2, deltar
-        real, intent(INOUT) :: rho(0:lsmax)
-        real :: rv(3), rr2, rr, fact
-        integer :: k, l, i, j, ind
-        ! g(r) is normalized for each configuration,
-        ! since particle number may change
-        do k = 1, nm
-            i = members(k)
-            rv(1:dim) = r(1:dim, i) - center(1:dim)
-            ! PBC (unwrap if necessary)
-            rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
-            rr2 = Dot_product(rv(1:dim), rv(1:dim))
-            If (rr2 .Lt. side2) Then
-                rr = sqrt(rr2)
-                ind = Nint(rr/deltar)
-                rho(ind) = rho(ind) + 1.0
-            end If
-        end do
-    end subroutine denspcl
 
-function minj(dim, members, nm, center, sidel, side2)
-        integer, intent(IN) :: nm, dim
-        integer, intent(IN) :: members(nm)
-        real, intent(IN) :: center(3), sidel(3), side2
-        real :: rv(3), dist, r2
-        integer :: j, i, jmin, minj
-        dist = 100000000.0
-        do j = 1, nm
-            i = members(j)
-            rv(1:dim) = r(1:dim, i) - center(1:dim)
-            rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
-            r2 = dot_product(rv(1:dim), rv(1:dim))
-            if (r2 <= dist) then
-                dist = r2
-                jmin = j
-            end if
-        end do
-        minj = jmin
-    end function minj
+      ! Clean house
+      ! deallocate (sizedist)
+      deallocate (densclus)
+      deallocate (radii)
 
-    function cldens(dim, members, nm, sidel, side2, center, rclus)
-        integer, intent(IN) :: nm, dim
-        integer, intent(IN) :: members(nm)
-        real, intent(IN) :: sidel(3), side2, center(3), rclus
-        real :: avcldens
-        real :: rv(3), vol, rr2, rclus2
-        integer :: i, j, count
-        if (dim == 3) then
-            vol = 4*pi*rclus**3/3.0
-        else
-            vol = 4*pi*rclus**2
-        end if
-        rclus2 = rclus*rclus
-        count = 0
-        do i = 1, nm
-            j = members(i)
-            rv(1:dim) = r(1:dim, j) - center(1:dim)
-            ! PBC (unwrap if necessary)
-            rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
-            rr2 = Dot_product(rv(1:dim), rv(1:dim))
-            if (rr2 < rclus2) then
-                count = count + 1
-            end if
-        end do
-        cldens = real(count)/vol
-    end function cldens
+      ! Close open files
+      close (io_centers_file)
+      close (io_clusevol_file)
 
-    function radius(members, nm, center, sidel)
-        implicit none
-        integer, intent(IN) :: nm
-        integer, intent(IN) :: members(nm)
-        real(myprec), intent(IN) :: center(3), sidel(3)
-        real(myprec) :: rr2, rv(3)
-        integer :: i
-        real(myprec) :: radius
-        radius = 0
-        do i = 1, nm
-            rv(:) = r(:, members(i)) - center(:)
-            rv = rv - sidel*nint(rv/sidel)
-            rr2 = Dot_product(rv, rv)
-            if (rr2 > radius) radius = rr2
-        end do
-        radius = sqrt(radius)
-    end function radius
+   end subroutine clusters_clear
 
-    function radiusRg(members, nm, center, sidel, masat)
-        ! Radius of gyration
-        implicit none
-        integer, intent(IN) :: nm
-        integer, intent(IN) :: members(nm)
-        real(myprec), intent(IN) :: center(3), sidel(3), masat
-        real(myprec) :: rr2, mt, rv(3)
-        integer :: i, ip
-        real(myprec) :: radius
-        radiusrg = 0
-        do i = 1, nm
-            ip = members(i)
-            rv(:) = r(:, ip) - center(:)
-            rv = rv - sidel*nint(rv/sidel)
-            rr2 = Dot_product(rv, rv)
-            radiusrg = radiusrg+masa(ip)*rr2
-        end do
-        radiusrg = sqrt(radiusrg/masat)
-    end function radiusRg
+   subroutine denspcl(dim, members, nm, sidel, side2, rho, lsmax, deltar, center)
+      integer, intent(IN) :: nm, lsmax, dim
+      integer, intent(IN) :: members(nm)
+      real, intent(IN) :: sidel(3), center(3), side2, deltar
+      real, intent(INOUT) :: rho(0:lsmax)
+      real :: rv(3), rr2, rr, fact
+      integer :: k, l, i, j, ind
+      ! g(r) is normalized for each configuration,
+      ! since particle number may change
+      do k = 1, nm
+         i = members(k)
+         rv(1:dim) = r(1:dim, i) - center(1:dim)
+         ! PBC (unwrap if necessary)
+         rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+         rr2 = Dot_product(rv(1:dim), rv(1:dim))
+         If (rr2 .Lt. side2) Then
+            rr = sqrt(rr2)
+            ind = Nint(rr/deltar)
+            rho(ind) = rho(ind) + 1.0
+         end If
+      end do
+   end subroutine denspcl
+
+   function minj(dim, members, nm, center, sidel, side2)
+      integer, intent(IN) :: nm, dim
+      integer, intent(IN) :: members(nm)
+      real, intent(IN) :: center(3), sidel(3), side2
+      real :: rv(3), dist, r2
+      integer :: j, i, jmin, minj
+      dist = 100000000.0
+      do j = 1, nm
+         i = members(j)
+         rv(1:dim) = r(1:dim, i) - center(1:dim)
+         rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+         r2 = dot_product(rv(1:dim), rv(1:dim))
+         if (r2 <= dist) then
+            dist = r2
+            jmin = j
+         end if
+      end do
+      minj = jmin
+   end function minj
+
+   function cldens(dim, members, nm, sidel, side2, center, rclus)
+      integer, intent(IN) :: nm, dim
+      integer, intent(IN) :: members(nm)
+      real, intent(IN) :: sidel(3), side2, center(3), rclus
+      real :: avcldens
+      real :: rv(3), vol, rr2, rclus2
+      integer :: i, j, count
+      if (dim == 3) then
+         vol = 4*pi*rclus**3/3.0
+      else
+         vol = 4*pi*rclus**2
+      end if
+      rclus2 = rclus*rclus
+      count = 0
+      do i = 1, nm
+         j = members(i)
+         rv(1:dim) = r(1:dim, j) - center(1:dim)
+         ! PBC (unwrap if necessary)
+         rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+         rr2 = Dot_product(rv(1:dim), rv(1:dim))
+         if (rr2 < rclus2) then
+            count = count + 1
+         end if
+      end do
+      cldens = real(count)/vol
+   end function cldens
+
+   function radius(members, nm, center, sidel)
+      implicit none
+      integer, intent(IN) :: nm
+      integer, intent(IN) :: members(nm)
+      real(myprec), intent(IN) :: center(3), sidel(3)
+      real(myprec) :: rr2, rv(3)
+      integer :: i
+      real(myprec) :: radius
+      radius = 0
+      do i = 1, nm
+         rv(:) = r(:, members(i)) - center(:)
+         rv = rv - sidel*nint(rv/sidel)
+         rr2 = Dot_product(rv, rv)
+         if (rr2 > radius) radius = rr2
+      end do
+      radius = sqrt(radius)
+   end function radius
+
+   function radiusRg(members, nm, center, sidel, masat)
+      ! Radius of gyration
+      implicit none
+      integer, intent(IN) :: nm
+      integer, intent(IN) :: members(nm)
+      real(myprec), intent(IN) :: center(3), sidel(3), masat
+      real(myprec) :: rr2, mt, rv(3)
+      integer :: i, ip
+      real(myprec) :: radius
+      radiusrg = 0
+      do i = 1, nm
+         ip = members(i)
+         rv(:) = r(:, ip) - center(:)
+         rv = rv - sidel*nint(rv/sidel)
+         rr2 = Dot_product(rv, rv)
+         radiusrg = radiusrg+masa(ip)*rr2
+      end do
+      radiusrg = sqrt(radiusrg/masat)
+   end function radiusRg
 
 end module mod_clusters
