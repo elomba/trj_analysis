@@ -215,9 +215,9 @@ contains
                   ip = cluster(i)%members(k)
                   if (ndim==3) then
                      if (ex_qc) then
-                        write(io_last_filter,'(3i10,6f15.7)') icount, itype(ip), qcharge(ip), r(1:ndim,ip)
+                        write(io_last_filter,'(2i10,6f15.7)') icount, itype(ip), qcharge(ip), r(1:ndim,ip)
                      else
-                        write(io_last_filter,'(3i10,6f15.7)') icount, itype(ip), 0.0, r(1:ndim,ip)
+                        write(io_last_filter,'(2i10,6f15.7)') icount, itype(ip), 0.0, r(1:ndim,ip)
                      end if
                   else
                      if (ex_qc) then
