@@ -195,7 +195,7 @@ contains
          write(io_last_filter,"('LAMMPS last configuration filtered for cluster size > minclsize')")
          write (io_last_filter,"(/i9,'   atoms'/i3,'   atom types'/)") NP_lconf, nsp
          if (ndim==3) then
-            write (io_last_filter,"(2f12.4,' xlo xhi'/3f12.4,' ylo yhi'/3f12.4,' zlo zhi')") &
+            write (io_last_filter,"(2f12.4,' xlo xhi'/2f12.4,' ylo yhi'/2f12.4,' zlo zhi')") &
             &     (0.0,sidel(i), i=1, ndim)
          else
             write (io_last_filter,"(2f12.4,' xlo xhi'/2f12.4,' ylo yhi')") &
