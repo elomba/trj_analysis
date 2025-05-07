@@ -219,6 +219,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          count(2) = natoms
          call check(nf90_get_var(ncid, i, r, start, count), ioerr)
          do k = 1, 3
+            r(k,1:natoms,1) = r(k,1:natoms,1)-org(k,1)
             if (cell(k, 1) == 0) then
                periodic(k) = .false.
                cell(k, 1) = abs(maxval(r(k, 1:natoms, 1)) - minval(r(k&
