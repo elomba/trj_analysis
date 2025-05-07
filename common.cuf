@@ -247,8 +247,7 @@ contains
          tuniti = 1.0d-12
          tstep = factor
       else
-         print *, 'ERROR: timeunit ', units, ' not implemented!'
-         stop
+         print *, 'ERROR: timeunit ', units, ' not implemented!: watch for corrections'
       end if
 
       ! Idir parameters control and set pdir
