@@ -4,7 +4,7 @@ module mod_common
    implicit none
 
    Integer, Parameter :: npmx = 8192, nmblock = 500, nmgrid = 50000, &
-      nspmax = 8, nmolmax = 220000, nmesmax = 10000, nkmax = 200, ksmax = 6
+      nspmax = 10, nmolmax = 220000, nmesmax = 10000, nkmax = 200, ksmax = 6
    Integer, Parameter :: nitmax = nspmax*(nspmax + 1)/2
    real(myprec), parameter :: pi = 3.1415926535898D0, fconv = 4.135, &
       rgas = 8.3144d7, aunit = 1.0d-8, tunit = 1.0d-12, &
