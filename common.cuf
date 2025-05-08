@@ -246,6 +246,8 @@ contains
       else if (units == 'picosecond') then
          tuniti = 1.0d-12
          tstep = factor
+      else if (units == 'lj') then
+         tuniti = 1.0d-12
       else
          print *, 'ERROR: timeunit ', units, ' not implemented!: watch for corrections'
       end if

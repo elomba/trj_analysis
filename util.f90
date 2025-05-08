@@ -215,14 +215,7 @@ contains
          final_conf=current_conf-1
       else
          ! Pre configuration analysis data transformations, corrections and format
-         if (ntypes == nsp) then
-            ! All species selected
-            ! call trans_ncdfinput()
             call select_ncdfinput()
-         else
-            ! Only some species selected from the configuration
-            call select_ncdfinput()
-         endif
       endif
    end subroutine reformat_input_conf
 end module mod_util
