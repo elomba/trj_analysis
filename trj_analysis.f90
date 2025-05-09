@@ -26,7 +26,7 @@ program trj_analysis
     !                2. Particle numbers must remain constant all along the trajectory
     !                3. Molecules are analyzed in terms of their atoms, 
     !                   so far no internal degrees of freedom taken into account
-    !                4. LAMMPS units must be "real" (unit conversion soon to be implemented)
+    !                4. LAMMPS units must be "real" or "lj" (unit conversion soon to be implemented)
     !                   
     !
     ! 

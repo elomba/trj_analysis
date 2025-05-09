@@ -38,7 +38,7 @@ Trajectory analysis
     - Molecules are analyzed in terms of their atoms, so far no internal
       degrees of freedom 
       taken into account
-    - LAMMPS units must be "real" (unit conversion soon to be implemented)
+    - LAMMPS units must be "real" or "lj" (unit conversion soon to be implemented)
     - The mimimum dump information to process is 
       `dump trj1 all netcdf ${Ndump} run.nc  id type x y z`   
 
@@ -134,5 +134,5 @@ Requires NVIDIA CUDA SDK >= 11.6, netcdf v 4.9, FFTW3.
 Not licensed yet.
 Creative Commons Non commercial CC BY-NC 4.0 (https://creativecommons.org/licenses/by-nc/4.0/)
 ## Project status
-Version 0.2.7 ready. Awaiting for publication
+Version 0.4.1 ready. Awaiting for publication
 
