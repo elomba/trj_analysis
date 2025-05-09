@@ -249,7 +249,7 @@ contains
          tstep = factor
          write(*,'(" *** Time units in ps: assuming metal units !!)')
       else if (units == 'lj') then
-         tuniti = 1.0d-02
+         tuniti = 1.0d-12
          tstep = factor
       else
          print *, 'ERROR: timeunit ', units, ' not implemented!: watch for corrections'

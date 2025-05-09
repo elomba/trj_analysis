@@ -28,7 +28,6 @@ contains
       real(myprec) :: thermo_q(nther)
       integer :: i, j
       thermo_q(:) = 0
-      print *, ex_vel, run_thermo, tunits
       mascara(1) = ex_vel
       mascara(2) = ex_vel
       mascara(3) = run_thermo
@@ -60,6 +59,7 @@ contains
             Write (*, "(/' ** Working on MD step no. ',i8,' time =',f10.5,&
             & ' ns, cpu time per conf.=',f15.2&
             &/)") nstep, nstep*tstep/1000.0, (cpu1 - cpu0)/nprint
+         endif
          cpu0 = cpu1
          if (run_thermo) then
             if (tunits == 'lj') then
@@ -105,9 +105,9 @@ contains
                      ekincl, ekclaver/Iconf
                   write (*, "(' ** Internal cluster kinetic energy/epsilon=',f15.4,' average=',f15.4)") &
                      ekincls, ekinclsav/Iconf
-                  write (*, "(' ** Cluster kinetic energy=',f15.4,' Kcal/mol, average=',f15.4,'Kcal/mol')") &
-                     kelvintokcal*ekincl*(aunit/tunit)**2/Rgas, 0.00198717*ekclaver*(aunit/tunit)**2/Rgas/Iconf
                else
+                   write (*, "(' ** Cluster kinetic energy/epsilon=',f15.4,' Kcal/mol average=',f15.4,' Kcal/mol')") &
+                     kelvintokcal*ekincl*(aunit/tunit)**2/Rgas, kelvintokcal*ekclaver*(aunit/tunit)**2/Rgas/Iconf
                   write (*, "(' ** Internal cluster kinetic energy=',f15.4,'&
                   & Kcal/mol, average=',f15.4,'Kcal&
                   &/mol')") kelvintokcal*ekincls*(aunit/tunit)**2/Rgas,&
@@ -115,11 +115,12 @@ contains
                endif
                Tfact = nint(sum(sizedist(:))/real(Iconf))*ndim
                if (tunits == 'lj') then
-                    Write (*, "(' ** Average cluster temperature =',f10.4&
-                  &,' K')") 2*ekclaver/(Tfact*Iconf)
+                    Write (*, "(' ** Average cluster k_b*temperature/epsilon =',f10.4&
+                  &)") 2*ekclaver/(Tfact*Iconf)
                else
                   Write (*, "(' ** Average cluster temperature =',f10.4&
                   &,' K')") 2*ekclaver*(aunit/tunit)**2/(Tfact*Rgas*Iconf)
+               endif
             end if
             if (tunits == 'lj') then
                write (*, "(' ** Average k_b*temperature/epsilon =',f10.4)") 2*ecaver/(Tfact*Iconf)
