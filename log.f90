@@ -51,41 +51,86 @@ contains
 
       If (Mod(Iconf - 1, nprint) .Eq. 0) Then
          call cpu_time(cpu1)
-         Write (*, "(/' ** Working on MD step no. ',i8,' time =',f10.5,' ns, cpu time per conf.=',f15.2&
-         &/)") nstep, nstep*tstep/1000.0, (cpu1 - cpu0)/nprint
+         if (tunits == 'real') then
+            Write (*, "(/' ** Working on MD step no. ',i8,' time =',f10.5,&
+            & ' ns, cpu time per conf.=',f15.2&
+            &/)") nstep, nstep*tstep/1000.0, (cpu1 - cpu0)/nprint
+         else if (tunits == 'lj') then
+            Write (*, "(/' ** Working on MD step no. ',i8,' time =',f12.3,&
+            &' LJ units, cpu time per conf.=',f15.2&
+            &/)") nstep, nstep*tstep, (cpu1 - cpu0)/nprint
+         end if
          cpu0 = cpu1
          if (run_thermo) then
-            write (*, "(' ** Potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epot, epotperatom
-            write (*, "(' ** Average potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epotav/Iconf, epotav/(Iconf*nmol)
+            if (tunits == 'real') then
+               write (*, "(' ** Potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epot, epotperatom
+               write (*, "(' ** Average potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epotav/Iconf, epotav/(Iconf*nmol)
+            elseif (tunits == 'lj') then
+               write (*, "(' ** Potential energy/epsilon=',f15.4,' Per atom=',f15.4)") epot, epotperatom
+               write (*, "(' ** Average potential energy/epsilon=',f15.4, ' Per atom=',f15.4)") epotav/Iconf, epotav/(Iconf*nmol)
+            endif
+
             if (run_clusters) then
-               write (*, "(' ** Average intracluster potential energy=',f15.4,' Kcal/mol'&
+               if (tunits == 'real') then
+                  write (*, "(' ** Average intracluster potential energy=',f15.4,' Kcal/mol'&
                   ,' Peratom =',f15.4,' Kcal/mol')") engclus, engclpa
+                  write (*, "(' ** Average intracluster potential energy=',f15.4,' Kcal/mol'&
+                  ,' Peratom =',f15.4,' Kcal/mol')") engclus, engclpa
+               elseif (tunits == 'lj') then
+                  write (*, "(' ** Average intracluster potential energy/epsilon=',f15.4,' Peratom =',f15.4)") engclus, engclpa
+                  write (*, "(' ** Average intracluster potential energy/epsilon=',f15.4,' Peratom =',f15.4)") engclus, engclpa  
+               endif
             endif
          end if
          if (ex_stress) then
-            write (*, "(' ** Pressure =',f15.4,' bar, Average pressure=',f15.4' bar')") pressure, pressav/Iconf !kcal_a3_to_bar*pressure, kcal_a3_to_bar*pressav/Iconf
+            if (tunits == 'real') then 
+            write (*, "(' ** Pressure =',f15.4,' bar, Average =',f15.4' bar')") pressure, pressav/Iconf !kcal_a3_to_bar*pressure, kcal_a3_to_bar*pressav/Iconf
+            elseif (tunits == 'lj') then
+               write (*, "(' ** Pressure*sigma**3/epsilon =',f15.4,' Average =',f15.4)") pressure, pressav/Iconf 
+            endif
          endif
          ! Kinetic energy and temperature
          If (ex_vel) then
-            write (*, "(' ** Kinetic energy=',f15.4,' Kcal/mol, average=',f15.4,'Kcal/mol')") &
-               kelvintokcal*ekin*(aunit/tunit)**2/Rgas, 0.00198717*ecaver*(aunit/tunit)**2/Rgas/Iconf
+            if (tunits=='real') then
+               write (*, "(' ** Kinetic energy=',f15.4,' Kcal/mol, average=',f15.4,'Kcal/mol')") &
+                  kelvintokcal*ekin*(aunit/tunit)**2/Rgas, 0.00198717*ecaver*(aunit/tunit)**2/Rgas/Iconf
+            elseif (tunits=='lj') then
+               write (*, "(' ** Kinetic energy/epsilon=',f15.4,' average=',f15.4)") &
+                  ekin/natoms, ecaver/(natoms*Iconf)
+            endif 
             if (rcl > 0) then
-               write (*, "(' ** Cluster kinetic energy=',f15.4,' Kcal/mol, average=',f15.4,'Kcal/mol')") &
-                  kelvintokcal*ekincl*(aunit/tunit)**2/Rgas, 0.00198717*ekclaver*(aunit/tunit)**2/Rgas/Iconf
-               write (*, "(' ** Internal cluster kinetic energy=',f15.4,'&
-               & Kcal/mol, average=',f15.4,'Kcal&
-               &/mol')") kelvintokcal*ekincls*(aunit/tunit)**2/Rgas,&
-               & kelvintokcal*ekinclsav*(aunit/tunit)**2/Rgas/Iconf
+               if (tunits == 'real') then
+                  write (*, "(' ** Cluster kinetic energy=',f15.4,' Kcal/mol, average=',f15.4,'Kcal/mol')") &
+                     kelvintokcal*ekincl*(aunit/tunit)**2/Rgas, 0.00198717*ekclaver*(aunit/tunit)**2/Rgas/Iconf
+                  write (*, "(' ** Internal cluster kinetic energy=',f15.4,'&
+                  & Kcal/mol, average=',f15.4,'Kcal&
+                  &/mol')") kelvintokcal*ekincls*(aunit/tunit)**2/Rgas,&
+                  & kelvintokcal*ekinclsav*(aunit/tunit)**2/Rgas/Iconf
+               elseif (tunits == 'lj') then
+                  write (*, "(' ** Cluster kinetic energy/epsilon=',f15.4,' average=',f15.4)") &
+                     ekincl, ekclaver/Iconf
+                  write (*, "(' ** Internal cluster kinetic energy/epsilon=',f15.4,' average=',f15.4)") &
+                     ekincls, ekinclsav/Iconf
+               endif
                Tfact = nint(sum(sizedist(:))/real(Iconf))*ndim
-               Write (*, "(' ** Average cluster temperature =',f10.4&
-               &,' K')") 2*ekclaver*(aunit/tunit)**2/(Tfact*Rgas*Iconf)
+               if (tunits == 'real') then
+                  Write (*, "(' ** Average cluster temperature =',f10.4&
+                  &,' K')") 2*ekclaver*(aunit/tunit)**2/(Tfact*Rgas*Iconf)
+               elseif (tunits == 'lj') then
+                  Write (*, "(' ** Average cluster k_b*temperature/epsilon =',f10.4)") 2*ekclaver/(Tfact*Iconf)
+               endif
             end if
-            Write (*, "(' ** Temperature=',f10.4&
-            &,' K average=',f10.4,'K density=',f10.6' 1&
-            &/A^3')") temperature, taver, densty
-         else
-            Write (*, "(' Density*=',f10.6&
-            &)") natms/volumen
+            if (tunits == 'real') then
+               write (*, "(' ** Average temperature =',f10.4&
+               &,' K')") 2*ecaver*(aunit/tunit)**2/(Tfact*Rgas*Iconf)
+            elseif (tunits == 'lj') then
+               write (*, "(' ** Average k_b*temperature/epsilon =',f10.4)") 2*ecaver/(Tfact*Iconf)
+            endif
+         endif
+         if (tunits == 'real') then
+            Write (*, "(' ** Density=',f10.6,' A^-3')") natms/volumen
+         else if (tunits == 'lj') then
+            Write (*, "(' ** Density*sigma^3=',f10.6)") natms/volumen
          end if
          ! Cluster information
          if (rcl > 0) then

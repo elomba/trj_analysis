@@ -261,15 +261,30 @@ contains
          write(56,"('#',2x,'t(ps)',9x,'P_off(t)',7x,'eta_GK(t) (bar*ps))')")
       endif
       if (ex_vel) then
-         write(55,"('#',2x,'t(ps)',9x,'C_r(t)',7x'C_v(t)')')")
-         write(555,"('#',9x,'w(THz)',7x,'w(meV)',12x,'Z(w)')")
+         if (tunits == 'lj') then
+            write(55,"('#',2x,'t(tau)',9x,'C_r(t)',7x'C_v(t)')')")
+            write(555,"('#',9x,'w(tau^-1)        Z(w)')")
+         else
+            write(55,"('#',2x,'t(ps)',9x,'C_r(t)',7x'C_v(t)')')")
+            write(555,"('#',9x,'w(THz)',7x,'w(meV)',12x,'Z(w)')")
+         endif
       else
-         write(55,"('#',2x,'t(ps)',9x,'C_r(t)')")
+         if (tunits == 'lj') then
+            write(55,"('#',2x,'t(tau)',9x,'C_r(t)')")
+         else  
+            write(55,"('#',2x,'t(ps)',9x,'C_r(t)')")
+         endif
       endif
       if (run_sqw) then
-         write(65,'("#",2x,"t(ps)",9x,8("F(",f6.4,",t)",4x:))')qw(1:nqw)
-         write(66,'("#",2x,"t(ps)",9x,8("Fs(",f6.4,",t)",4x:))')qw(1:nqw)
-         write(67,"('#',2x,'w(THz)',7x,'w(meV)',5x,8('S(',f6.4,',w)    Ss(',f6.4,',w)',4x:))')")(qw(j),qw(j),j=1,nqw)
+         if (tunits == 'lj') then
+            write(65,'("#",2x,"t(tau)",9x,8("F(",f6.4,",t)",4x:))')qw(1:nqw)
+            write(66,'("#",2x,"t(tau)",9x,8("Fs(",f6.4,",t)",4x:))')qw(1:nqw)
+            write(67,"('#',2x,'w(1/tau)',5x,8('S(',f6.4,',w)    Ss(',f6.4,',w)',4x:))')")(qw(j),qw(j),j=1,nqw)
+         else
+            write(65,'("#",2x,"t(ps)",9x,8("F(",f6.4,",t)",4x:))')qw(1:nqw)
+            write(66,'("#",2x,"t(ps)",9x,8("Fs(",f6.4,",t)",4x:))')qw(1:nqw)
+            write(67,"('#',2x,'w(THz)',7x,'w(meV)',5x,8('S(',f6.4,',w)    Ss(',f6.4,',w)',4x:))')")(qw(j),qw(j),j=1,nqw)
+         endif
       endif
       do i = 1, ndyn
          if (ex_vel) then
@@ -277,7 +292,12 @@ contains
             ! transform from w(wavenumber) to f (frequency) in THz and meV
             !
             if (i<=itlimit) write(55,"(f10.3,8f15.5)")t(i), r2t(i),v2t(i)
-            write(555,"(8f15.5)")w(i)/(2*pi),fconv*w(i)/(2*pi),ftv(i)
+            if (tunits=='lj') then
+               write(555,"(8f15.5)")w(i)/(2*pi),ftv(i)
+            else 
+               write(555,"(8f15.5)")w(i)/(2*pi),fconv*w(i)/(2*pi),ftv(i)
+            endif
+
          else
             if(i<=itlimit) write(55,"(f10.3,8f15.5)")t(i), r2t(i)
          endif
@@ -302,7 +322,11 @@ contains
                write(65,"(f10.3,8f15.5)")t(i),fkt(1:nqw,i)
                write(66,"(f10.3,8f15.5)")t(i),fskt(1:nqw,i)
             endif
-            write(67,"(2f10.3,8f15.5)")w(i)/(2*pi),fconv*w(i)/(2*pi),(sqw(i,j),ssqw(i,j),j=1,nqw)
+            if (tunits == 'lj') then
+               write(67,"(f10.3,8f15.5)")w(i)/(2*pi),(sqw(i,j),ssqw(i,j),j=1,nqw)
+            else
+               write(67,"(2f10.3,8f15.5)")w(i)/(2*pi),fconv*w(i)/(2*pi),(sqw(i,j),ssqw(i,j),j=1,nqw)
+            endif
          endif
       end do
       close(55)

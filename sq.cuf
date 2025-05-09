@@ -214,7 +214,11 @@ contains
             write (*, "(' *** S(Q) calculation using ',i4,'x',i4,' vectors **'/)") lmaxx, lmaxy
          end if
          qmin2 = qmin**2
-         write (*, "(/' *** Averaging over all q-vectors for q <',f10.6,' A^-1 **')") qmin
+         if (tunits == 'lj') then
+            write (*, "(/' *** Averaging over all q-vectors for q <',f10.6,' sigma^-1 **')") qmin
+         else
+            write (*, "(/' *** Averaging over all q-vectors for q <',f10.6,' A^-1 **')") qmin
+         endif
       else
          if (ndim == 3) then
             nq(1:nqmax) = 3

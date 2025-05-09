@@ -2,7 +2,7 @@ module mod_nc
    use mod_precision
    use mod_common, Only : ex_vel, ex_force, ex_stress, run_thermo, &
       u_p, stress, ex_mol, ex_qc, periodic, voigt, &
-      ener_name, press_name, pwall, pwallp
+      ener_name, press_name, pwall, pwallp, tunits
    interface
       subroutine read_nc_cfg(ncid, ncstart, io, unit)
          integer, intent(in) :: ncid, ncstart
@@ -199,6 +199,9 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
             ln = len(trim(adjustl(attr)))
             allocate (character(len=ln) :: conf(i)%units)
             conf(i)%units = trim(adjustl(attr))
+            ! Variable allocation performed in the assign
+            ! statement
+            tunits = conf(i)%units
          end if
          if (numatts == 2) then
             call check(nf90_inq_attname(ncid, i, 2, nom_att), ioerr)

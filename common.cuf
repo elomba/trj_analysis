@@ -54,6 +54,7 @@ module mod_common
       confined = .false.
    character :: fname99*18
    character, dimension(:), allocatable :: atoms*8
+   character(len=:), allocatable :: tunits
    character :: ener_name*12, press_name*12
    real(myprec) :: epotperatom, epot,epotav
    real(double) :: pressure, pressav, pxyz(6)
@@ -246,10 +247,12 @@ contains
       else if (units == 'picosecond') then
          tuniti = 1.0d-12
          tstep = factor
+         write(*,'(" *** Time units in ps: assuming metal units !!)')
       else if (units == 'lj') then
-         tuniti = 1.0d-12
+         tstep = factor
       else
          print *, 'ERROR: timeunit ', units, ' not implemented!: watch for corrections'
+         stop
       end if
 
       ! Idir parameters control and set pdir
