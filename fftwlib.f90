@@ -75,7 +75,7 @@ subroutine fftw1d(fin,fout,w,nin,dtin, tmax)
    implicit none
    integer, intent(in) :: n
    real(float), intent(in) :: t(n), x, alpha
-   real(float), intent(out) :: w(n)
+   real(float) :: w(n)
    w(1:n) = 0.5*(1-tanh(alpha*(t(1:n)-x)))
  end function window
 
