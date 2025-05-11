@@ -71,12 +71,12 @@ subroutine fftw1d(fin,fout,w,nin,dtin, tmax)
    End Forall
  End Subroutine fftw1
 
- function window(t,x,n,alpha)
+ function window(t,x,n,alpha) result(w)
    implicit none
    integer, intent(in) :: n
    real(float), intent(in) :: t(n), x, alpha
-   real(float), intent(out) :: window(n)
-   window(1:n) = 0.5*(1-tanh(alpha*(t(1:n)-x)))
+   real(float), intent(out) :: w(n)
+   w(1:n) = 0.5*(1-tanh(alpha*(t(1:n)-x)))
  end function window
 
 end module fftw3
