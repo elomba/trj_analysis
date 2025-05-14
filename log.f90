@@ -303,7 +303,7 @@ contains
             endif
          endif
          if (rcl > 0) then
-            Write (99, '(18f16.5)') i*deltar,&
+            Write (99, '(28f16.5)') i*deltar,&
             & gclustav(i)/(deltaV*Nconf), 2*gclcl(i)/(deltaV*Nconf),(gmix(j, j:nsp), j=1, nsp)
          else
             if (nsp <= 6) then

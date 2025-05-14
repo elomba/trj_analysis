@@ -148,7 +148,7 @@ contains
                 If (rr2 .Lt. side2) Then
                     rr = sqrt(rr2)
                     ind = Nint(rr/deltar)
-                    g(ind) = g(ind) + fact
+                    if (ind>0 .and.ind<=lsmax)g(ind) = g(ind) + fact
                 end If
             end if
         end do

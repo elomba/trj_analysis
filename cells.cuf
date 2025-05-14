@@ -16,18 +16,19 @@ contains
         do n = 1, natms
             i = int((R(1, n))/cellx)
             if (i < 0 .or. i >= maxi) then
-                print *, ' error in cells in x direction for ', n, R(1, n), cellx
+                print *, ' error in cells in x direction for ', n, R(1, n), cellx, i, maxi
                 stop
             end if
             j = int((R(2, n))/celly)
             if (j < 0 .or. j >= maxj) then
-                print *, ' error in cells in y direction for ', n, R(2, n), celly
+                print *, ' error in cells in y direction for ', n, R(2, n), celly, j, maxj
+
                 stop
             end if
             if (ndim == 3) then
                 k = int((R(3, n))/cellz)
                 if (k < 0 .or. k >= maxk) then
-                    print *, ' error in cells in z direction for ', n, R(3, n), cellz
+                    print *, ' error in cells in z direction for ', n, R(3, n), cellz, k, maxk
                     stop
                 end if
                 icell = (i*maxj + j)*maxk + k

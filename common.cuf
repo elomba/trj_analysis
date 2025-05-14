@@ -97,12 +97,12 @@ module mod_common
    logical(kind=1), allocatable, dimension(:) :: visited, core, border
    logical(kind=1), device, allocatable, dimension(:) :: gvisited, gcore, gborder
 
-   Real(myprec) :: cellx, celly, cellz
+   Real(double) :: cellx, celly, cellz
    Integer, Dimension(:), Allocatable :: head, lista
    Integer, Dimension(:, :), Allocatable:: neigh
    Integer :: ncell, nn, maxi, maxj, maxk
 
-   Real(myprec), device :: cellxd, cellyd, cellzd
+   Real(double), device :: cellxd, cellyd, cellzd
    Integer, device, Dimension(:), Allocatable :: headd, listad
    Integer, device, Dimension(:, :), Allocatable:: neighd
    Integer, device :: ncelld, maxid, maxjd, maxkd, nnd
