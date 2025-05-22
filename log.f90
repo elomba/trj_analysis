@@ -113,7 +113,11 @@ contains
                   &/mol')") kelvintokcal*ekincls*(aunit/tunit)**2/Rgas,&
                   & kelvintokcal*ekinclsav*(aunit/tunit)**2/Rgas/Iconf
                endif
-               Tfcl = nint(sum(sizedist(:))/real(Iconf))*ndim
+               if (Nu_clus>1) then
+                  Tfcl = (Nu_clus-1)*ndim
+               else
+                  Tfcl = Nu_clus*ndim
+               endif
                if (tunits == 'lj') then
                     Write (*, "(' ** Average cluster k_b*temperature/epsilon =',f10.4&
                   &)") 2*ekclaver/(Tfcl*Iconf)
