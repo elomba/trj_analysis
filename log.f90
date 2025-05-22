@@ -25,7 +25,7 @@ contains
       character*15, dimension(nther) :: title =(/"     T(K)","KE (Kcal/mol)","PE Kcal/mol",&
          " Pressure (bar)","      Pxx(bar)","    Pyy(bar)","     Pzz(bar)",&
          "      Pxy(bar)","    Pxz(bar)","     Pyz(bar)"/)
-      real(myprec) :: thermo_q(nther)
+      real(myprec) :: thermo_q(nther), Tfcl
       integer :: i, j
       thermo_q(:) = 0
       mascara(1) = ex_vel
@@ -113,13 +113,13 @@ contains
                   &/mol')") kelvintokcal*ekincls*(aunit/tunit)**2/Rgas,&
                   & kelvintokcal*ekinclsav*(aunit/tunit)**2/Rgas/Iconf
                endif
-               Tfact = nint(sum(sizedist(:))/real(Iconf))*ndim
+               Tfcl = nint(sum(sizedist(:))/real(Iconf))*ndim
                if (tunits == 'lj') then
                     Write (*, "(' ** Average cluster k_b*temperature/epsilon =',f10.4&
-                  &)") 2*ekclaver/(Tfact*Iconf)
+                  &)") 2*ekclaver/(Tfcl*Iconf)
                else
                   Write (*, "(' ** Average cluster temperature =',f10.4&
-                  &,' K')") 2*ekclaver*(aunit/tunit)**2/(Tfact*Rgas*Iconf)
+                  &,' K')") 2*ekclaver*(aunit/tunit)**2/(Tfcl*Rgas*Iconf)
                endif
             end if
             if (tunits == 'lj') then
