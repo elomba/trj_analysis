@@ -150,13 +150,34 @@ contains
    subroutine clean_memory(run_sq,run_rdf,run_clusters,run_thermo,use_cell,run_dyn,confined)
       implicit none
       logical, intent(IN) :: run_sq,run_rdf,run_clusters,use_cell,run_thermo,run_dyn,confined
-      if (run_sq) call sq_clear()
-      if (run_rdf) call rdf_clear()
-      if (run_clusters) call clusters_clear()
-      if (use_cell) call cells_clear()
-      if (run_dyn) call dyn_clear()
-      if (confined) call prof_clear()
-      if (run_thermo) call thermo_clear()
+      if (run_sq) then
+         call sq_clear()
+         print *, ' ··· sq_clear done'
+      endif
+      if (run_rdf) then
+         call rdf_clear()
+         print *, ' ··· rdf_clear done'
+      endif
+      if (run_clusters) then 
+         call clusters_clear()
+         print *, ' ··· clusters_clear done'
+      endif
+      if (use_cell) then
+         call cells_clear()
+         print *, ' ··· cells_clear done'
+      endif
+      if (run_dyn) then 
+         call dyn_clear()
+         print *, ' ··· dyn_clear done'
+      endif
+      if (run_thermo) then
+         call thermo_clear()
+         print *, ' ··· thermo_clear done'
+      endif
+      if (confined) then 
+         call prof_clear()
+         print *, ' ··· prof_clear done'
+      endif
       call common_clear()
       call log_clear()
       call input_clear()
@@ -204,7 +225,6 @@ contains
             call printPotEngCl()
          end if
       end if
-
    end subroutine print_results
 
    subroutine reformat_input_conf(io,final_conf,current_conf,ntypes,nsp)

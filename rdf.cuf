@@ -57,6 +57,7 @@ contains
             deallocate (gii_d,g2ii_d)
         endif 
         if (run_clusters) then
+
             deallocate (gcluster)
             deallocate (gclustav)
             deallocate (gclcl)
@@ -175,7 +176,7 @@ contains
                 If (rr2 .Lt. side2) Then
                     rr = sqrt(rr2)
                     ind = Nint(rr/deltar)
-                    g(ind) = g(ind) + fact
+                    if (ind>0.and.ind<=lsmax) g(ind) = g(ind) + fact
                 end If
             end do
             
@@ -193,7 +194,7 @@ contains
                 If (rr2 .Lt. side2) Then
                     rr = sqrt(rr2)
                     ind = Nint(rr/deltar)
-                    gi(ind:lsmax) = gi(ind:lsmax) + 1
+                    if (ind>0.and.ind<=lsmax) gi(ind:lsmax) = gi(ind:lsmax) + 1
                 end If
             end do
             ng(:) = ng(:) + gi(:)
