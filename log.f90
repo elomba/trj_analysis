@@ -53,13 +53,13 @@ contains
          call cpu_time(cpu1)
          if (tunits == 'lj') then
             Write (*, "(/' ** Working on MD step no. ',i8,' time =',f12.3,&
-            &' LJ units, cpu time per conf.=',f15.2&
-            &,'s : Clusters with >= ',i3,' particles being analyzed '/)") nstep, nstep*tstep, &
+            & ' ns, cpu time per conf.=',f7.2,' s:'/&
+            & ' ** Clusters >= ',i3,' particles being analyzed '/)") nstep, nstep*tstep/1000.0, &
              (cpu1 - cpu0)/nprint, minclsize
          else
             Write (*, "(/' ** Working on MD step no. ',i8,' time =',f10.5,&
-            & ' ns, cpu time per conf.=',f15.2&
-            &,' s : Clusters with >= ',i3,' particles being analyzed '/)") nstep, nstep*tstep/1000.0, &
+            & ' ns, cpu time per conf.=',f7.2,' s:'/&
+            & ' ** Clusters >= ',i3,' particles being analyzed '/)") nstep, nstep*tstep/1000.0, &
              (cpu1 - cpu0)/nprint, minclsize
          endif
          cpu0 = cpu1
