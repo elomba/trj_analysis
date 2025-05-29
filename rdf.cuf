@@ -156,8 +156,8 @@ contains
     end subroutine rdfcl
 
 
-    subroutine rdfclcl2(dim, centers, nm, sidel, nrandom, side2, g, ng, ng2, lsmax, deltar, vol)
-        integer, intent(IN) :: nm, lsmax, dim, nrandom
+    subroutine rdfclcl2(dim, centers, nm, nbcl, sidel, nrandom, side2, g, ng, ng2, lsmax, deltar, vol)
+        integer, intent(IN) :: nm, lsmax, dim, nrandom, nbcl
         real, intent(IN) :: centers(dim, nm), sidel(dim), side2, deltar, vol
         real, intent(INOUT) :: g(lsmax)
         real(kind=8), intent(INOUT) :: ng(lsmax), ng2(lsmax)
@@ -165,10 +165,10 @@ contains
         real(kind=8) :: gi(0:lsmax)
         integer :: k, l, i, j, ind
         ! g(r) is normalized for each configuration, since particle number may change
-        ncluster= nm
-        fact = vol/real(nm*nm)
-        do i = 1, nm
-            do j = i + 1, nm
+        ncluster= nbcl
+        fact = vol/real(nbcl*nbcl)
+        do i = 1, nbcl
+            do j = i + 1, nbcl
                 rv(1:dim) = centers(1:dim, i) - centers(1:dim, j)
                 ! PBC (unwrap if necessary)
                 rv(1:dim) = rv(1:dim) - sidel*nint(rv(1:dim)/sidel(1:dim))
@@ -186,7 +186,7 @@ contains
             gi(:) = 0
 !            print *, sidel
 !            print *, sidel*xrand
-            do j = 1, nm
+            do j = 1, nbcl
                 rv(1:dim) = centers(1:dim, j) - sidel*xrand(1:ndim)
                 ! PBC (unwrap if necessary)
                 rv(1:dim) = rv(1:dim) - sidel*nint(rv(1:dim)/sidel(1:dim))

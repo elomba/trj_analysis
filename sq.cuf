@@ -50,7 +50,7 @@ contains
       implicit none
 
       sqf(1:nqmax) = sqf_d(1:nqmax)
-      if (run_clusters) sqfcl(1:nqmax) = sqfcl_d(1:nqmax)
+      if (run_clusters .and. run_sq) sqfcl(1:nqmax) = sqfcl_d(1:nqmax)
       sqfp(1:nqmax, 1:nsp) = sqfp_d(1:nqmax, 1:nsp)
 
    end subroutine sq_transfer_gpu_cpu
@@ -96,7 +96,7 @@ contains
       end if
       qmin = lmaxx*fk(1)
       Allocate (sqf(nqmax), sqfp(nqmax, nsp), nq(0:nqmax))
-      if (run_clusters) then
+      if (run_clusters .and. run_sq) then
          Allocate(sqcl(nqmax), sqfcl(nqmax))
          Allocate(sqfcl_d(nqmax))
          sqfcl_d(:) = 0.0
@@ -433,8 +433,8 @@ subroutine sq_clear()
 
 end subroutine sq_clear
 
-attributes(global) subroutine sqfnDcl(r_d, Nmol, dim, fk, sqf, kmax, q2max, dq)
-integer, value, intent(IN) :: Nmol, kmax, dim
+attributes(global) subroutine sqfnDcl(r_d, Nmol, Nbcl, dim, fk, sqf, kmax, q2max, dq)
+integer, value, intent(IN) :: Nmol, Nbcl, kmax, dim
 real, dimension(dim, Nmol), intent(IN) :: r_d
 real(kind=4), intent(INOUT) :: sqf(kmax)
 real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma
@@ -463,7 +463,7 @@ if (q2 > 0.0 .and. q2 <= q2max) then
    ind = nint(q/dq)
    sumcpx = 0
    sumspx = 0
-   do i = 1, Nmol
+   do i = 1, Nbcl
       rkx = r_d(1, i)*kf1
       rky = r_d(2, i)*kf2
       tsum = rkx+rky
@@ -471,7 +471,7 @@ if (q2 > 0.0 .and. q2 <= q2max) then
       sumcpx = sumcpx + cos(tsum)
       sumspx = sumspx + sin(tsum)
    end do
-   suma = (sumcpx**2 + sumspx**2)/Nmol
+   suma = (sumcpx**2 + sumspx**2)/Nbcl
    ia = atomicadd(sqf(ind), suma)
 end if
 end subroutine sqfnDcl

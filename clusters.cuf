@@ -53,7 +53,7 @@ contains
       implicit none
       integer, intent(IN) :: Iconf
       integer :: i, j, k, cluster_id, icl, ip, ind, indr, maxcl,&
-      & imaxcl, clsz, nbigcl, clussize, cmin, NP_lconf, icount
+      & imaxcl, clsz, nbigcl, clussize, cmin, NP_lconf, icount, im
       Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
       Real(myprec) :: denscl
       Real(kind=8) ::  mcl, ekcls, suma, rclus, rcluster, rgsum, averg, volcl, factorv=1.0
@@ -131,10 +131,10 @@ contains
       if (Iconf == Nconf) NP_lconf = 0
       do I = 1, cluster_id
          j = cluster(i)%clsize
-         ! Calculate cluster size distro
-         ind = nint(real(j)/real(dcl))
-         sizedist(ind) = sizedist(ind) + 1
-         if (j >= jmin) then
+         if (j >= minclsize) then
+            ! Calculate cluster size distro
+            ind = nint(real(j)/real(dcl))
+            sizedist(ind) = sizedist(ind) + 1
             ! Determine center of mass with PBC
             ! https://en.wikipedia.org/wiki/Center_of_mass#Systems_with_periodic_boundary_conditions
             xss(:) = 0
@@ -171,8 +171,6 @@ contains
                &- cluster(i)%vl(:), vel(:, ip) - cluster(i)%vl(:))
             end do
             cluster(i)%ekin = ekcls
-         end if
-         if (j >= minclsize) then
             icl = icl + 1
             if (ex_vel) then
                if (ndim == 3) then
@@ -190,6 +188,7 @@ contains
             if (Iconf == Nconf) NP_lconf = NP_lconf + j
          end if
       end do
+      Nu_clus = nbigcl
       if (Iconf == Nconf) then
          open (newunit=io_last_filter, file=last_filter_filename)
          write(io_last_filter,"('LAMMPS last configuration filtered for cluster size > minclsize')")
@@ -272,7 +271,10 @@ contains
       end if
       allocate (rclxyz(ndim, cluster_id), densav(cluster_id))
       allocate (rclxyzd(ndim, cluster_id))
+      rclxyz(:,:) = 0.0
+      rclxyzd(:,:) = 0.0
       gcluster(:) = 0
+      densav(:) = 0.0
       rhoclus(:) = 0
       denscl = 0.0
       rclus = 0.0
@@ -280,50 +282,56 @@ contains
       ! Determine cluster radii, density ..
       !
       averg = 0
+      im = 0
       do i = 1, cluster_id
          clussize = cluster(i)%clsize
-         clcent(:) = cluster(i)%center(1:ndim)
-         rclxyz(1:ndim, i) = clcent(1:ndim)
-         rcluster = radius(cluster(i)%members(:), clussize, clcent, sidel)
-         cluster(i)%radio = rcluster
-         ! Radius of gyration
-         cluster(i)%rg = radiusrg(cluster(i)%members(:), clussize, &
-         & clcent, sidel,cluster(i)%mass)
-         averg = averg+cluster(i)%rg
-         if (ndim == 3) then
-            volcl = (4*pi*rcluster**3/3.0)
-         else
-            volcl = pi*rcluster**2
-         end if
-         cluster(i)%cldens = real(clussize)/volcl
-         if (ndim == 3) then
-            ind = nint(cluster(i)%cldens*sigma**3/drho)
-         else
-            ind = nint(cluster(i)%cldens*sigma**2/drho)
-         end if
-         indr = nint(cluster(i)%rg/deltar)
-         if (ind <= ndrho) densclus(ind) = densclus(ind) + 1
-         if (indr <= ndr) radii(indr) = radii(indr) + 1
-         denscl = denscl + cluster(i)%cldens
-         rclus = rclus + rcluster
+         if (clussize >= minclsize) then
+            im = im + 1
+            clcent(:) = cluster(i)%center(1:ndim)
+            rclxyz(1:ndim, im) = clcent(1:ndim)
+            rcluster = radius(cluster(i)%members(:), clussize, clcent, sidel)
+            cluster(i)%radio = rcluster
+            ! Radius of gyration
+            cluster(i)%rg = radiusrg(cluster(i)%members(:), clussize, &
+            & clcent, sidel,cluster(i)%mass)
+            averg = averg+cluster(i)%rg
+            if (ndim == 3) then
+               volcl = (4*pi*rcluster**3/3.0)
+            else
+               volcl = pi*rcluster**2
+            end if
+            cluster(i)%cldens = real(clussize)/volcl
+            if (ndim == 3) then
+               ind = nint(cluster(i)%cldens/drho)
+            else
+               ind = nint(cluster(i)%cldens/drho)
+            end if
+            indr = nint(cluster(i)%rg/deltar)
+            if (ind <= ndrho) densclus(ind) = densclus(ind) + 1
+            if (indr <= ndr) radii(indr) = radii(indr) + 1
+            denscl = denscl + cluster(i)%cldens
+            rclus = rclus + rcluster
+         endif
       end do
-      avrg = avrg +averg/cluster_id
+      avrg = avrg +averg/nbigcl
       rclxyzd(:, :) = rclxyz(:, :)
       !
       ! Compute cluster-cluster structure factor
       !
-      call sqfnDcl<<<tBlock, grid>>>(rclxyzd, cluster_id, ndim, fk_d, sqfcl_d, nqmax, qmin2, dq)
-      averdens = averdens + denscl/cluster_id
-      avradio = avradio + rclus/cluster_id
+      if (run_sq) then
+         call sqfnDcl<<<tBlock, grid>>>(rclxyzd, cluster_id, nbigcl, ndim, fk_d, sqfcl_d, nqmax, qmin2, dq)
+      endif
+      averdens = averdens + denscl/nbigcl
+      avradio = avradio + rclus/nbigcl
       ! Determine average cluster density, cluster g(r) and density profiles
       do i = 1, cluster_id
-         densav(i) = cldens(ndim, cluster(i)%members(:), cluster(i)%clsize, sidel&
-         &, side2, cluster(i)%center(1:ndim), 0.8*cluster(i)%radio)
          if (cluster(i)%clsize >= minclsize) then
+            densav(i) = cldens(ndim, cluster(i)%members(:), cluster(i)%clsize, sidel&
+            &, side2, cluster(i)%center(1:ndim), 0.8*cluster(i)%radio)
             cmin = minj(ndim, cluster(i)%members, cluster(i)%clsize&
             &, cluster(i)%center, sidel, side2)
             ! Internal cluster g(r) is only calculared inside large clusters
-            if (cluster(i)%clsize >= 4*minclsize) call rdfcl(ndim, cluster(i)%members(:), cluster(i)%clsize, sidel&
+            call rdfcl(ndim, cluster(i)%members(:), cluster(i)%clsize, sidel&
             &, side2, gcluster, lsmax, deltar, densav(i), cmin)
             call denspcl(ndim, cluster(i)%members(:), cluster(i)%clsize, sidel&
             &, side2, rhoclus(0:lsmax), lsmax, deltar, cluster(i)%center(1:ndim))
@@ -336,7 +344,7 @@ contains
       !
       !call rdfclcl(ndim, rclxyz(1:ndim, 1:cluster_id), cluster_id, sidel&
       !&, side2, gclcl, lsmax, deltar, volumen)
-      call rdfclcl2(ndim, rclxyz(1:ndim, 1:cluster_id), cluster_id, sidel&
+      call rdfclcl2(ndim, rclxyz(1:ndim, 1:cluster_id), cluster_id, nbigcl, sidel&
       &, nrandom, side2, gclcl, gclr, gclr2, lsmax, deltar, volumen)
       NTclus = suma + NTclus
       ! Potential Energy
@@ -433,8 +441,6 @@ contains
       use mod_common, only: ndr
       implicit none
 
-      drho = 0.05
-      ndrho = nint(1.4/drho)
       allocate (densclus(0:ndrho))
       allocate (radii(0:ndr))
       densclus(:) = 0
@@ -453,7 +459,8 @@ contains
       sizedist(:) = 0.0
       ekclaver = 0.0
       ekinclsav = 0.0
-
+      write(*,"('*** Clusters module initializing: G-DBSCAN starts from ',&
+      i1'-particle clusters (jmin)'/)") jmin
       ! Open output files
       open (newunit=io_centers_file, file=centers_filename)
       open (newunit=io_clusevol_file, file=clusevol_filename)

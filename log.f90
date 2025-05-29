@@ -54,11 +54,13 @@ contains
          if (tunits == 'lj') then
             Write (*, "(/' ** Working on MD step no. ',i8,' time =',f12.3,&
             &' LJ units, cpu time per conf.=',f15.2&
-            &/)") nstep, nstep*tstep, (cpu1 - cpu0)/nprint
+            &,': clusters > ',i3,' particles'/)") nstep, nstep*tstep, &
+             (cpu1 - cpu0)/nprint, minclsize
          else
             Write (*, "(/' ** Working on MD step no. ',i8,' time =',f10.5,&
             & ' ns, cpu time per conf.=',f15.2&
-            &/)") nstep, nstep*tstep/1000.0, (cpu1 - cpu0)/nprint
+            &,': clusters > ',i3,' particles'/)") nstep, nstep*tstep/1000.0, &
+             (cpu1 - cpu0)/nprint, minclsize
          endif
          cpu0 = cpu1
          if (run_thermo) then
@@ -335,7 +337,8 @@ contains
       integer :: i, ndist
       real(myprec) :: avcldens, deltaV, ri, suma, norm
       Write (*, "(' ** Average total number of particles in clusters ', f10.2)") NTclus/nconf
-      Write (*, "(' ** Average total number of clusters ', I5)") nint(sum(sizedist(:))/real(nconf))
+      Write (*, "(' ** Average total number of clusters ', I5,' larger than ',i3)") &
+      nint(sum(sizedist(:))/real(nconf)), minclsize
       avcldens = sum(sizedist(:)/real(nconf))/volumen
       Write (*, "(' ** Average cluster density ', f15.9)") avcldens
       open (125, file='dens.dat')
@@ -348,7 +351,7 @@ contains
       ! estimated particle diameters
       !
       do i = 1, ndrho
-         write (125, "(5f15.7)") i*drho, i*drho/sigma**3, (real(densclus(i))/drho/Nconf)
+         write (125, "(5f15.7)") i*drho, real(densclus(i))/(sum(densclus(:))*drho)
       end do
       write (126, "('#      r                  RG_cl(r)')")
       write (999, "('#      r                  rho_cl(r)')")

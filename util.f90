@@ -120,7 +120,6 @@ contains
          !
          run_clusters = .true.
          run_rdf = .true.
-         run_sq = .true.
       else
          ! Deactivate cells
          use_cell = .false.
