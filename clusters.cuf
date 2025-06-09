@@ -263,7 +263,7 @@ contains
       end do
       ekclaver = ekclaver + ekincl
       ekinclsav = ekinclsav + ekincls
-      write (io_clusevol_file, '(i7,i4,f15.7)') iconf, cluster_id, (suma/natms)*100
+      write (io_clusevol_file, '(i7,i7,f15.7)') iconf, cluster_id, (suma/natms)*100
       if (iconf > 1) then
          deallocate (rclxyz)
          deallocate (rclxyzd)
