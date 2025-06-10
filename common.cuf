@@ -78,6 +78,8 @@ module mod_common
       real(myprec) :: mass
       real(myprec) :: poteng
       real(myprec) :: potengperatom
+      real(myprec) :: ratio
+      real(myprec) :: devsphere
       real(myprec), allocatable :: molfrac(:)
       Integer :: clsize
       integer, allocatable :: members(:)
@@ -114,6 +116,12 @@ module mod_common
          real(myprec), dimension(:), intent(in) :: a, b
          real(myprec), dimension(size(a)) :: vv
       end function vector_product
+
+      function outer_product(a, b) result(vv)
+         use mod_precision
+         real(myprec), dimension(:), intent(in) :: a, b
+         real(myprec), dimension(size(a),size(b)) :: vv
+      end function outer_product
 
       subroutine common_init(natoms, ndim, nthread, idir, units, factor, nsp)
          use mod_precision
@@ -205,6 +213,16 @@ contains
       istat = cudaEventElapsedTime(time, startEvent, stopEvent)
       gptime = time/1000.0
    end function gptime
+
+   function outer_product(A,B) result(AB)
+      real(myprec), intent(in) :: A(:),B(:)
+      real(myprec), dimension(size(A),size(B)) :: AB
+      integer :: nA,nB
+      nA=size(A)
+      nB=size(B)
+      AB = spread(source = A, dim = 2, ncopies = nB) * &
+           spread(source = B, dim = 1, ncopies = nA)
+    end function outer_product
 
    function vector_product(a, b) result(vv)
       use mod_precision

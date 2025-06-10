@@ -19,7 +19,7 @@ F90OPTS = -O2 -C -mavx2 -mno-avx512f
 F90INC = $(FCINC)
 F90LIBS = $(FCLIBS)
 
-LKOPTS =  -cuda -c++libs -gpu=cc60,cc70,cc80 -lnetcdff -lfftw3 
+LKOPTS =  -cuda -c++libs -gpu=cc60,cc70,cc80 -lnetcdff -lfftw3 -llapack -lblas 
 LKINC = -I$(NETCDF_INC)
 LKLIBS = -L$(NETCDF_LIB)
 
