@@ -78,6 +78,7 @@ module mod_common
       real(myprec) :: mass
       real(myprec) :: poteng
       real(myprec) :: potengperatom
+      real(myprec), allocatable :: molfrac(:)
       Integer :: clsize
       integer, allocatable :: members(:)
    end type clus

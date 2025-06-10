@@ -242,9 +242,9 @@ program trj_analysis
                         ntype, nsp, lsmax, nmol, nqmin, rcl)
 
     ! Cleaning house
-    print *, ' **** Cleaning memory ...'
+    write(*, '(/" **** Cleaning memory ...")')
     call clean_memory(run_sq,run_rdf,run_clusters,run_thermo,use_cell,run_dyn,confined)
-    print *, ' **** Memory cleaned !'
+    write(*, '(" **** Memory cleaned...")')
     call cpu_time(time_cpu_stop)
 
     ! Print simulation time

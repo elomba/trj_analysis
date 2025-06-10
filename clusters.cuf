@@ -14,6 +14,7 @@ module mod_clusters
    character(len=17) :: centers_filename = 'centers.lammpstrj'
    character(len=12) :: clusevol_filename = 'clusevol.dat'
    character(len=15) :: last_filter_filename = 'last_filter.dat'
+   Real(myprec), allocatable :: clmfracav(:)
    interface
       function minj(dim, members, nm, center, sidel, side2)
          use mod_precision
@@ -56,6 +57,7 @@ contains
       & imaxcl, clsz, nbigcl, clussize, cmin, NP_lconf, icount, im
       Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
       Real(myprec) :: denscl
+      Real(myprec), allocatable, save :: molfrac(:), clmfrac(:)
       Real(kind=8) ::  mcl, ekcls, suma, rclus, rcluster, rgsum, averg, volcl, factorv=1.0
       if (conf(4)%units == 'femtosecond' ) factorv = 0.001
       if (Nu_clus < 1) then
@@ -72,6 +74,10 @@ contains
       else
          allocate(clusid(1:nmol))
          allocate(clusid_d(1:nmol))
+         allocate(molfrac(1:nsp), clmfrac(1:nsp), clmfracav(1:nsp))
+         clmfracav(1:nsp) = 0.0
+         clmfrac(:) = 0.0
+         molfrac(:) = 0.0
       end if
       allocate (cluster(maxcln), contador(maxcln))
       if (run_thermo) then
@@ -89,6 +95,7 @@ contains
          end if
          cluster(i)%clsize = clsz
          allocate (cluster(i)%members(clsz))
+         allocate (cluster(i)%molfrac(nsp))
          !
       end do
       contador(:) = 0
@@ -188,7 +195,27 @@ contains
             if (Iconf == Nconf) NP_lconf = NP_lconf + j
          end if
       end do
+      clmfrac(1:nsp) = 0.0
+      do i = 1, cluster_id
+         j = cluster(i)%clsize
+         if (j >= minclsize) then
+            molfrac(:) = 0.0
+            do k = 1, j
+               ip = cluster(i)%members(k)
+               if (itype(ip > nsp)) then
+                  write(*,*) 'Error: particle type ', itype(ip), &
+                  ' is larger than nsp = ', nsp
+                  stop
+               end if
+               molfrac(itype(ip)) = molfrac(itype(ip)) + 1.0
+            enddo
+            cluster(i)%molfrac(:) = molfrac(:)/j
+            clmfrac(:) = clmfrac(:) + molfrac(:)/j
+         endif
+      enddo
+     clmfracav(:) = clmfracav(:)+clmfrac(:)/nbigcl
       Nu_clus = nbigcl
+     ! Write particle id, type, charge and position for last configuration
       if (Iconf == Nconf) then
          open (newunit=io_last_filter, file=last_filter_filename)
          write(io_last_filter,"('LAMMPS last configuration filtered for cluster size > minclsize')")
@@ -212,6 +239,7 @@ contains
             if (j >= minclsize) then
                do k = 1, j
                   ip = cluster(i)%members(k)
+                  !
                   if (ndim==3) then
                      if (ex_qc) then
                         write(io_last_filter,'(2i10,6f15.7)') icount, itype(ip), qcharge(ip), r(1:ndim,ip)
@@ -263,7 +291,8 @@ contains
       end do
       ekclaver = ekclaver + ekincl
       ekinclsav = ekinclsav + ekincls
-      write (io_clusevol_file, '(i7,i7,f15.7)') iconf, cluster_id, (suma/natms)*100
+      write (io_clusevol_file, '(i7,i7,f15.7,8f8.4)') iconf, cluster_id, & 
+      &      (suma/natms)*100, clmfracav(1:nsp-1)/iconf
       if (iconf > 1) then
          deallocate (rclxyz)
          deallocate (rclxyzd)
@@ -459,12 +488,13 @@ contains
       sizedist(:) = 0.0
       ekclaver = 0.0
       ekinclsav = 0.0
-      write(*,"('*** Clusters module initializing: G-DBSCAN starts from ',&
+      write(*,"(//' *** Clusters module initializing: G-DBSCAN starts from ',&
       i1'-particle clusters (jmin)'/)") jmin
       ! Open output files
       open (newunit=io_centers_file, file=centers_filename)
       open (newunit=io_clusevol_file, file=clusevol_filename)
-      write (io_clusevol_file,"('# conf no. clusters % particles in cluster')")
+      write (io_clusevol_file,"('# conf no. clusters % particles in cluster', &
+      & 8('x_av(',i1,')':))")nsp-1
    end subroutine clusters_init
 
 

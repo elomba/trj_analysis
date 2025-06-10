@@ -58,32 +58,27 @@ contains
    subroutine sq_init(nmol, nsp, nbcuda)
       Implicit none
       integer, intent(IN) :: Nmol, nsp, nbcuda
-      integer :: i, j, k, ind, indm, l, iq, kmaxz
+      integer :: i, j, k, ind, indm, l, iq, kmaxz, ndg, ndg2
       real :: rr, qmm
       logical :: found
-      ! if (idir > 0) then
-      !     width = nint((pwallp - pwall)/(2*deltar))
-      !     allocate (densprof(0:width, nsp), densprofi(0:width, nsp))
-      !     allocate (densprof_d(0:width, nsp))
-      !     densprof(:, :) = 0.0d0
-      !     densprof_d(:, :) = 0.0d0
-      ! end if
       dq = 2*pi/sidel(1)
       nqmax = nint(qmax/dq)
       lmaxx = nint(qmin/(2*pi/sidel(1)))
       lmaxy = nint(qmin/(2*pi/sidel(2)))
       if (ndim == 3) lmaxz = nint(qmin/(2*pi/sidel(3)))
+      ndg = 4
       if (ndim == 3) then
-         grid = dim3(4, 4, 4)
-         if (mod(lmaxx, 4) .ne. 0) lmaxx = lmaxx - 4 + mod(lmaxx, 4)
-         if (mod(lmaxy, 4) .ne. 0) lmaxy = lmaxy - 4 + mod(lmaxy, 4)
-         if (mod(lmaxz, 4) .ne. 0) lmaxz = lmaxz - 4 + mod(lmaxz, 4)
+         grid = dim3(ndg, ndg, ndg)
+         if (mod(lmaxx, ndg) .ne. 0) lmaxx = lmaxx - ndg + mod(lmaxx, ndg)
+         if (mod(lmaxy, ndg) .ne. 0) lmaxy = lmaxy - ndg + mod(lmaxy, ndg)
+         if (mod(lmaxz, ndg) .ne. 0) lmaxz = lmaxz - ndg + mod(lmaxz, ndg)
          tBlock = dim3(lmaxx/grid%x + 1, lmaxy/grid%y + 1, lmaxz/grid%z + 1)
          nqmin = min(lmaxx, lmaxy, lmaxz)
       else
-         grid = dim3(16, 16, 1)
-         if (mod(lmaxx, 16) .ne. 0) lmaxx = lmaxx - 16 + mod(lmaxx, 16)
-         if (mod(lmaxy, 16) .ne. 0) lmaxy = lmaxy - 16 + mod(lmaxy, 16)
+         ndg2 = ndg*ndg
+         grid = dim3(ndg2, ndg2, 1)
+         if (mod(lmaxx, ndg2) .ne. 0) lmaxx = lmaxx - ndg2 + mod(lmaxx, ndg2)
+         if (mod(lmaxy, ndg2) .ne. 0) lmaxy = lmaxy - ndg2 + mod(lmaxy, ndg2)
          tBlock = dim3(lmaxx/grid%x + 1, lmaxy/grid%y + 1, 1)
          nqmin = min(lmaxx, lmaxy)
       end if
