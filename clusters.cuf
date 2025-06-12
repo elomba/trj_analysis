@@ -163,7 +163,7 @@ contains
             sss(1:ndim) = sss(1:ndim)/j
             theta(1:ndim) = atan2(-sss(1:ndim), -xss(1:ndim)) + pi
             !
-            ! Restore origin for centers of mass position to the original coordinate
+            ! Restore origin for geometric centers  position to the original coordinate
             !
             cluster(i)%center(1:ndim) = sidel(1:ndim)*theta(1:ndim)/(2*pi) + rlow(1:ndim)
             !
@@ -352,18 +352,17 @@ contains
       endif
       averdens = averdens + denscl/nbigcl
       avradio = avradio + rclus/nbigcl
-      ! Determine average cluster density, cluster g(r) and density profiles
+      ! Determine average cluster density, cluster g(r) and density profiles, cluster shape
       do i = 1, cluster_id
          if (cluster(i)%clsize >= minclsize) then
             densav(i) = cldens(ndim, cluster(i)%members(:), cluster(i)%clsize, sidel&
             &, side2, cluster(i)%center(1:ndim), 0.8*cluster(i)%radio)
             cmin = minj(ndim, cluster(i)%members, cluster(i)%clsize&
             &, cluster(i)%center, sidel, side2)
-            ! Cluster inertia moments
+            ! Cluster shape (ratio=0 for cylinders, ratio=1 for spheres)
             call cshape(ndim, cluster(i)%members(:), cluster(i)%clsize, &
             & cluster(i)%center(1:ndim), sidel, side2,&
             & cluster(i)%ratio, cluster(i)%devsphere)
-            print *, i, cluster(i)%ratio, cluster(i)%devsphere
             ! Internal cluster g(r) is only calculared inside large clusters
             call rdfcl(ndim, cluster(i)%members(:), cluster(i)%clsize, sidel&
             &, side2, gcluster, lsmax, deltar, densav(i), cmin)
@@ -376,8 +375,6 @@ contains
       !
       ! Cluster-cluster pdf
       !
-      !call rdfclcl(ndim, rclxyz(1:ndim, 1:cluster_id), cluster_id, sidel&
-      !&, side2, gclcl, lsmax, deltar, volumen)
       call rdfclcl2(ndim, rclxyz(1:ndim, 1:cluster_id), cluster_id, nbigcl, sidel&
       &, nrandom, side2, gclcl, gclr, gclr2, lsmax, deltar, volumen)
       NTclus = suma + NTclus
@@ -571,6 +568,11 @@ contains
       real, intent(INOUT) :: ratio, devsphere
       real :: rv(3), inerc(3,3), trace, ozz, dd2 
       integer :: j, i
+      ! Shape of the cluster is determined by the inertia tensor
+      ! Inertia tensor is calculated as the sum of outer products of
+      ! the position vectors of the particles in the cluster
+      ! with respect to the geometric center of the cluster
+      ! The inertia tensor is diagonalized to obtain the principal axes
       ! Calculate inertia tensor
       inerc(1:dim, 1:dim) = 0.0
       do i = 1, nm
@@ -585,7 +587,9 @@ contains
          ozz = inerc(3,3)
          dd2 = inerc(1,1)**2 + inerc(2,2)**2 + ozz**2
          trace = (inerc(1,1) + inerc(2,2) + ozz)/ 3.0
+         ! ratio = 0 for axial symmetry
          ratio = (inerc(1,1) - inerc(2,2)) / sqrt(dd2) 
+         ! Calculate deviation from spherical shape
          devsphere = sqrt(((inerc(1,1) - trace)**2 + (inerc(2,2) - trace)**2 &
           & + (ozz - trace)**2)/dd2)
       else
