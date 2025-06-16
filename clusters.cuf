@@ -10,11 +10,12 @@ module mod_clusters
    use mod_nc_conf, only : conf, wtypes, natoms, imol
 
    implicit none
-   integer :: io_centers_file, io_clusevol_file, io_last_filter
+   integer :: io_centers_file, io_clusevol_file, io_last_filter, io_shape_file, nmaxcl
    character(len=17) :: centers_filename = 'centers.lammpstrj'
    character(len=12) :: clusevol_filename = 'clusevol.dat'
    character(len=15) :: last_filter_filename = 'last_filter.dat'
-   Real(myprec), allocatable :: clmfracav(:)
+   character(len=10) :: fshape_filename = 'fshape.dat'
+   Real(myprec), allocatable :: clmfracav(:), dsph(:), dratio(:)
    interface
       function minj(dim, members, nm, center, sidel, side2)
          use mod_precision
@@ -274,6 +275,11 @@ contains
             end if
          end do
          close(io_last_filter)
+         ! Write shape file
+         do i = 1, nmaxcl
+            write(io_shape_file, '(i5,f15.7,f15.7)') i, dsph(i)/Nconf, dratio(i)/Nconf
+         end do
+         close(io_shape_file)
       end if
       ekincl = 0
       ekincls = 0
@@ -352,6 +358,12 @@ contains
       endif
       averdens = averdens + denscl/nbigcl
       avradio = avradio + rclus/nbigcl
+      nmaxcl = maxval(cluster(:)%clsize)+40
+      if (iconf == 1) then
+         allocate(dsph(1:nmaxcl),dratio(1:nmaxcl))
+         dsph(:) = 0.0
+         dratio(:) = 0.0
+      end if
       ! Determine average cluster density, cluster g(r) and density profiles, cluster shape
       do i = 1, cluster_id
          if (cluster(i)%clsize >= minclsize) then
@@ -363,6 +375,10 @@ contains
             call cshape(ndim, cluster(i)%members(:), cluster(i)%clsize, &
             & cluster(i)%center(1:ndim), sidel, side2,&
             & cluster(i)%ratio, cluster(i)%devsphere)
+            if (cluster(i)%clsize <= nmaxcl) then
+               dsph(cluster(i)%clsize) = dsph(cluster(i)%clsize) + cluster(i)%devsphere
+               dratio(cluster(i)%clsize) = dratio(cluster(i)%clsize) + cluster(i)%ratio
+            end if
             ! Internal cluster g(r) is only calculared inside large clusters
             call rdfcl(ndim, cluster(i)%members(:), cluster(i)%clsize, sidel&
             &, side2, gcluster, lsmax, deltar, densav(i), cmin)
@@ -495,8 +511,12 @@ contains
       ! Open output files
       open (newunit=io_centers_file, file=centers_filename)
       open (newunit=io_clusevol_file, file=clusevol_filename)
+      open (newunit=io_shape_file, file=fshape_filename)
       write (io_clusevol_file,"('# conf no. clusters % particles in cluster', &
       & 8('x_av(',i1,')':))")nsp-1
+      write (io_shape_file, '("# cluster size, average deviation spherical shape, &
+      & average dev axial symmetry")')
+
    end subroutine clusters_init
 
 
@@ -586,12 +606,17 @@ contains
          ! Write principal axes
          ozz = inerc(3,3)
          dd2 = inerc(1,1)**2 + inerc(2,2)**2 + ozz**2
-         trace = (inerc(1,1) + inerc(2,2) + ozz)/ 3.0
-         ! ratio = 0 for axial symmetry
-         ratio = (inerc(1,1) - inerc(2,2)) / sqrt(dd2) 
-         ! Calculate deviation from spherical shape
-         devsphere = sqrt(((inerc(1,1) - trace)**2 + (inerc(2,2) - trace)**2 &
-          & + (ozz - trace)**2)/dd2)
+         if (dd2 > 1.0d-10) then
+            trace = (inerc(1,1) + inerc(2,2) + ozz)/ 3.0
+            ! ratio = 0 for axial symmetry
+            ratio = (inerc(1,1) - inerc(2,2)) / sqrt(dd2) 
+            ! Calculate deviation from spherical shape
+            devsphere = sqrt(((inerc(1,1) - trace)**2 + (inerc(2,2) - trace)**2 &
+             & + (ozz - trace)**2)/dd2)
+         else
+            ratio = 0.0
+            devsphere = 0.0
+         end if
       else
          call diag2(inerc)
          ozz = inerc(2,2)
@@ -647,8 +672,13 @@ contains
       end if
       rclus2 = rclus*rclus
       count = 0
+      
       do i = 1, nm
          j = members(i)
+         if (j<=0 .or.j>natoms) then
+             write(*,*) 'Error: particle id ', j, ' is out of range (1:', natoms, ')'
+             stop
+         end if   
          rv(1:dim) = r(1:dim, j) - center(1:dim)
          ! PBC (unwrap if necessary)
          rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
