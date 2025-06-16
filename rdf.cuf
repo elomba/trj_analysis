@@ -91,14 +91,16 @@ contains
         if (ndim == 3) then
             bloques = dim3(nbcuda/8+1,1,1)
             hilos = dim3(8*nthread,1,1)
-            call rdf_sh<<<nbcuda/8 + 1, 8*nthread, lsmax*nit*4>>>(Nmol, ndim, nit&
+            call rdf_sh<<<nbcuda/6 + 1, 6*nthread, lsmax*nit*4>>>(Nmol, ndim, nit&
                  &, nsp, nbcuda*lsmax, lsmax, side2, sidel_d, deltar)
+            call printcudaerror(" **! 3d-rdf_sh GPU kernel exit")
             if (nrandom>0) call s2D3_sh<<<nrandom,nthread,(lsmax+1)*4>>>(r_d, Nmol, ndim, gii_d, g2ii_d, lsmax &
             &, side2, sidel_d, deltar )
         
         else
-            call rdf2_sh<<<nbcuda/8 + 1, 8*nthread, lsmax*nit*4>>>(r_d, Nmol, ndim, histomix_d, nit&
+            call rdf2_sh<<<nbcuda/6 + 1, 6*nthread, lsmax*nit*4>>>(r_d, Nmol, ndim, histomix_d, nit&
                  &, nsp, nbcuda*lsmax, lsmax, itype_d, side2, sidel_d, deltar)
+            call printcudaerror(" **! 2d-rdf_sh GPU kernel exit")
             if (nrandom>0) call s2D2_sh<<<nrandom,nthread,(lsmax+1)*4>>>(r_d, Nmol, ndim, gii_d, g2ii_d, lsmax &
             &, side2, sidel_d, deltar )
         end if

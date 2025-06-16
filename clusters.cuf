@@ -358,31 +358,35 @@ contains
       endif
       averdens = averdens + denscl/nbigcl
       avradio = avradio + rclus/nbigcl
-      nmaxcl = maxval(cluster(:)%clsize)+40
-      if (iconf == 1) then
-         allocate(dsph(1:nmaxcl),dratio(1:nmaxcl))
-         dsph(:) = 0.0
+      if (.not. allocated(dratio)) then
+         nmaxcl = 2*maxval(cluster(1:cluster_id)%clsize)
+         allocate(dratio(1:nmaxcl))
          dratio(:) = 0.0
       end if
+      if (.not.allocated(dsph)) then
+         allocate(dsph(1:nmaxcl))
+         dsph(:) = 0.0
+      end if   
       ! Determine average cluster density, cluster g(r) and density profiles, cluster shape
       do i = 1, cluster_id
-         if (cluster(i)%clsize >= minclsize) then
-            densav(i) = cldens(ndim, cluster(i)%members(:), cluster(i)%clsize, sidel&
+         j = cluster(i)%clsize
+         if (j >= minclsize) then
+            densav(i) = cldens(ndim, cluster(i)%members(:), j, sidel&
             &, side2, cluster(i)%center(1:ndim), 0.8*cluster(i)%radio)
-            cmin = minj(ndim, cluster(i)%members, cluster(i)%clsize&
+            cmin = minj(ndim, cluster(i)%members, j &
             &, cluster(i)%center, sidel, side2)
             ! Cluster shape (ratio=0 for cylinders, ratio=1 for spheres)
-            call cshape(ndim, cluster(i)%members(:), cluster(i)%clsize, &
+            call cshape(ndim, cluster(i)%members(:), j, &
             & cluster(i)%center(1:ndim), sidel, side2,&
             & cluster(i)%ratio, cluster(i)%devsphere)
-            if (cluster(i)%clsize <= nmaxcl) then
-               dsph(cluster(i)%clsize) = dsph(cluster(i)%clsize) + cluster(i)%devsphere
-               dratio(cluster(i)%clsize) = dratio(cluster(i)%clsize) + cluster(i)%ratio
-            end if
+            if (j <= nmaxcl) then
+                dsph(j) = dsph(j) + cluster(i)%devsphere
+                dratio(j) = dratio(j) + cluster(i)%ratio
+             end if
             ! Internal cluster g(r) is only calculared inside large clusters
-            call rdfcl(ndim, cluster(i)%members(:), cluster(i)%clsize, sidel&
+            call rdfcl(ndim, cluster(i)%members(:), j, sidel&
             &, side2, gcluster, lsmax, deltar, densav(i), cmin)
-            call denspcl(ndim, cluster(i)%members(:), cluster(i)%clsize, sidel&
+            call denspcl(ndim, cluster(i)%members(:), j, sidel&
             &, side2, rhoclus(0:lsmax), lsmax, deltar, cluster(i)%center(1:ndim))
          end if
       end do
@@ -584,8 +588,8 @@ contains
       & devsphere)   
       integer, intent(IN) :: nm, dim
       integer, intent(IN) :: members(nm)
-      real, intent(IN) :: center(3), sidel(3), side2
-      real, intent(INOUT) :: ratio, devsphere
+      real(myprec), intent(IN) :: center(3), sidel(3), side2
+      real(myprec), intent(OUT) :: ratio, devsphere
       real :: rv(3), inerc(3,3), trace, ozz, dd2 
       integer :: j, i
       ! Shape of the cluster is determined by the inertia tensor

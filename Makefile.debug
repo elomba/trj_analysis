@@ -8,7 +8,7 @@ NETCDF_INC = $(PROG_DIR)/$(NETCDF)/include
 NETCDF_LIB = $(PROG_DIR)/$(NETCDF)/lib64
 
 FC = nvfortran
-FCOPTS = -O0 -g -mavx2 -mno-avx512f -gpu=cc60,cc70,cc80 -cudalib=curand
+FCOPTS = -O0 -g -mavx2 -mno-avx512f -gpu=cc60,cc70,cc80 -cudalib=curand -Xptxas=-v 
 FCINC = -I$(NETCDF_INC)
 FCLIBS = -L$(NETCDF_LIB)
 
@@ -49,4 +49,4 @@ precision.o: precision.f90
 	$(F90) -c $(F90OPTS) $(F90INC) -c $(F90LIBS) precision.f90
 
 clean:
-	rm -f *.o *.mod *.exe
+	rm -f *.o *.mod 

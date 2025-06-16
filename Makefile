@@ -51,4 +51,4 @@ precision.o: precision.f90
 	$(F90) -c $(F90OPTS) $(F90INC) -c $(F90LIBS) precision.f90
 
 clean:
-	rm -f *.o *.mod *.exe
+	rm -f *.o *.mod 
