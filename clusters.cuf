@@ -613,7 +613,7 @@ contains
          if (dd2 > 1.0d-10) then
             trace = (inerc(1,1) + inerc(2,2) + ozz)/ 3.0
             ! ratio = 0 for axial symmetry
-            ratio = (inerc(1,1) - inerc(2,2)) / sqrt(dd2) 
+            ratio = (inerc(2,2) - inerc(1,1)) / sqrt(dd2) 
             ! Calculate deviation from spherical shape
             devsphere = sqrt(((inerc(1,1) - trace)**2 + (inerc(2,2) - trace)**2 &
              & + (ozz - trace)**2)/dd2)
@@ -626,7 +626,7 @@ contains
          ozz = inerc(2,2)
          trace = (inerc(1,1) + ozz) / 2.0
          dd2 = inerc(1,1)**2 + inerc(2,2)**2 
-         ratio = (inerc(1,1) - ozz) /sqrt(dd2) 
+         ratio = (ozz-inerc(1,1)) /sqrt(dd2) 
          devsphere = sqrt(((inerc(1,1) - trace)**2 + (ozz - trace)**2) / dd2)
       end if
    end subroutine cshape
