@@ -67,8 +67,8 @@ Trajectory analysis
     !          Max value of Q for S(Q), max value for full calculations (all Qs for 0<Q<=qmin), 
     !          scattering lengths 
     
-    ! namelist /INPUT_CL/ rcl, dcl, jmin, minclsize, drho
-    !          Geometric clustering distance, grid for cluster distribution, minimum cluster size for analysis,
+    ! namelist /INPUT_CL/ rcl, dcl, jmin, minclsize
+    !          Geometric clustering distance
     !          Minimum cluster size to include in the trajectory of centers of mass, grid size of cluster density distr (def. 0.05).
     
     ! namelist /INPUT_CONF/ idir

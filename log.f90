@@ -345,7 +345,7 @@ contains
       open (126, file='radii.dat')
       open (999, file='rhoprof.dat')
       open (1001, file='clustdistr.dat')
-      write (125, "('#      rho_cl*        rho_cl        N(rho_cl)')")
+      write (125, "('#      rho_cl        %clusters(rho_c)   ')")
       !
       ! Note, the cluster density distribution is commputed in units reduced with and
       ! estimated particle diameters

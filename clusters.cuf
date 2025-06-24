@@ -57,7 +57,7 @@ contains
       integer :: i, j, k, cluster_id, icl, ip, ind, indr, maxcl,&
       & imaxcl, clsz, nbigcl, clussize, cmin, NP_lconf, icount, im
       Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
-      Real(myprec) :: denscl
+      Real(myprec) :: denscl, cdmax=0
       Real(myprec), allocatable, save :: molfrac(:), clmfrac(:)
       Real(kind=8) ::  mcl, ekcls, suma, rclus, rcluster, rgsum, averg, volcl, factorv=1.0
       if (conf(4)%units == 'femtosecond' ) factorv = 0.001
@@ -336,18 +336,28 @@ contains
                volcl = pi*rcluster**2
             end if
             cluster(i)%cldens = real(clussize)/volcl
-            if (ndim == 3) then
-               ind = nint(cluster(i)%cldens/drho)
-            else
-               ind = nint(cluster(i)%cldens/drho)
-            end if
             indr = nint(cluster(i)%rg/deltar)
-            if (ind <= ndrho) densclus(ind) = densclus(ind) + 1
             if (indr <= ndr) radii(indr) = radii(indr) + 1
-            denscl = denscl + cluster(i)%cldens
+            if (iconf >1) then
+               if (ndim == 3) then
+                  ind = nint(cluster(i)%cldens/drho)
+               else
+                  ind = nint(cluster(i)%cldens/drho)
+               end if
+               if (ind <= ndrho) densclus(ind) = densclus(ind) + 1
+               denscl = denscl + cluster(i)%cldens
+            endif
             rclus = rclus + rcluster
+            if (cluster(i)%cldens > cdmax) then
+               cdmax = cluster(i)%cldens
+            endif
          endif
       end do
+      if (iconf==1) then
+         drho = 2*cdmax/ndrho
+         allocate(densclus(0:ndrho))
+         densclus(:) = 0.0
+      endif
       avrg = avrg +averg/nbigcl
       rclxyzd(:, :) = rclxyz(:, :)
       !
@@ -492,9 +502,7 @@ contains
       use mod_common, only: ndr
       implicit none
 
-      allocate (densclus(0:ndrho))
       allocate (radii(0:ndr))
-      densclus(:) = 0
       radii(:) = 0
 
    end subroutine clusters_sq_init

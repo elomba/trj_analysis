@@ -1,16 +1,16 @@
 &INPUT
   log_output_file='trj_analysis.log'
   trj_input_file='run.nc'
-  ndim=3
-  nsp=2
+  ndim=2
+  nsp=1
   nthread=128
   ncfs_from_to=20 1 20
   rdf_sq_cl_dyn_sqw_conf=T T T F F F
 /
 &INPUT_SP
-  sp_types_selected=1 2
-  sp_labels='A' 'B'
-  mat=100.0 100.0
+  sp_types_selected=1 
+  sp_labels='A' 
+  mat=1.0 
 /
 &INPUT_RDF
   deltar=0.5
@@ -19,17 +19,21 @@
 &INPUT_SQ
   qmax=8.0
   qmin=0.2
-  bsc=1.0 1.0
 /
 &INPUT_CL
   rcl=5.25
   dcl=6.0
-  minclsize=100
+  minclsize=5
 /
 &INPUT_DYN
-nbuffer=10
-tmax = 2.0
+nbuffer=6
+tmax=2.0
 /
+&INPUT_THERMO
+ potnbins=100
+ potengmargin=0.9
+/
+
 &INPUT_CONF
   idir=0
   pwall=0.0

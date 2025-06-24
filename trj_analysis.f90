@@ -57,9 +57,9 @@ program trj_analysis
     ! namelist /INPUT_SQ/ qmax, qmin, bsc
     !          Max value of Q for S(Q), max value for full calculations (all Qs for 0<Q<=qmin), 
     !          scattering lengths 
-    ! namelist /INPUT_CL/ rcl, dcl, jmin, minclsize, drho
+    ! namelist /INPUT_CL/ rcl, dcl, jmin, minclsize
     !          Geometric clustering distance, grid for cluster distribution, minimum cluster size for analysis,
-    !          grid size for cluster size distribution (default 0.05)
+    !          
 
     ! namelist /INPUT_CONF/ idir, pwall, pwallp
     !          Direction of confinement (1,2,3->x,y,z), position of left wall, position of right wall
