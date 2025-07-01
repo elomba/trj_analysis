@@ -52,15 +52,29 @@ contains
       If (Mod(Iconf - 1, nprint) .Eq. 0) Then
          call cpu_time(cpu1)
          if (tunits == 'lj') then
-            Write (*, "(/' ** Working on MD step no. ',i8,' time =',f12.3,&
-            & ' ns, cpu time per conf.=',f7.2,' s:'/&
-            & ' ** Clusters >= ',i3,' particles being analyzed '/)") nstep, nstep*tstep/1000.0, &
-             (cpu1 - cpu0)/nprint, minclsize
+            if (minclsize>0) then
+               Write (*, "(/' ** Working on MD step no. ',i8,' time* =',f12.3,&
+               & ' cpu time per conf.=',f7.2,' s:'/&
+               & ' ** Clusters >= ',i3,' particles being analyzed '/)") nstep, nstep*tstep, &
+                (cpu1 - cpu0)/nprint, minclsize
+            else
+               Write (*, "(/' ** Working on MD step no. ',i8,' time* =',f12.3,&
+               & ' cpu time per conf.=',f7.2,' s:'/&
+               & /)") nstep, nstep*tstep, &
+                (cpu1 - cpu0)/nprint
+            endif
          else
-            Write (*, "(/' ** Working on MD step no. ',i8,' time =',f10.5,&
-            & ' ns, cpu time per conf.=',f7.2,' s:'/&
-            & ' ** Clusters >= ',i3,' particles being analyzed '/)") nstep, nstep*tstep/1000.0, &
-             (cpu1 - cpu0)/nprint, minclsize
+            if (minclsize>0) then
+               Write (*, "(/' ** Working on MD step no. ',i8,' time =',f10.5,&
+               & ' ns, cpu time per conf.=',f7.2,' s:'/&
+               & ' ** Clusters >= ',i3,' particles being analyzed '/)") nstep, nstep*tstep/1000.0, &
+                (cpu1 - cpu0)/nprint, minclsize
+            else
+               Write (*, "(/' ** Working on MD step no. ',i8,' time =',f10.5,&
+               & ' ns, cpu time per conf.=',f7.2,' s:'/&
+               & /)") nstep, nstep*tstep/1000.0, &
+               (cpu1 - cpu0)/nprint
+            endif
          endif
          cpu0 = cpu1
          if (run_thermo) then
@@ -142,8 +156,10 @@ contains
          end if
          ! Cluster information
          if (rcl > 0) then
-            write (*, "(' ** Average cluster radius',f8.3,' average &
-            &cluster density ',f10.7)") avradio/iconf, averdens/iconf
+            if (iconf>1) then
+               write (*, "(' ** Average cluster radius',f8.3,' average &
+              &cluster density ',f10.7)") avradio/iconf, averdens/iconf
+            endif
             write (*, "(' ** Average cluster gyration radius',f8.3)") avrg/iconf
             write (*, "(' ** Internal cluster density  ',f10.7)")&
             & sum(densav(:))/Nu_clus

@@ -26,7 +26,9 @@ contains
       deallocate (densprof, densprofi)
       deallocate (densprof_d)
       if (ex_qc) then
-         deallocate(qdensprof,dqminus,dqplus)
+         deallocate(qdensprof)
+         deallocate(dqminus)
+         deallocate(dqplus)
       endif
    end subroutine prof_clear
 
@@ -127,14 +129,16 @@ contains
          !
          ind = int((r(idir, i) - pwall)/(2*deltar))
          if (ind < 0 .or. ind > width) then
-            print *, ' Error: density profile out of boundaries ', ind, width
+            print *, ' Error: density profile out of boundaries ', ind, width, &
+            & ' r(idir,i) = ', r(idir, i), ' pwall = ', pwall 
             stop
-         end if
-         qdensprof(ind) = qdensprof(ind) +qc
-         if (qc<0) then
-            dqminus(ind) = dqminus(ind) +qc
          else
-            dqplus(ind) = dqplus(ind)+qc
+            qdensprof(ind) = qdensprof(ind) +qc
+            if (qc<0) then
+               dqminus(ind) = dqminus(ind) +qc
+            else
+               dqplus(ind) = dqplus(ind)+qc
+            endif
          endif
       enddo
    end subroutine qdprof
@@ -155,11 +159,13 @@ contains
       !
       ind = int((r(idir, i) - pwall)/(2*deltar))
       if (ind < 0 .or. ind > width) then
-         print *, ' Error: density profile out of boundaries ', ind, width
+         print *, ' Error: density profile out of boundaries ', ind, width, &
+            & ' r(idir,i) = ', r(idir, i), ' pwall = ', pwall 
          stop
-      end if
-      ity = itype(i)
-      ia = atomicadd(densprof(ind, ity), 1)
+      else
+         ity = itype(i)
+         ia = atomicadd(densprof(ind, ity), 1)
+      endif
    end if
 end subroutine dprof
 

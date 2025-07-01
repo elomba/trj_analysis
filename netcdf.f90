@@ -3,6 +3,7 @@ module mod_nc
    use mod_common, Only : ex_vel, ex_force, ex_stress, run_thermo, &
       u_p, stress, ex_mol, ex_qc, periodic, voigt, &
       ener_name, press_name, pwall, pwallp, tunits
+   use mod_input, only : idir
    interface
       subroutine read_nc_cfg(ncid, ncstart, io, unit)
          integer, intent(in) :: ncid, ncstart
@@ -222,14 +223,16 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          count(2) = natoms
          call check(nf90_get_var(ncid, i, r, start, count), ioerr)
          do k = 1, 3
-            r(k,1:natoms,1) = r(k,1:natoms,1)-org(k,1)
+            r(k,1:natoms,1) = r(k,1:natoms,1)!-org(k,1)
             if (cell(k, 1) == 0) then
                periodic(k) = .false.
                cell(k, 1) = abs(maxval(r(k, 1:natoms, 1)) - minval(r(k&
                &, 1:natoms, 1))) + 10.0
                if (first) then
-                  pwall = minval(r(k,1:natoms,1))-5.0
-                  pwallp = pwall + cell(k,1)
+                  if (k == idir) then
+                     pwall = minval(r(k,1:natoms,1))-5.0
+                     pwallp = pwall + cell(k,1)+10
+                  endif
                endif
             end if
          end do

@@ -15,7 +15,7 @@ module mod_clusters
    character(len=12) :: clusevol_filename = 'clusevol.dat'
    character(len=15) :: last_filter_filename = 'last_filter.dat'
    character(len=10) :: fshape_filename = 'fshape.dat'
-   Real(myprec), allocatable :: clmfracav(:), dsph(:), dratio(:)
+   Real(myprec), allocatable :: clmfracav(:), dsph(:), dratio(:), countcl(:)
    interface
       function minj(dim, members, nm, center, sidel, side2)
          use mod_precision
@@ -277,7 +277,14 @@ contains
          close(io_last_filter)
          ! Write shape file
          do i = 1, nmaxcl
-            write(io_shape_file, '(i5,f15.7,f15.7)') i, dsph(i)/Nconf, dratio(i)/Nconf
+            if (countcl(i) > 0) then
+               dsph(i) = dsph(i)/countcl(i)
+               dratio(i) = dratio(i)/countcl(i)
+            else
+               dsph(i) = 0.0
+               dratio(i) = 0.0
+            end if
+            write(io_shape_file, '(i5,f15.7,f15.7)') i, dsph(i), dratio(i)
          end do
          close(io_shape_file)
       end if
@@ -376,7 +383,11 @@ contains
       if (.not.allocated(dsph)) then
          allocate(dsph(1:nmaxcl))
          dsph(:) = 0.0
-      end if   
+      end if  
+      if (.not.allocated(countcl)) then
+         allocate(countcl(1:nmaxcl))
+         countcl(:) = 0
+      end if
       ! Determine average cluster density, cluster g(r) and density profiles, cluster shape
       do i = 1, cluster_id
          j = cluster(i)%clsize
@@ -392,6 +403,7 @@ contains
             if (j <= nmaxcl) then
                 dsph(j) = dsph(j) + cluster(i)%devsphere
                 dratio(j) = dratio(j) + cluster(i)%ratio
+                countcl(j) = countcl(j) + 1
              end if
             ! Internal cluster g(r) is only calculared inside large clusters
             call rdfcl(ndim, cluster(i)%members(:), j, sidel&
@@ -610,13 +622,21 @@ contains
       do i = 1, nm
          rv(1:dim) = r(1:dim, members(i)) - center(1:dim)
          rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+         if (dim == 3) then
+            ! 3D inertia tensor
+            inerc(1:dim, 1:dim) = inerc(1:dim, 1:dim) + outer_product(rv(1:dim), rv(1:dim))
+         else
+            ! 2D inertia tensor
+            inerc(1:dim, 1:dim) = inerc(1:dim, 1:dim) + outer_product2(rv(1:dim), rv(1:dim))
+         end if
          inerc(1:dim, 1:dim) = inerc(1:dim, 1:dim) + outer_product(rv(1:dim), rv(1:dim))
       end do
+
       ! Diagonalize inertia tensor
+      call diag(inerc,dim)
+      ozz = inerc(dim,dim)
       if (dim == 3) then
-         call diag3(inerc)
          ! Write principal axes
-         ozz = inerc(3,3)
          dd2 = inerc(1,1)**2 + inerc(2,2)**2 + ozz**2
          if (dd2 > 1.0d-10) then
             trace = (inerc(1,1) + inerc(2,2) + ozz)/ 3.0
@@ -630,45 +650,35 @@ contains
             devsphere = 0.0
          end if
       else
-         call diag2(inerc)
-         ozz = inerc(2,2)
          trace = (inerc(1,1) + ozz) / 2.0
-         dd2 = inerc(1,1)**2 + inerc(2,2)**2 
-         ratio = (ozz-inerc(1,1)) /sqrt(dd2) 
-         devsphere = sqrt(((inerc(1,1) - trace)**2 + (ozz - trace)**2) / dd2)
+         dd2 = inerc(1,1)**2 + ozz**2
+         if (dd2 > 1.0d-10) then
+            ! ratio = 0 for axial symmetry
+            ratio = (ozz-inerc(1,1)) /sqrt(dd2) 
+            devsphere = sqrt(((inerc(1,1) - trace)**2 + (ozz - trace)**2) / dd2)
+         endif
       end if
    end subroutine cshape
 
-   subroutine diag3(inerc)
+   subroutine diag(inerc,dim)
       implicit none
-      real, intent(INOUT) :: inerc(3,3)
+      integer, intent(IN) :: dim
+      real, intent(INOUT) :: inerc(:,:)
       ! Diagonalize 3x3 inertia tensor
       ! This is a placeholder for the actual diagonalization routine
       ! You can use LAPACK or any other library to perform this operation
       integer, parameter :: lwork = 9
-      integer :: info
-      real :: d(3), e(lwork)
+      integer :: info, i
+      real :: d(dim), e(lwork)
       integer :: g(lwork)
-      call ssyev('N', 'U', 3, inerc, 3, d, e, lwork, info)
+      ! Call LAPACK routine to diagonalize the matrix
+      ! Note: Make sure to link against LAPACK when compiling
+      call ssyev('N', 'U', dim, inerc, 3, d, e, lwork, info)
       inerc(:,:) = 0.0
-      inerc(1,1) = d(1)
-      inerc(2,2) = d(2)
-      inerc(3,3) = d(3)
-   end subroutine diag3
-
-   subroutine diag2(inerc)
-      implicit none
-      real, INTENT(INOUT) :: inerc(2,2)
-      real :: d, g, e
-      ! Diagonalize 2x2 inertia tensor
-      d = inerc(1,1)
-      g = inerc(2,2)
-      e = inerc(1,2)
-      inerc(:,:) = 0.0
-      inerc(1,1) = (d+g-sqrt(4*e**2+(d-e)**2))/2.0
-      inerc(2,2) = (d+g+sqrt(4*e**2+(d-e)**2))/2.0
-   end subroutine diag2
-
+      do i=1,dim
+         inerc(i,i) = d(i)
+      enddo
+   end subroutine diag
 
    function cldens(dim, members, nm, sidel, side2, center, rclus)
       integer, intent(IN) :: nm, dim

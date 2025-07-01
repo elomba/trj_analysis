@@ -157,7 +157,7 @@ contains
          call rdf_clear()
          print *, ' ··· rdf_clear done'
       endif
-      if (run_clusters) then 
+      if (run_clusters) Then 
          call clusters_clear()
          print *, ' ··· clusters_clear done'
       endif

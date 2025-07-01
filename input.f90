@@ -5,7 +5,7 @@ module mod_input
    integer, allocatable, dimension(:) :: sp_types_selected, nw
    integer, dimension(3) :: ncfs_from_to
    character(len=4), allocatable, dimension(:) :: sp_labels
-   integer :: nthread, ndim, jmin=3, minclsize, idir, nsp, nbuffer, potnbins=100, nqw=0, jump=1
+   integer :: nthread, ndim, jmin=3, minclsize, idir=0, nsp, nbuffer, potnbins=100, nqw=0, jump=1
    logical :: use_cell = .true.
    logical, dimension(6) :: rdf_sq_cl_dyn_sqw_conf
    real(myprec) :: deltar, rcl=-1.0, dcl, qmin, qmax, rcrdf,&

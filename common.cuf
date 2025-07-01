@@ -217,12 +217,23 @@ contains
    function outer_product(A,B) result(AB)
       real(myprec), intent(in) :: A(:),B(:)
       real(myprec), dimension(size(A),size(B)) :: AB
-      integer :: nA,nB
+      integer :: nA, nB
       nA=size(A)
       nB=size(B)
       AB = spread(source = A, dim = 2, ncopies = nB) * &
            spread(source = B, dim = 1, ncopies = nA)
     end function outer_product
+
+    function outer_product2(A,B) result(AB)
+      real(myprec), intent(in) :: A(2),B(2)
+      real(myprec), dimension(2,2) :: AB
+      integer :: i, j
+      do i=1,2
+         do j=1,2
+            AB(i,j) = A(i)*B(j)
+         end do
+      end do
+    end function outer_product2
 
    function vector_product(a, b) result(vv)
       use mod_precision
