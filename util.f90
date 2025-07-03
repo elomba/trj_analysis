@@ -55,18 +55,31 @@ contains
       implicit none
       integer, intent(in) :: nsp, ntypes, natoms
       integer, intent(inout) :: nmol
+      integer :: i
       if (nsp > ntypes) then
          print *, ' ERROR: number of species in input file is',nsp,' larger than that in netcdf file ',ntypes
          STOP
       else if (nsp == ntypes) Then
          nmol = natoms
       else if (nsp < ntypes) then
+         write(*,'(" ** sp_types_selected: ",15i3)')sp_types_selected(1:nsp)
+         write(*,'(" ** Types in trajectory=",15i3/)')orgty(1:ntypes)
          if (any(sp_types_selected == 0)) then
             write(*,'("*** Error: select the species to analyze")')
-            write(*,'("    when less than those in trajectory: must be among ")')
-            write(*,'("    sp_types_selected=",15i3)')orgty(1:ntypes)
+            write(*,'("    sp_types_selected MUST be defined from ")')
+            write(*,'("    types in trajectory =",15i3/)')orgty(1:ntypes)
             stop
          endif
+         do i = 1, nsp 
+            if (any(orgty(1:ntypes) == sp_types_selected(i))) then
+               continue
+            else
+               ! If the species type is not in the trajectory, stop
+               write(   *,'("*** Error: species type ",i2," is not in trajectory")') sp_types_selected(i)
+               write(*,'("    types in trajectory=",15i3)')orgty(1:ntypes)
+               stop
+            endif
+         enddo
          wtypes(1:nsp) = sp_types_selected(1:nsp)
          call reset_nmol(nmol)
          run_thermo = .false.
