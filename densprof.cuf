@@ -128,11 +128,7 @@ contains
          ! Warning: density profile must be computed along a confined direction or using wrapped coordinates
          !
          ind = int((r(idir, i) - pwall)/(2*deltar))
-         if (ind < 0 .or. ind > width) then
-            print *, ' Error: density profile out of boundaries ', ind, width, &
-            & ' r(idir,i) = ', r(idir, i), ' pwall = ', pwall 
-            stop
-         else
+         if (ind > 0 .or. ind < width) then
             qdensprof(ind) = qdensprof(ind) +qc
             if (qc<0) then
                dqminus(ind) = dqminus(ind) +qc
@@ -158,11 +154,7 @@ contains
       ! Warning: density profile must be computed along a confined direction or using wrapped coordinates
       !
       ind = int((r(idir, i) - pwall)/(2*deltar))
-      if (ind < 0 .or. ind > width) then
-         print *, ' Error: density profile out of boundaries ', ind, width, &
-            & ' r(idir,i) = ', r(idir, i), ' pwall = ', pwall 
-         stop
-      else
+      if (ind > 0 .or. ind < width) then
          ity = itype(i)
          ia = atomicadd(densprof(ind, ity), 1)
       endif

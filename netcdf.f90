@@ -223,14 +223,16 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          count(2) = natoms
          call check(nf90_get_var(ncid, i, r, start, count), ioerr)
          do k = 1, 3
-            r(k,1:natoms,1) = r(k,1:natoms,1)!-org(k,1)
+            if (k.ne. idir) then
+               r(k, 1:natoms, 1) = r(k, 1:natoms, 1) - org(k, 1)
+            end if
             if (cell(k, 1) == 0) then
                periodic(k) = .false.
                cell(k, 1) = abs(maxval(r(k, 1:natoms, 1)) - minval(r(k&
                &, 1:natoms, 1))) + 10.0
                if (first) then
                   if (k == idir) then
-                     pwall = minval(r(k,1:natoms,1))-5.0
+                     pwall = minval(r(k,1:natoms,1))-10.0
                      pwallp = pwall + cell(k,1)+10
                   endif
                endif
@@ -389,9 +391,9 @@ subroutine select_ncdfinput()
    use mod_common, only: vel, r, force, cell, sidel, side, volumen, itype, bscat, tunit, &
       ntype, masa, nstep, vector_product, nmol, ex_vel, ex_force, ex_qc, &
       tuniti, side2, u_p, stress, voigt, run_thermo, ex_stress, qcharge, chgh, ncharge, cntch
-   use mod_input, only: ndim, mat, bsc, rcrdf, nsp, charge
+   use mod_input, only: ndim, mat, bsc, rcrdf, nsp, charge, idir
    implicit none
-   integer :: i, j, it(1), index, ipch(1)
+   integer :: i, j, k, it(1), index, ipch(1)
    logical :: pass = .true., compcharge = .true., first=.true.
    if (.not.allocated(nct)) allocate(nct(nsp))
    if (.not.allocated(counter)) allocate(counter(nsp))
@@ -463,8 +465,11 @@ subroutine select_ncdfinput()
             endif
          endif
          ! Coordinates are folded back into the simulation cell under PBC
-         r(1:ndim, j) = r(1:ndim, j) - sidel(1:ndim)*int(r(1:ndim, j)&
-         &/sidel(1:ndim))
+         do k=1, ndim
+            if (k .ne. idir) then
+               r(k, j) = r(k, j) - sidel(k)*int(r(k, j)/sidel(k))
+            end if
+         enddo
          itype(j) = it(1)
       endif
    end do

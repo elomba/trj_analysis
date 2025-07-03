@@ -67,7 +67,7 @@ contains
          if (any(sp_types_selected == 0)) then
             write(*,'("*** Error: select the species to analyze")')
             write(*,'("    sp_types_selected MUST be defined from ")')
-            write(*,'("    types in trajectory =",15i3/)')orgty(1:ntypes)
+            write(*,'("    types in trajectory =",15i3//)')orgty(1:ntypes)
             stop
          endif
          do i = 1, nsp 
@@ -75,7 +75,7 @@ contains
                continue
             else
                ! If the species type is not in the trajectory, stop
-               write(   *,'("*** Error: species type ",i2," is not in trajectory")') sp_types_selected(i)
+               write(   *,'(/"*** Error: species type ",i2," is not in trajectory")') sp_types_selected(i)
                write(*,'("    types in trajectory=",15i3)')orgty(1:ntypes)
                stop
             endif
