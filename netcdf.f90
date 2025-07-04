@@ -223,17 +223,23 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          count(2) = natoms
          call check(nf90_get_var(ncid, i, r, start, count), ioerr)
          do k = 1, 3
+            !
+            ! Simulation box origin set to zero, except along confinement 
+            ! direction
+            !
             if (k.ne. idir) then
                r(k, 1:natoms, 1) = r(k, 1:natoms, 1) - org(k, 1)
             end if
             if (cell(k, 1) == 0) then
                periodic(k) = .false.
+               ! LAMMPS sets cell length to zero if not periodic
+               ! so we set it to a default value
                cell(k, 1) = abs(maxval(r(k, 1:natoms, 1)) - minval(r(k&
-               &, 1:natoms, 1))) + 10.0
+               &, 1:natoms, 1))) + 5.0
                if (first) then
                   if (k == idir) then
-                     pwall = minval(r(k,1:natoms,1))-10.0
-                     pwallp = pwall + cell(k,1)+10
+                     pwall = minval(r(k,1:natoms,1))-5.0
+                     pwallp = pwall + cell(k,1)+5.0
                   endif
                endif
             end if
@@ -465,6 +471,7 @@ subroutine select_ncdfinput()
             endif
          endif
          ! Coordinates are folded back into the simulation cell under PBC
+         ! stay the same if not periodic
          do k=1, ndim
             if (k .ne. idir) then
                r(k, j) = r(k, j) - sidel(k)*int(r(k, j)/sidel(k))
