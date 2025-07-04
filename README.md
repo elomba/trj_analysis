@@ -69,7 +69,7 @@ Trajectory analysis
     
     ! namelist /INPUT_CL/ rcl, dcl, jmin, minclsize
     !          Geometric clustering distance
-    !          Minimum cluster size to include in the trajectory of centers of mass, grid size of cluster density distr (def. 0.05).
+    !          Minimum cluster size to include in the trajectory of centers of mass
     
     ! namelist /INPUT_CONF/ idir
     !          Direction of confinement (1,2,3->x,y,z)
@@ -118,6 +118,8 @@ Trajectory analysis
     !      - distUcl_N.dat Distribution of cluster internal energies per particle
     !      - distUcltot.dat Distribution of cluster internal energies (total)
     !      - clusevol.dat , conf no., no. of clusters, % of particles in clusters
+    !      - fshape.dat, cluster shape (deviation from sphere and cylnder)
+    !                    (0,0) perfect sphere, (>0,0) perfect cylinder
     !      - centers.lammpstrj trajectory of clusters centers of mass
     !        (to be visualized with Ovito)
     !         No. of clusters not constant along the trajectory !!
@@ -134,5 +136,5 @@ Requires NVIDIA CUDA SDK >= 11.6, netcdf v 4.9, FFTW3.
 Not licensed yet.
 Creative Commons Non commercial CC BY-NC 4.0 (https://creativecommons.org/licenses/by-nc/4.0/)
 ## Project status
-Version 0.4.1 ready. Awaiting for publication
+Version 0.5.2 ready. Awaiting for publication
 

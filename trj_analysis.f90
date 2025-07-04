@@ -99,6 +99,8 @@ program trj_analysis
     !      - distUcl_N.dat Distribution of cluster internal energies per particle
     !      - distUcltot.dat Distribution of cluster internal energies (total)
     !      - clusevol.dat , conf no., no. of clusters, % of particles in clusters
+    !      - fshape.dat, cluster shape (deviation from sphere and cylnder)
+    !                    (0,0) perfect sphere, (>0,0) perfect cylinder
     !      - centers.lammpstrj trajectory of clusters centers of mass (to be visualized with Ovito)
     !                          Particle no. not constant along the trajectory !!
     !
