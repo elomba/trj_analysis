@@ -9,7 +9,7 @@ module mod_util
    use mod_dyn, only : print_rtcor, dyn_clear, dyn_init
    use mod_log, only : log_clear, log_init, printPotEngCl, print_clusinfo
    use mod_clusters, only : clusters_clear, clusters_init, clusters_sq_init
-   use mod_input, only : input_clear, sp_types_selected, ncfs_from_to, rdf_sq_cl_dyn_sqw_conf, rcl
+   use mod_input, only : input_clear, sp_types_selected, ncfs_from_to, rdf_sq_cl_dyn_sqw_conf_ord, rcl, run_order
    use mod_cells, only : cells_init_post_nc_read, cells_init_pre_nc_read, cells_clear, use_cell
    use mod_thermo, only : thermo_clear
    use mod_nc_conf, only : wtypes, nmconf, orgty, wtypes
@@ -121,12 +121,12 @@ contains
    subroutine form_dependencies()
       implicit none
       ! Radial ditribution function
-      if (rdf_sq_cl_dyn_sqw_conf(1) == .true.) run_rdf = .true.
+      if (rdf_sq_cl_dyn_sqw_conf_ord(1) == .true.) run_rdf = .true.
       run_sq = .false.
       ! Static structure factors
-      if (rdf_sq_cl_dyn_sqw_conf(2) == .true.) run_sq = .true.
+      if (rdf_sq_cl_dyn_sqw_conf_ord(2) == .true.) run_sq = .true.
       ! Cluster analysis
-      if (rdf_sq_cl_dyn_sqw_conf(3) == .true.) then
+      if (rdf_sq_cl_dyn_sqw_conf_ord(3) == .true.) then
          !
          ! Cluster analysis needs rdf's and s(q)'s to be computed
          ! This is also modified in input.f90
@@ -135,18 +135,19 @@ contains
          run_rdf = .true.
       else
          ! Deactivate cells
-         use_cell = .false.
+         if (.not. rdf_sq_cl_dyn_sqw_conf_ord(7)) use_cell = .false.
       end if
       ! Dynamic correlations
-      if (rdf_sq_cl_dyn_sqw_conf(4) == .true.) run_dyn = .true.
+      if (rdf_sq_cl_dyn_sqw_conf_ord(4) == .true.) run_dyn = .true.
       ! Activate analysis of dynamic structure factor
-      if (rdf_sq_cl_dyn_sqw_conf(5) == .true.) then
+      if (rdf_sq_cl_dyn_sqw_conf_ord(5) == .true.) then
          run_sqw = .true.
          run_dyn = .true.
          run_sq = .true.
       endif
       ! Confined system (density profile analysis in the direction of confinement)
-      if (rdf_sq_cl_dyn_sqw_conf(6) == .true.) run_rdf = .true.
+      if (rdf_sq_cl_dyn_sqw_conf_ord(6) == .true.) run_rdf = .true.
+      if (rdf_sq_cl_dyn_sqw_conf_ord(7) == .true.) run_order = .true.
    end subroutine form_dependencies
 
    subroutine init_modules(use_cell,run_rdf,run_sq,run_clusters,nsp,nmol,nbcuda)

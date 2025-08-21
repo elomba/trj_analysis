@@ -41,7 +41,7 @@ program trj_analysis
     !    Usage: trj_analysis.exe input.nml (input file with sequence of namelists)
     !
     ! namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread, &
-    !       ncfs_from_to, rdf_sq_cl_dyn_sqw_conf, nqw, ener_name, press_name, 
+    !       ncfs_from_to, rdf_sq_cl_dyn_sqw_conf_ord, nqw, ener_name, press_name, 
     !       potnbins, potengmargin
     !       Name of log file, name of netcdf trajectory file, no. of dimensions (2,3), no. of species,
     !       no. of CUDA threads (default 128), no. of configurations-start-end, modules to run 

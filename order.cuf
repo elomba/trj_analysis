@@ -1,0 +1,83 @@
+module mod_order
+! Module for order parameter calculations
+    use mod_precision
+    use mod_common
+    use mod_input, only: norder, orderp
+    use cudafor
+    implicit none
+    real(myprec), allocatable :: atomic_order_cos(:,:), atomic_order_sin(:,:)
+    real(myprec), device, allocatable :: atomic_order_cos_d(:,:), atomic_order_sin_d(:,:)
+    integer, parameter :: nmax_order = 20
+    integer, constant :: orderp_d(nmax_order)
+contains
+    subroutine order_init(norder,nmol)
+        integer, intent(in) :: norder, nmol
+        if (norder > nmax_order) then
+            write(*,'("*** Error: norder exceeds maximum allowed value of ",i0)') nmax_order
+        else
+            orderp_d(1:norder) = orderp(1:norder)
+        end if
+        if (.not. allocated(atomic_order_cos)) then
+            allocate(atomic_order_cos(nmol, norder))
+            atomic_order_cos(:,:) = 0.0
+            allocate(atomic_order_sin(nmol, norder))
+            atomic_order_sin(:,:) = 0.0
+            allocate(atomic_order_cos_d(nmol, norder), atomic_order_sin_d(nmol, norder))
+            atomic_order_cos_d(:,:) = 0.0
+            atomic_order_sin_d(:,:) = 0.0
+        endif
+    end subroutine order_init
+    subroutine order_clear()
+        if (allocated(orderp)) deallocate(orderp)
+        if (allocated(atomic_order_cos)) deallocate(atomic_order_cos)
+        if (allocated(atomic_order_sin)) deallocate(atomic_order_sin)
+        if (allocated(atomic_order_cos_d)) deallocate(atomic_order_cos_d)
+        if (allocated(atomic_order_sin_d)) deallocate(atomic_order_sin_d)
+    end subroutine order_clear
+
+     ! attributes(global) subroutine gpu_adj_cell(Nmol, dim, rcl2)
+    attributes(global) subroutine gpu_comp_order(r, Nmol, dim, norder, rcl2, sidel)
+        integer, value, intent(IN) :: Nmol, dim, norder
+        real(myprec), value :: rcl2
+        real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
+        real(myprec)  :: rv(3), rr2
+        integer :: i, j, counter, ia, ix, jy, kz, cell, icell
+        i = (blockidx%x - 1)*blockdim%x + threadidx%x
+        if (i <= Nmol) then
+            counter = 0
+            !
+            ! Locate cell
+            !
+            ix = int((r(1, i))/cellxd)
+            jy = int((r(2, i))/cellyd)
+            if (dim == 3) then
+                kz = int((r(3, i))/cellzd)
+                cell = (ix*maxjd + jy)*maxkd + kz
+            else
+                cell = (ix*maxjd + jy)
+            end if
+            !
+            ! Loop over neighbouring cells
+            !
+            do icell = 1, nnd
+                j = headd(neighd(cell, icell))
+                do while (j .ne. 0)
+                    if (j .ne. i) then
+                        rv(1:dim) = r(1:dim, i) - r(1:dim, j)
+                        rv = rv - sidel*nint(rv/sidel)
+                        rr2 = Dot_product(rv, rv)
+                        if (rr2 < rcl2) then
+                        ! compute per atom order parameter
+                            do ix = 1, norder
+                                ia = orderp_d(ix)
+                                atomic_order_cos_d(i, ia) = atomic_order_cos_d(i, ia) + cos(ia*atan2(rv(2), rv(1)))
+                                atomic_order_sin_d(i, ia) = atomic_order_sin_d(i, ia) + sin(ia*atan2(rv(2), rv(1)))
+                            end do
+                        end if
+                    end if
+                    j = listad(j)
+                end do
+            end do
+        end if
+    end subroutine gpu_comp_order 
+end module mod_order    
