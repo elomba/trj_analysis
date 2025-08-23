@@ -7,12 +7,13 @@ module mod_util
    use mod_sq, only : sq_init, printsq, sq_clear, sq_transfer_gpu_cpu
    use mod_rdf, only : rdf_init, printrdf, rdf_clear
    use mod_dyn, only : print_rtcor, dyn_clear, dyn_init
-   use mod_log, only : log_clear, log_init, printPotEngCl, print_clusinfo
+   use mod_log, only : log_clear, log_init, printPotEngCl, print_clusinfo, print_order
    use mod_clusters, only : clusters_clear, clusters_init, clusters_sq_init
    use mod_input, only : input_clear, sp_types_selected, ncfs_from_to, rdf_sq_cl_dyn_sqw_conf_ord, rcl, run_order
    use mod_cells, only : cells_init_post_nc_read, cells_init_pre_nc_read, cells_clear, use_cell
    use mod_thermo, only : thermo_clear
    use mod_nc_conf, only : wtypes, nmconf, orgty, wtypes
+   use mod_order, only : order_init, order_clear, compute_order, norder
 contains
    subroutine gpu_and_header(startEvent,stopEvent)
       use cudafor
@@ -108,14 +109,15 @@ contains
       endif
    end subroutine reset_confs
 
-   subroutine basic_init(use_cell,run_clusters,run_dyn,confined,nmol)
+   subroutine basic_init(use_cell,run_clusters,run_dyn,run_ord,confined,nmol)
       implicit none
-      logical, intent(in) :: use_cell,run_clusters,run_dyn, confined
+      logical, intent(in) :: use_cell,run_clusters,run_dyn, run_ord, confined
       integer, intent(in) :: nmol
       if (use_cell) call cells_init_pre_nc_read(nmol)
       if (run_clusters) call clusters_init(nmol)
       if (run_dyn) call dyn_init()
       if (confined) call prof_init()
+      if (run_ord) call order_init(norder,nmol)
    end subroutine basic_init
 
    subroutine form_dependencies()
@@ -160,9 +162,9 @@ contains
       if (run_clusters) call clusters_sq_init()
    end subroutine init_modules
 
-   subroutine clean_memory(run_sq,run_rdf,run_clusters,run_thermo,use_cell,run_dyn,confined)
+   subroutine clean_memory(run_sq,run_rdf,run_clusters,run_thermo,use_cell,run_dyn,run_ord,confined)
       implicit none
-      logical, intent(IN) :: run_sq,run_rdf,run_clusters,use_cell,run_thermo,run_dyn,confined
+      logical, intent(IN) :: run_sq,run_rdf,run_clusters,use_cell,run_thermo,run_dyn,run_ord,confined
       if (run_sq) then
          call sq_clear()
          print *, ' ··· sq_clear done'
@@ -186,6 +188,10 @@ contains
       if (run_thermo) then
          call thermo_clear()
          print *, ' ··· thermo_clear done'
+      endif
+      if (run_ord) then
+         call order_clear()
+         print *, ' ··· order_clear done'
       endif
       if (confined) then 
          call prof_clear()
@@ -238,6 +244,9 @@ contains
             call printPotEngCl()
          end if
       end if
+      if (run_order) then
+         call print_order()
+      endif
    end subroutine print_results
 
    subroutine reformat_input_conf(io,final_conf,current_conf,ntypes,nsp)

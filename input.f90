@@ -2,12 +2,13 @@ module mod_input
    use mod_precision
    use mod_common
    use cudafor
+   use sorts
    implicit none
    integer, allocatable, dimension(:) :: sp_types_selected, nw
    integer, dimension(3) :: ncfs_from_to
    character(len=4), allocatable, dimension(:) :: sp_labels
    integer :: nthread, ndim, jmin=3, minclsize, idir=0, nsp, nbuffer, potnbins=100, nqw=0, jump=1, norder=1
-   logical :: use_cell = .true., run_order = .false.
+   logical :: use_cell = .true., run_order = .false., print_orderp=.false.
    logical, dimension(7) :: rdf_sq_cl_dyn_sqw_conf_ord
    real(myprec) :: deltar, rcl=-1.0, dcl, qmin, qmax, rcrdf,&
       tmax=-1, tmaxp=-1, tlimit=-1, potengmargin=0.0
@@ -26,7 +27,7 @@ module mod_input
    namelist /INPUT_CONF/ idir
    namelist /INPUT_DYN/ nbuffer, tmax, tmaxp, tlimit, jump
    namelist /INPUT_SQW/ qw, tmqw
-   namelist /INPUT_ORDER/ orderp
+   namelist /INPUT_ORDER/ orderp, print_orderp
 contains
 
    subroutine read_input_file()
@@ -76,6 +77,7 @@ contains
          allocate(orderp(norder))
          orderp(:) = 0
          read (unit=io_input_file, nml=INPUT_ORDER)
+         call quicksort_nri(orderp)
       endif
       close (io_input_file)
 

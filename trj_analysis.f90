@@ -178,7 +178,7 @@ program trj_analysis
     ! Analysis begins from first configuration selected
     do i = 1, ncfs_from_to(1)
         ! In the first configuration basic initialization 
-        if (first_configuration) call basic_init(use_cell,run_clusters,run_dyn,confined,nmol)
+        if (first_configuration) call basic_init(use_cell,run_clusters,run_dyn,run_order,confined,nmol)
         ! Read i-th configuration from netcdf input file
         call cpu_time(t0)
         ! Jumps configurations to be read: ncstart controls starting conf in netcdf file
@@ -230,6 +230,8 @@ program trj_analysis
         ! Compute dynamics
         if (run_dyn) call rtcorr(i)
 
+        ! Compute order parameter
+        if (run_order) call compute_order(nmol, ndim, rcl, sidel)
         ! Print periodic output
         call print_output(i)
         ! For next iteration then ...
@@ -245,7 +247,7 @@ program trj_analysis
 
     ! Cleaning house
     write(*, '(/" **** Cleaning memory ...")')
-    call clean_memory(run_sq,run_rdf,run_clusters,run_thermo,use_cell,run_dyn,confined)
+    call clean_memory(run_sq,run_rdf,run_clusters,run_thermo,use_cell,run_dyn,run_order,confined)
     write(*, '(" **** Memory cleaned...")')
     call cpu_time(time_cpu_stop)
 

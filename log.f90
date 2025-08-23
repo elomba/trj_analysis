@@ -4,6 +4,8 @@ module mod_log
    use mod_input
    use mod_nc
    use mod_nc_conf
+   use mod_clusters
+   use mod_order, only: norder, orderp, avorder, atomic_order_cos, atomic_order_sin
    use cudafor
    use mod_thermo, only : engclus, engclpa
    implicit none
@@ -171,6 +173,7 @@ contains
          end if
          if (run_rdf) print *, " ··Time for rdf ", trdf/iconf
          if (run_sq) print *, " ··Time for S(Q) ", tsQ/iconf
+         if (run_order) print *, " ··Time for order parameter ", tord/iconf
          if (run_dyn) print *, " ··Time for dynamics ", tdyn/iconf
          print *, " ··Time config in/out  ", tread/iconf
       End if
@@ -407,4 +410,23 @@ contains
       close (125)
       close (126)
    end subroutine print_clusinfo
+
+   subroutine print_order()
+      implicit none
+      integer :: i, j, onunit
+      open (newunit=onunit, file='order.dat')
+      write (onunit, "('#   order   psi_m')") 
+      do i = 1, norder
+         write (onunit, '(i3,15f12.5)') orderp(i),avorder(i)/real(nconf)
+      end do
+      close (100)
+      if (print_orderp) then
+         open (newunit=onunit, file='order_per_mol.dat')
+         write (onunit, "('# mol ',15('psi_m',i3,8x:))") (i, i=1, norder)
+         do i = 1, nmol
+            write (onunit, '(i5,15f12.5)') i, r(1:ndim,i), (atomic_order_cos(i,j), atomic_order_sin(i,j), j=1, norder)
+         end do
+         close (onunit)
+      end if   
+   end subroutine print_order
 end module mod_log

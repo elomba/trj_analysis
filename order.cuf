@@ -1,11 +1,12 @@
 module mod_order
 ! Module for order parameter calculations
     use mod_precision
-    use mod_common
-    use mod_input, only: norder, orderp
+    use mod_common, only: r_d, sidel_d, cellxd, cellyd, cellzd, maxjd, maxkd, nnd, headd, listad, neighd, gptime, startEvent, stopEvent, tord
+    use mod_input, only: norder, orderp, nthread
     use cudafor
     implicit none
-    real(myprec), allocatable :: atomic_order_cos(:,:), atomic_order_sin(:,:)
+    real(myprec), allocatable :: atomic_order_cos(:,:), atomic_order_sin(:,:), &
+    avorder_cos(:), avorder_sin(:), avorder(:)
     real(myprec), device, allocatable :: atomic_order_cos_d(:,:), atomic_order_sin_d(:,:)
     integer, parameter :: nmax_order = 20
     integer, constant :: orderp_d(nmax_order)
@@ -19,6 +20,12 @@ contains
         end if
         if (.not. allocated(atomic_order_cos)) then
             allocate(atomic_order_cos(nmol, norder))
+            allocate(avorder_cos(norder))
+            allocate(avorder_sin(norder))
+            allocate(avorder(norder))
+            avorder_cos(:) = 0.0
+            avorder_sin(:) = 0.0
+            avorder(:) = 0.0
             atomic_order_cos(:,:) = 0.0
             allocate(atomic_order_sin(nmol, norder))
             atomic_order_sin(:,:) = 0.0
@@ -26,7 +33,9 @@ contains
             atomic_order_cos_d(:,:) = 0.0
             atomic_order_sin_d(:,:) = 0.0
         endif
+
     end subroutine order_init
+
     subroutine order_clear()
         if (allocated(orderp)) deallocate(orderp)
         if (allocated(atomic_order_cos)) deallocate(atomic_order_cos)
@@ -35,16 +44,41 @@ contains
         if (allocated(atomic_order_sin_d)) deallocate(atomic_order_sin_d)
     end subroutine order_clear
 
-     ! attributes(global) subroutine gpu_adj_cell(Nmol, dim, rcl2)
+    subroutine compute_order(Nmol, dim, rcl, sidel)
+        integer, intent(in) :: Nmol, dim
+        real(myprec), intent(in) :: sidel(dim), rcl
+        real(myprec) :: rcl2, time_gpu, sumac
+        integer :: istat,i
+        !
+        ! Compute order parameter
+        !
+        if (norder > 0) then
+            rcl2 = rcl*rcl
+            
+            istat = cudaEventRecord(startEvent, 0)
+            ! Launch GPU kernel
+            atomic_order_cos_d(:,:) = 0.0
+            atomic_order_sin_d(:,:) = 0.0
+            call gpu_comp_order<<<Nmol/nthread+1, nthread>>>(r_d, Nmol, dim, norder, rcl2, sidel_d)
+            time_gpu = gptime(stopEvent, startEvent)
+            tord = tord + time_gpu  
+            atomic_order_cos(:,:) = atomic_order_cos_d(:,:)
+            atomic_order_sin(:,:) = atomic_order_sin_d(:,:)
+            avorder_cos(1:norder) = sum(atomic_order_cos(1:nmol,1:norder), dim=1)/Nmol
+            avorder_sin(1:norder) = sum(atomic_order_sin(1:Nmol,1:norder), dim=1)/Nmol
+            avorder(1:norder)=avorder(1:norder)+sqrt(avorder_cos(:)**2+avorder_sin(:)**2)
+        end if
+    end subroutine compute_order
+
     attributes(global) subroutine gpu_comp_order(r, Nmol, dim, norder, rcl2, sidel)
         integer, value, intent(IN) :: Nmol, dim, norder
         real(myprec), value :: rcl2
         real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
-        real(myprec)  :: rv(3), rr2
-        integer :: i, j, counter, ia, ix, jy, kz, cell, icell
+        real(myprec)  :: rv(3), rr2, s0, s1, s2, c0, c1, c2, cx, sy, cz, d
+        integer :: i, j, counter, ncount, ix, jy, kz, cell, icell
         i = (blockidx%x - 1)*blockdim%x + threadidx%x
         if (i <= Nmol) then
-            counter = 0
+            ncount = 0
             !
             ! Locate cell
             !
@@ -67,17 +101,42 @@ contains
                         rv = rv - sidel*nint(rv/sidel)
                         rr2 = Dot_product(rv, rv)
                         if (rr2 < rcl2) then
+                            ncount = ncount + 1
                         ! compute per atom order parameter
-                            do ix = 1, norder
-                                ia = orderp_d(ix)
-                                atomic_order_cos_d(i, ia) = atomic_order_cos_d(i, ia) + cos(ia*atan2(rv(2), rv(1)))
-                                atomic_order_sin_d(i, ia) = atomic_order_sin_d(i, ia) + sin(ia*atan2(rv(2), rv(1)))
+                            d = __fsqrt_rn(rr2)
+                            cx = rv(1)/d
+                            sy = rv(2)/d
+                            if (dim == 3) then  
+                                cz = rv(3)/d
+                            end if
+                            c0 = 1.0
+                            c1 = cx
+                            s0 = 0.0
+                            s1 = sy
+                            counter = 1
+                            do ix = 2, orderp_d(norder)
+                                c2 = c1*cx-s1*sy
+                                s2 = s1*cx+c1*sy
+                                s0 = s1
+                                s1 = s2
+                                c0 = c1
+                                c1 = c2
+                                ! add contribution to order parameter
+                                if (ix == orderp_d(counter)) then
+                                    atomic_order_cos_d(i, counter) = atomic_order_cos_d(i, counter) + c2
+                                    atomic_order_sin_d(i, counter) = atomic_order_sin_d(i, counter) + s2
+                                    counter = counter + 1
+                                end if
                             end do
                         end if
                     end if
                     j = listad(j)
                 end do
             end do
+            if (ncount > 0) then
+                atomic_order_cos_d(i, 1:norder) = atomic_order_cos_d(i, 1:norder)/real(ncount, myprec)
+                atomic_order_sin_d(i, 1:norder) = atomic_order_sin_d(i, 1:norder)/real(ncount, myprec)
+            end if
         end if
     end subroutine gpu_comp_order 
 end module mod_order    
