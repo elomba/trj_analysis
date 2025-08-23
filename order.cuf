@@ -2,7 +2,7 @@ module mod_order
 ! Module for order parameter calculations
     use mod_precision
     use mod_common, only: r_d, sidel_d, cellxd, cellyd, cellzd, maxjd, maxkd, nnd, headd, listad, neighd, gptime, startEvent, stopEvent, tord
-    use mod_input, only: norder, orderp, nthread
+    use mod_input, only: norder, orderp, nnbond, nthread
     use cudafor
     implicit none
     real(myprec), allocatable :: atomic_order_cos(:,:), atomic_order_sin(:,:), &
@@ -59,7 +59,12 @@ contains
             ! Launch GPU kernel
             atomic_order_cos_d(:,:) = 0.0
             atomic_order_sin_d(:,:) = 0.0
-            call gpu_comp_order<<<Nmol/nthread+1, nthread>>>(r_d, Nmol, dim, norder, rcl2, sidel_d)
+            if (dim == 2) then
+                call gpu_comp_order<<<Nmol/nthread+1, nthread,8*norder+1>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
+            else
+                print *, 'Error: only 2D systems are implemented for order parameter calculation'
+                stop
+            end if
             time_gpu = gptime(stopEvent, startEvent)
             tord = tord + time_gpu  
             atomic_order_cos(:,:) = atomic_order_cos_d(:,:)
@@ -70,14 +75,17 @@ contains
         end if
     end subroutine compute_order
 
-    attributes(global) subroutine gpu_comp_order(r, Nmol, dim, norder, rcl2, sidel)
-        integer, value, intent(IN) :: Nmol, dim, norder
+    attributes(global) subroutine gpu_comp_order(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
+        integer, value, intent(IN) :: Nmol, dim, norder, nnbnd
         real(myprec), value :: rcl2
         real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
         real(myprec)  :: rv(3), rr2, s0, s1, s2, c0, c1, c2, cx, sy, cz, d
+        real(myprec) :: cosd(norder), sind(norder)
         integer :: i, j, counter, ncount, ix, jy, kz, cell, icell
         i = (blockidx%x - 1)*blockdim%x + threadidx%x
         if (i <= Nmol) then
+            cosd(:) = 0.0
+            sind(:) = 0.0
             ncount = 0
             !
             ! Locate cell
@@ -123,8 +131,10 @@ contains
                                 c1 = c2
                                 ! add contribution to order parameter
                                 if (ix == orderp_d(counter)) then
-                                    atomic_order_cos_d(i, counter) = atomic_order_cos_d(i, counter) + c2
-                                    atomic_order_sin_d(i, counter) = atomic_order_sin_d(i, counter) + s2
+!                                   atomic_order_cos_d(i, counter) = atomic_order_cos_d(i, counter) + c2
+                                    cosd(counter) = cosd(counter) + c2
+                                    sind(counter) = sind(counter) + s2
+!                                    atomic_order_sin_d(i, counter) = atomic_order_sin_d(i, counter) + s2
                                     counter = counter + 1
                                 end if
                             end do
@@ -134,8 +144,13 @@ contains
                 end do
             end do
             if (ncount > 0) then
-                atomic_order_cos_d(i, 1:norder) = atomic_order_cos_d(i, 1:norder)/real(ncount, myprec)
-                atomic_order_sin_d(i, 1:norder) = atomic_order_sin_d(i, 1:norder)/real(ncount, myprec)
+                if (nnbnd ==0 .or. nnbnd <= ncount) then
+!                   atomic_order_cos_d(i, 1:norder) = atomic_order_cos_d(i, 1:norder)/real(ncount, myprec)
+                    atomic_order_cos_d(i, 1:norder) = cosd(1:norder)/real(ncount, myprec)
+                    atomic_order_sin_d(i, 1:norder) = sind(1:norder)/real(ncount, myprec)
+!
+!                    atomic_order_sin_d(i, 1:norder) = atomic_order_sin_d(i, 1:norder)/real(ncount, myprec)
+                end if
             end if
         end if
     end subroutine gpu_comp_order 

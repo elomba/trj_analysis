@@ -7,7 +7,8 @@ module mod_input
    integer, allocatable, dimension(:) :: sp_types_selected, nw
    integer, dimension(3) :: ncfs_from_to
    character(len=4), allocatable, dimension(:) :: sp_labels
-   integer :: nthread, ndim, jmin=3, minclsize, idir=0, nsp, nbuffer, potnbins=100, nqw=0, jump=1, norder=1
+   integer :: nthread, ndim, jmin=3, minclsize, idir=0, nsp, nbuffer, potnbins=100, nqw=0, &
+            & jump=1, norder=1, nnbond=0
    logical :: use_cell = .true., run_order = .false., print_orderp=.false.
    logical, dimension(7) :: rdf_sq_cl_dyn_sqw_conf_ord
    real(myprec) :: deltar, rcl=-1.0, dcl, qmin, qmax, rcrdf,&
@@ -27,7 +28,7 @@ module mod_input
    namelist /INPUT_CONF/ idir
    namelist /INPUT_DYN/ nbuffer, tmax, tmaxp, tlimit, jump
    namelist /INPUT_SQW/ qw, tmqw
-   namelist /INPUT_ORDER/ orderp, print_orderp
+   namelist /INPUT_ORDER/ orderp, print_orderp, nnbond
 contains
 
    subroutine read_input_file()
