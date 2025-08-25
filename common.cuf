@@ -22,7 +22,7 @@ module mod_common
    integer :: cntch(100), ncharge
    real(double), dimension(100) :: chgh
    integer, allocatable, dimension(:) :: ntype, itype, lty, list, done, nq
-   integer, allocatable, dimension(:, :) :: ipos, densprofi, histomixi
+   integer, allocatable, dimension(:, :) :: ipos, densprofi,  histomixi
    integer (kind=2), allocatable, dimension(:,:) :: indqw
    integer, device, allocatable, dimension(:) :: itype_d, ntype_d, gdone
    real, device, allocatable, dimension(:) :: gii_d, g2ii_d

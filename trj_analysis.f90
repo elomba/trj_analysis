@@ -178,7 +178,7 @@ program trj_analysis
     ! Analysis begins from first configuration selected
     do i = 1, ncfs_from_to(1)
         ! In the first configuration basic initialization 
-        if (first_configuration) call basic_init(use_cell,run_clusters,run_dyn,run_order,confined,nmol)
+        if (first_configuration) call basic_init(use_cell,run_clusters,run_dyn,confined,nmol)
         ! Read i-th configuration from netcdf input file
         call cpu_time(t0)
         ! Jumps configurations to be read: ncstart controls starting conf in netcdf file
@@ -193,7 +193,7 @@ program trj_analysis
         ! Accumulate i/o time
         tread = tread + t1 - t0
         ! Over each configuration run selected modules (first initialize)
-        if (first_configuration) call init_modules(use_cell, run_rdf, run_sq, run_clusters, nsp, nmol, nbcuda)
+        if (first_configuration) call init_modules(use_cell, run_rdf, run_sq, run_clusters, run_order, nsp, nmol, nbcuda)
         ! Linked cells for cluster analysis
         if (use_cell) then
             call cells_build()

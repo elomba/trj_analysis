@@ -8,14 +8,15 @@ module mod_clusters
    use mod_thermo
    use cudafor
    use mod_nc_conf, only : conf, wtypes, natoms, imol
-
    implicit none
-   integer :: io_centers_file, io_clusevol_file, io_last_filter, io_shape_file, nmaxcl
+   integer :: io_centers_file, io_clusevol_file, io_last_filter, io_shape_file, nmaxcl, nbigcl
    character(len=17) :: centers_filename = 'centers.lammpstrj'
    character(len=12) :: clusevol_filename = 'clusevol.dat'
    character(len=15) :: last_filter_filename = 'last_filter.dat'
    character(len=10) :: fshape_filename = 'fshape.dat'
    Real(myprec), allocatable :: clmfracav(:), dsph(:), dratio(:), countcl(:)
+   Real(myprec), allocatable :: cluster_order_cos(:,:), cluster_order_sin(:,:), &
+     avcluster_order_cos(:), avcluster_order_sin(:), avcluster_order(:)
    interface
       function minj(dim, members, nm, center, sidel, side2)
          use mod_precision
@@ -55,7 +56,7 @@ contains
       implicit none
       integer, intent(IN) :: Iconf
       integer :: i, j, k, cluster_id, icl, ip, ind, indr, maxcl,&
-      & imaxcl, clsz, nbigcl, clussize, cmin, NP_lconf, icount, im
+      & imaxcl, clsz, clussize, cmin, NP_lconf, icount, im
       Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
       Real(myprec) :: denscl, cdmax=0
       Real(myprec), allocatable, save :: molfrac(:), clmfrac(:)
@@ -68,6 +69,10 @@ contains
       end if
       if (Iconf > 1) then
          deallocate (cluster, contador)
+         if (run_order) then
+            deallocate(cluster_order_cos)
+            deallocate(cluster_order_sin)
+         end if
          if (run_thermo) then
             deallocate(bigcl_d)
             deallocate(engcls,bigcl)
@@ -85,10 +90,25 @@ contains
          allocate(bigcl_d(maxcln))
          allocate(engcls(maxcln),bigcl(maxcln))
       endif
+      if (run_order) then
+         if (.not. allocated(cluster_order_cos)) then
+            allocate(cluster_order_cos(maxcln, norder))
+            allocate(cluster_order_sin(maxcln, norder))
+            cluster_order_cos(:,:) = 0.0
+            cluster_order_sin(:,:) = 0.0
+            allocate(avcluster_order_cos(norder))
+            allocate(avcluster_order_sin(norder))
+            allocate(avcluster_order(norder))
+            avcluster_order_cos(:) = 0.0
+            avcluster_order_sin(:) = 0.0
+            avcluster_order(:) = 0.0
+         end if 
+      end if
       Cluster_id = maxcln
       contador(:) = 0
       maxcl = 0
       do i = 1, cluster_id
+
          clsz = count(done == i)
          if (clsz > maxcl) then
             maxcl = clsz
@@ -345,28 +365,30 @@ contains
             cluster(i)%cldens = real(clussize)/volcl
             indr = nint(cluster(i)%rg/deltar)
             if (indr <= ndr) radii(indr) = radii(indr) + 1
-            if (iconf >1) then
-               if (ndim == 3) then
-                  ind = nint(cluster(i)%cldens/drho)
-               else
-                  ind = nint(cluster(i)%cldens/drho)
-               end if
-               if (ind <= ndrho) densclus(ind) = densclus(ind) + 1
-               denscl = denscl + cluster(i)%cldens
-            endif
+            denscl = denscl + cluster(i)%cldens
             rclus = rclus + rcluster
+            ! Determine maximum cluster density
             if (cluster(i)%cldens > cdmax) then
                cdmax = cluster(i)%cldens
             endif
          endif
       end do
+      avrg = avrg +averg/nbigcl
+      rclxyzd(:, :) = rclxyz(:, :)
       if (iconf==1) then
          drho = 2*cdmax/ndrho
          allocate(densclus(0:ndrho))
          densclus(:) = 0.0
       endif
-      avrg = avrg +averg/nbigcl
-      rclxyzd(:, :) = rclxyz(:, :)
+      ! Cluster density distribution
+      do i = 1, cluster_id
+         clussize = cluster(i)%clsize
+         if (clussize >= minclsize) then
+            ind = nint(cluster(i)%cldens/drho)
+            if (ind <= ndrho) densclus(ind) = densclus(ind) + 1
+         endif
+      end do
+
       !
       ! Compute cluster-cluster structure factor
       !

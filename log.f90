@@ -5,7 +5,9 @@ module mod_log
    use mod_nc
    use mod_nc_conf
    use mod_clusters
-   use mod_order, only: norder, orderp, avorder, atomic_order_cos, atomic_order_sin
+   use mod_order, only: norder, orderp, avorder, avorder_cos, avorder_sin, &
+        cluster_order_cos, cluster_order_sin, avcluster_order, avcluster_order_cos, &
+        avcluster_order_sin, atomic_order_cos, atomic_order_sin, rhoorderav
    use cudafor
    use mod_thermo, only : engclus, engclpa
    implicit none
@@ -374,8 +376,12 @@ contains
       end do
       write (126, "('#      r                  RG_cl(r)')")
       write (999, "('#      r                  rho_cl(r)')")
-      write (999, '(2f15.6)') 0.0, rhoclusav(0)/(4*pi*((deltar&
-      &/2)**3)/3.0*Nconf)
+      ! Average cluster density profile
+     if (ndim==3) then
+         write (999, '(2f15.6)') 0.0, rhoclusav(0)/(4*pi*((deltar/2)**3)/3.0*Nconf)
+      else
+         write (999, '(2f15.6)') 0.0, rhoclusav(0)/(pi*((deltar/2)**2)/Nconf)
+      end if
       do i = 1, ndr
          ri = i*deltar
          if (ndim == 3) then
@@ -415,10 +421,19 @@ contains
       implicit none
       integer :: i, j, onunit
       open (newunit=onunit, file='order.dat')
-      write (onunit, "('#   order   psi_m')") 
-      do i = 1, norder
-         write (onunit, '(i3,15f12.5)') orderp(i),avorder(i)/real(nconf)
-      end do
+      write (onunit, "('#   order   psi_m')")
+      if ( run_clusters) then
+         write (onunit, "('#   order   psi_m   psi_m_clust   ')")
+         do i = 1, norder
+            write (onunit, '(i3,4f12.5)') orderp(i), avorder(i)/real(nconf), &
+            & avcluster_order(i)/real(nconf)
+         end do
+      else
+         write (onunit, "('#   order   psi_m   ')")
+         do i = 1, norder
+            write (onunit, '(i3,3f12.5)') orderp(i), avorder(i)/real(nconf)
+         end do
+      end if 
       close (100)
       if (print_orderp) then
          open (newunit=onunit, file='order_per_mol.dat')
@@ -427,6 +442,20 @@ contains
             write (onunit, '(i5,15f12.5)') i, r(1:ndim,i), (atomic_order_cos(i,j), atomic_order_sin(i,j), j=1, norder)
          end do
          close (onunit)
+         if (run_clusters) then
+            open (newunit=onunit, file='order_per_mol_clust.dat')
+            write (onunit, "('# mol ',15('psi_m',i3,8x:))") (i, i=1, norder)
+            do i = 1, nbigcl
+               write (onunit, '(i5,15f12.5)') i, r(1:ndim,i), (cluster_order_cos(i,j), cluster_order_sin(i,j), j=1, norder)
+            end do
+            close (onunit)
+            open (newunit=onunit, file='ordprof_clust.dat')
+             write (onunit, "('#      r                  rho_cl(r)')")
+            do i = 0, ndr
+               write (onunit, '(f10.5, 15f12.5)') i*deltar, rhoorderav(i,1:norder)/Nconf
+            end do
+            close(onunit)
+         end if
       end if   
    end subroutine print_order
 end module mod_log

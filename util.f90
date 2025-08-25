@@ -2,7 +2,7 @@ module mod_util
    use mod_common, only : shmsize, maxthread,  run_thermo, ex_stress, &
       printDevPropShort, common_clear, nit, ener_name, press_name, &
       run_sq, run_sqw, run_rdf, run_clusters, run_dyn, &
-      printcudaerror, ex_qc, nconf, qcharge
+      printcudaerror, ex_qc, nconf, qcharge, lsmax
    use mod_densprof, only : prof_init, prof_clear
    use mod_sq, only : sq_init, printsq, sq_clear, sq_transfer_gpu_cpu
    use mod_rdf, only : rdf_init, printrdf, rdf_clear
@@ -109,15 +109,14 @@ contains
       endif
    end subroutine reset_confs
 
-   subroutine basic_init(use_cell,run_clusters,run_dyn,run_ord,confined,nmol)
+   subroutine basic_init(use_cell,run_clusters,run_dyn,confined,nmol)
       implicit none
-      logical, intent(in) :: use_cell,run_clusters,run_dyn, run_ord, confined
+      logical, intent(in) :: use_cell,run_clusters,run_dyn, confined
       integer, intent(in) :: nmol
       if (use_cell) call cells_init_pre_nc_read(nmol)
       if (run_clusters) call clusters_init(nmol)
       if (run_dyn) call dyn_init()
       if (confined) call prof_init()
-      if (run_ord) call order_init(norder,nmol)
    end subroutine basic_init
 
    subroutine form_dependencies()
@@ -152,14 +151,15 @@ contains
       if (rdf_sq_cl_dyn_sqw_conf_ord(7) == .true.) run_order = .true.
    end subroutine form_dependencies
 
-   subroutine init_modules(use_cell,run_rdf,run_sq,run_clusters,nsp,nmol,nbcuda)
+   subroutine init_modules(use_cell,run_rdf,run_sq,run_clusters,run_order,nsp,nmol,nbcuda)
       implicit none
-      logical, intent(IN) :: use_cell,run_rdf,run_sq,run_clusters
+      logical, intent(IN) :: use_cell,run_rdf,run_sq,run_clusters, run_order
       integer, intent(in) :: nsp, nmol, nbcuda
       if (use_cell) call cells_init_post_nc_read()
       if (run_rdf) call RDF_init(nsp)
       if (run_sq) call sq_init(nmol, nsp, nbcuda)
       if (run_clusters) call clusters_sq_init()
+      if (run_order) call order_init(norder,nmol)
    end subroutine init_modules
 
    subroutine clean_memory(run_sq,run_rdf,run_clusters,run_thermo,use_cell,run_dyn,run_ord,confined)

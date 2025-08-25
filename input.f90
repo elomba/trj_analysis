@@ -11,7 +11,7 @@ module mod_input
             & jump=1, norder=1, nnbond=0
    logical :: use_cell = .true., run_order = .false., print_orderp=.false.
    logical, dimension(7) :: rdf_sq_cl_dyn_sqw_conf_ord
-   real(myprec) :: deltar, rcl=-1.0, dcl, qmin, qmax, rcrdf,&
+   real(myprec) :: deltar, rcl=-1.0, dcl, qmin, qmax, rcrdf, rclcl=0.0, &
       tmax=-1, tmaxp=-1, tlimit=-1, potengmargin=0.0
    real(myprec), allocatable, dimension(:) :: mat, bsc, charge, qw, tmqw
    integer, allocatable, dimension(:) :: orderp
@@ -28,7 +28,7 @@ module mod_input
    namelist /INPUT_CONF/ idir
    namelist /INPUT_DYN/ nbuffer, tmax, tmaxp, tlimit, jump
    namelist /INPUT_SQW/ qw, tmqw
-   namelist /INPUT_ORDER/ orderp, print_orderp, nnbond
+   namelist /INPUT_ORDER/ orderp, print_orderp, nnbond, rclcl
 contains
 
    subroutine read_input_file()
