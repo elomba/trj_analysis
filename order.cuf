@@ -1,7 +1,7 @@
 module mod_order
 ! Module for order parameter calculations
     use mod_precision
-    use mod_common, only: r_d, r, sidel_d, cellxd, cellyd, cellzd, maxjd, maxkd, nnd, headd, listad, neighd, gptime, startEvent, stopEvent, tord, side2, lsmax
+    use mod_common, only: r_d, r, sidel_d, cellxd, cellyd, cellzd, maxjd, maxkd, nnd, headd, listad, neighd, gptime, startEvent, stopEvent, tord, side2, ndrclus, drclus
     use mod_input, only: norder, orderp, nnbond, nthread, run_clusters, rclcl, deltar, minclsize 
     use mod_clusters, only: cluster, avcluster_order, avcluster_order_cos, avcluster_order_sin, &
     cluster_order_cos, cluster_order_sin, maxcln, rclxyz, nbigcl
@@ -40,8 +40,8 @@ contains
         endif
         if (run_clusters) then
             if (.not. allocated(rhoorder)) then
-                allocate(rhoorder(0:lsmax, norder))
-                allocate(rhoorderav(0:lsmax, norder))
+                allocate(rhoorder(0:ndrclus, norder))
+                allocate(rhoorderav(0:ndrclus, norder))
                 rhoorder(:,:) = 0.0
                 rhoorderav(:,:) = 0.0
             endif
@@ -55,6 +55,11 @@ contains
         if (allocated(atomic_order_sin)) deallocate(atomic_order_sin)
         if (allocated(atomic_order_cos_d)) deallocate(atomic_order_cos_d)
         if (allocated(atomic_order_sin_d)) deallocate(atomic_order_sin_d)
+        if (allocated(avorder_cos)) deallocate(avorder_cos)
+        if (allocated(avorder_sin)) deallocate(avorder_sin)
+        if (allocated(avorder)) deallocate(avorder)
+        if (allocated(rhoorder)) deallocate(rhoorder)
+        if (allocated(rhoorderav)) deallocate(rhoorderav)   
     end subroutine order_clear
 
     subroutine compute_order(Nmol, dim, rcl, sidel)
@@ -100,8 +105,9 @@ contains
                 rhoorder(:,:) = 0.0
                 do i = 1, maxcln
                     if (cluster(i)%clsize >= minclsize) then
-                        call clorderprof(r, dim, nbigcl, cluster(i)%members(:), cluster(i)%clsize, sidel, &
-                        & side2, rhoorder, lsmax, deltar, cluster(i)%center(1:dim))
+                        call clorderprof(r, dim, nbigcl, cluster(i)%members(:),&
+                        cluster(i)%clsize, sidel, rhoorder, ndrclus, drclus, &
+                        &  cluster(i)%center(1:dim))
                     endif
                 enddo
                 rhoorderav(:,:) = rhoorderav(:,:)+rhoorder(:,:)/real(nbigcl, myprec)
@@ -178,9 +184,18 @@ contains
                 end do
             end do
             if (ncount > 0) then
-                if (nnbnd ==0 .or. nnbnd <= ncount) then
+                if (nnbnd ==0) then
                     atomic_order_cos_d(i, 1:norder) = cosd(1:norder)/real(ncount, myprec)
                     atomic_order_sin_d(i, 1:norder) = sind(1:norder)/real(ncount, myprec)
+                else
+                    ! Only compute order parameter if number of neighbors 
+                    ! equals the order of the parameter
+                    do j=1, norder
+                        if (orderp_d(j) == ncount) then
+                            atomic_order_cos_d(i, j) = cosd(j)/real(ncount, myprec)
+                            atomic_order_sin_d(i, j) = sind(j)/real(ncount, myprec)
+                        end if
+                    end do
                 end if
             end if
         end if
@@ -234,46 +249,60 @@ contains
                 end if
             end do
             if (ncount > 0) then
-                if (nnbnd ==0 .or. nnbnd <= ncount) then
+                if (nnbnd ==0) then
                     cluster_order_cos(i, 1:norder) = cosd(1:norder)/real(ncount, myprec)
                     cluster_order_sin(i, 1:norder) = sind(1:norder)/real(ncount, myprec)
+                else
+                    !
+                    ! Only compute order parameter if number of neighbors 
+                    ! equals the order of the parameter
+                    do j=1, norder
+                        if (orderp(j) == ncount) then
+                            cluster_order_cos(i, j) = cosd(j)/real(ncount, myprec)
+                            cluster_order_sin(i, j) = sind(j)/real(ncount, myprec)
+                        end if
+                    end do
                  end if
             end if
         end do
 
     end subroutine cl_comp_order 
 
-    subroutine clorderprof(r,dim, nmol, members, nm, sidel, side2, rhoorder, lsmax, deltar, center)
+    subroutine clorderprof(r,dim, nmol, members, nm, sidel, rhoorder, lsmax, deltar, center)
       integer, intent(IN) :: nm, lsmax, dim, nmol
       integer, intent(IN) :: members(nm)
-      integer :: count(0:lsmax)
-      real, intent(IN) :: r(dim, Nmol), sidel(dim), center(dim), side2, deltar
+      real, intent(IN) :: r(dim, Nmol), sidel(dim), center(dim), deltar
       real, intent(INOUT) :: rhoorder(0:lsmax, norder)
       real :: rv(3), rr2, rr, fact
+      integer :: count(0:lsmax)
       integer :: k, l, i, j, ind
       ! order(r) is normalized for each configuration,
       ! since particle number may change
-      count(0:lsmax) = 0
+      ! Order parameters are averaged over each slice
+      ! and then over configurations
+      count(:) = 0
       do k = 1, nm
          i = members(k)
          rv(1:dim) = r(1:dim, i) - center(1:dim)
          ! PBC (unwrap if necessary)
          rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
          rr2 = Dot_product(rv(1:dim), rv(1:dim))
-         If (rr2 .Lt. side2) Then
-            rr = sqrt(rr2)
-            ind = Nint(rr/deltar)
+         rr = sqrt(rr2)
+         ind = int(rr/deltar)
+         if (ind <= lsmax) then
             count(ind) = count(ind) + 1
-            do j = 1, norder
-                rhoorder(ind,j) = rhoorder(ind,j) + sqrt(cluster_order_cos(i,j)**2 + cluster_order_sin(i,j)**2)
-            end do
+             do j = 1, norder
+                rhoorder(ind,j) = rhoorder(ind,j) + sqrt(atomic_order_cos(i,j)**2 + atomic_order_sin(i,j)**2)
+             end do
          end If
       end do
-        ! Normalize order(r)
       do i = 0, lsmax
          if (count(i) > 0) then
-            rhoorder(i,:) = rhoorder(i,:)/real(count(i), myprec)
-         endif
-      end do
+            fact = 1.0/real(count(i), myprec)
+            do j = 1, norder
+               rhoorder(i,j) = rhoorder(i,j)*fact
+            end do
+         end if
+      end do    
    end subroutine clorderprof   
 end module mod_order    

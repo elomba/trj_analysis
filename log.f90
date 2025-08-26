@@ -378,18 +378,18 @@ contains
       write (999, "('#      r                  rho_cl(r)')")
       ! Average cluster density profile
      if (ndim==3) then
-         write (999, '(2f15.6)') 0.0, rhoclusav(0)/(4*pi*((deltar/2)**3)/3.0*Nconf)
+         write (999, '(2f15.6)') 0.0, rhoclusav(0)/(4*pi*((drclus/2)**3)/3.0*Nconf)
       else
-         write (999, '(2f15.6)') 0.0, rhoclusav(0)/(pi*((deltar/2)**2)/Nconf)
+         write (999, '(2f15.6)') 0.0, rhoclusav(0)/(pi*((drclus/2)**2)*Nconf)
       end if
-      do i = 1, ndr
-         ri = i*deltar
+      do i = 1, ndrclus
+         ri = i*drclus
          if (ndim == 3) then
-            deltaV = 4*pi*((ri + deltar/2)**3 - (ri - deltar/2)**3)/3.0
+            deltaV = 4*pi*((ri + drclus/2)**3 - (ri - drclus/2)**3)/3.0
          else
-            deltaV = pi*((ri + deltar/2)**2 - (ri - deltar/2)**2)
+            deltaV = pi*((ri + drclus/2)**2 - (ri - drclus/2)**2)
          end if
-         if (radii(i) .ne. 0) write (126, "(2f15.7)") ri, (real(radii(i))/sum(radii(:))/deltar)
+         if (radii(i) .ne. 0) write (126, "(2f15.7)") ri, (real(radii(i))/sum(radii(:))/drclus)
          write (999, '(2f15.6)') ri, rhoclusav(i)/(deltaV*Nconf)
       end do
       if (run_sq) then
@@ -420,6 +420,7 @@ contains
    subroutine print_order()
       implicit none
       integer :: i, j, onunit
+      real(myprec) :: dV
       open (newunit=onunit, file='order.dat')
       write (onunit, "('#   order   psi_m')")
       if ( run_clusters) then
@@ -437,22 +438,31 @@ contains
       close (100)
       if (print_orderp) then
          open (newunit=onunit, file='order_per_mol.dat')
-         write (onunit, "('# mol ',15('psi_m',i3,8x:))") (i, i=1, norder)
+         if (ndim==2) then
+            write (onunit, "('# mol        x       y     ',15('Real(psi_m)     Im(psi_m)   ',i3,8x:))") (orderp(i), i=1, norder)
+         else
+            write (onunit, "('# mol        x       y       z   ',15('Real(psi_m)     Im(psi_m)   ',i3,8x:))") (orderp(i), i=1, norder)
+         end if
          do i = 1, nmol
             write (onunit, '(i5,15f12.5)') i, r(1:ndim,i), (atomic_order_cos(i,j), atomic_order_sin(i,j), j=1, norder)
          end do
          close (onunit)
          if (run_clusters) then
             open (newunit=onunit, file='order_per_mol_clust.dat')
-            write (onunit, "('# mol ',15('psi_m',i3,8x:))") (i, i=1, norder)
+            if (ndim==2) then
+               write (onunit, "('# Cluster    x       y     ',15('Real(psi_m)     Im(psi_m)   ',i3,8x:))") (orderp(i), i=1, norder)
+            else
+               write (onunit, "('# Cluster    x       y       z   ',15('Real(psi_m)     Im(psi_m)   ',i3,8x:))") (orderp(i), i=1, norder)
+            end if
             do i = 1, nbigcl
                write (onunit, '(i5,15f12.5)') i, r(1:ndim,i), (cluster_order_cos(i,j), cluster_order_sin(i,j), j=1, norder)
             end do
             close (onunit)
             open (newunit=onunit, file='ordprof_clust.dat')
-             write (onunit, "('#      r                  rho_cl(r)')")
-            do i = 0, ndr
-               write (onunit, '(f10.5, 15f12.5)') i*deltar, rhoorderav(i,1:norder)/Nconf
+             write (onunit, "('#      r     ',15('   rho_psi',i2,'(r)':))")(orderp(i), i=1, norder)
+              write (onunit, '(f10.5, 15f12.5)') 0.0, rhoorderav(0,1:norder)/(Nconf)
+            do i = 1, ndrclus
+               write (onunit, '(f10.5, 15f12.5)') i*drclus, rhoorderav(i,1:norder)/(Nconf)
             end do
             close(onunit)
          end if

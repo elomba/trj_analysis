@@ -8,7 +8,7 @@ module mod_input
    integer, dimension(3) :: ncfs_from_to
    character(len=4), allocatable, dimension(:) :: sp_labels
    integer :: nthread, ndim, jmin=3, minclsize, idir=0, nsp, nbuffer, potnbins=100, nqw=0, &
-            & jump=1, norder=1, nnbond=0
+            & jump=1, norder=1, nnbond=6
    logical :: use_cell = .true., run_order = .false., print_orderp=.false.
    logical, dimension(7) :: rdf_sq_cl_dyn_sqw_conf_ord
    real(myprec) :: deltar, rcl=-1.0, dcl, qmin, qmax, rcrdf, rclcl=0.0, &
@@ -24,7 +24,7 @@ module mod_input
    namelist /INPUT_SP/ sp_types_selected, sp_labels, mat
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
    namelist /INPUT_SQ/ qmax, qmin, bsc
-   namelist /INPUT_CL/ rcl, dcl, jmin, minclsize
+   namelist /INPUT_CL/ rcl, dcl, jmin, minclsize, ndrclus
    namelist /INPUT_CONF/ idir
    namelist /INPUT_DYN/ nbuffer, tmax, tmaxp, tlimit, jump
    namelist /INPUT_SQW/ qw, tmqw
@@ -77,6 +77,7 @@ contains
       if (rdf_sq_cl_dyn_sqw_conf_ord(7) == .true.) then
          allocate(orderp(norder))
          orderp(:) = 0
+         rclcl = rcl
          read (unit=io_input_file, nml=INPUT_ORDER)
          call quicksort_nri(orderp)
       endif

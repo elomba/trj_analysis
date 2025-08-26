@@ -58,7 +58,7 @@ contains
       integer :: i, j, k, cluster_id, icl, ip, ind, indr, maxcl,&
       & imaxcl, clsz, clussize, cmin, NP_lconf, icount, im
       Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
-      Real(myprec) :: denscl, cdmax=0
+      Real(myprec) :: denscl, rmcl, cdmax=0
       Real(myprec), allocatable, save :: molfrac(:), clmfrac(:)
       Real(kind=8) ::  mcl, ekcls, suma, rclus, rcluster, rgsum, averg, volcl, factorv=1.0
       if (conf(4)%units == 'femtosecond' ) factorv = 0.001
@@ -84,18 +84,7 @@ contains
          clmfracav(1:nsp) = 0.0
          clmfrac(:) = 0.0
          molfrac(:) = 0.0
-      end if
-      allocate (cluster(maxcln), contador(maxcln))
-      if (run_thermo) then
-         allocate(bigcl_d(maxcln))
-         allocate(engcls(maxcln),bigcl(maxcln))
-      endif
-      if (run_order) then
-         if (.not. allocated(cluster_order_cos)) then
-            allocate(cluster_order_cos(maxcln, norder))
-            allocate(cluster_order_sin(maxcln, norder))
-            cluster_order_cos(:,:) = 0.0
-            cluster_order_sin(:,:) = 0.0
+         if (run_order) then
             allocate(avcluster_order_cos(norder))
             allocate(avcluster_order_sin(norder))
             allocate(avcluster_order(norder))
@@ -103,6 +92,17 @@ contains
             avcluster_order_sin(:) = 0.0
             avcluster_order(:) = 0.0
          end if 
+      end if
+      allocate (cluster(maxcln), contador(maxcln))
+      if (run_thermo) then
+         allocate(bigcl_d(maxcln))
+         allocate(engcls(maxcln),bigcl(maxcln))
+      endif
+      if (run_order) then
+         allocate(cluster_order_cos(maxcln, norder))
+         allocate(cluster_order_sin(maxcln, norder))
+         cluster_order_cos(:,:) = 0.0
+         cluster_order_sin(:,:) = 0.0
       end if
       Cluster_id = maxcln
       contador(:) = 0
@@ -379,6 +379,8 @@ contains
          drho = 2*cdmax/ndrho
          allocate(densclus(0:ndrho))
          densclus(:) = 0.0
+         rmcl = maxval(cluster(1:cluster_id)%radio)
+         drclus = 2*rmcl/ndrclus
       endif
       ! Cluster density distribution
       do i = 1, cluster_id
@@ -430,12 +432,12 @@ contains
             ! Internal cluster g(r) is only calculared inside large clusters
             call rdfcl(ndim, cluster(i)%members(:), j, sidel&
             &, side2, gcluster, lsmax, deltar, densav(i), cmin)
-            call denspcl(ndim, cluster(i)%members(:), j, sidel&
-            &, side2, rhoclus(0:lsmax), lsmax, deltar, cluster(i)%center(1:ndim))
+            call denspcl(ndim, cluster(i)%members(:), j, sidel, side2&
+            &, rhoclus(0:ndrclus), ndrclus, drclus, cluster(i)%center(1:ndim))
          end if
       end do
       gclustav(:) = gclustav(:) + gcluster(:)/nbigcl
-      rhoclusav(:) = rhoclusav(:) + rhoclus(:)/nbigcl
+      rhoclusav(0:ndrclus) = rhoclusav(0:ndrclus) + rhoclus(0:ndrclus)/nbigcl
       !
       ! Cluster-cluster pdf
       !
@@ -586,7 +588,7 @@ contains
    subroutine denspcl(dim, members, nm, sidel, side2, rho, lsmax, deltar, center)
       integer, intent(IN) :: nm, lsmax, dim
       integer, intent(IN) :: members(nm)
-      real, intent(IN) :: sidel(3), center(3), side2, deltar
+      real, intent(IN) :: sidel(3), center(3), deltar, side2
       real, intent(INOUT) :: rho(0:lsmax)
       real :: rv(3), rr2, rr, fact
       integer :: k, l, i, j, ind
@@ -598,11 +600,11 @@ contains
          ! PBC (unwrap if necessary)
          rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
          rr2 = Dot_product(rv(1:dim), rv(1:dim))
-         If (rr2 .Lt. side2) Then
+         if (rr2 <= side2)then
             rr = sqrt(rr2)
             ind = Nint(rr/deltar)
             rho(ind) = rho(ind) + 1.0
-         end If
+         endif
       end do
    end subroutine denspcl
 

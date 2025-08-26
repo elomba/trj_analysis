@@ -6,6 +6,9 @@ program trj_analysis
     !  At this stage it computes:
     !     - Pair distribution functions
     !     - Static structure factors
+    !     - Orientational order parameters (Steinhardt): only in 2D so far
+    !     - Density profiles in confined systems (slit pore geometry)
+    !     _ Charge density profiles in confined systems (slit pore geometry)
     !     - Cluster analysis (average cluster profiles, cluster-cluster rdf's and sq's)
     !                         size and radii distributions, and a trajectory file with the
     !                         evolution of cluster  com's 
@@ -40,7 +43,7 @@ program trj_analysis
     !
     !    Usage: trj_analysis.exe input.nml (input file with sequence of namelists)
     !
-    ! namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread, &
+    ! namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, norder,nthread, &
     !       ncfs_from_to, rdf_sq_cl_dyn_sqw_conf_ord, nqw, ener_name, press_name, 
     !       potnbins, potengmargin
     !       Name of log file, name of netcdf trajectory file, no. of dimensions (2,3), no. of species,
@@ -57,10 +60,18 @@ program trj_analysis
     ! namelist /INPUT_SQ/ qmax, qmin, bsc
     !          Max value of Q for S(Q), max value for full calculations (all Qs for 0<Q<=qmin), 
     !          scattering lengths 
-    ! namelist /INPUT_CL/ rcl, dcl, jmin, minclsize
-    !          Geometric clustering distance, grid for cluster distribution, minimum cluster size for analysis,
-    !          
-
+    ! namelist /INPUT_CL/ rcl, dcl, jmin, minclsize, ndrclus
+    !          Geometric clustering distance (defines NN as well), grid for
+    !         cluster distribution, minimum cluster size for analysis, no. of bins 
+    !         for cluster profiles
+    ! namelist /INPUT_ORD/ orderp, print_orderp, rclcl, nnbond
+    !     Orientational order parameters  to be computed
+    !    (def. .true.), print average per particle order parameters 
+    !    (def. .false.), distance between clusters, for neighbor search
+    !    in order parameter calculation  (def. rcl), if nnbond=0
+    !    all NN are used up to the cutoff to compute, otherwise the number of 
+    !    neighbors must be the same as the order of the parameter (default)
+    !
     ! namelist /INPUT_CONF/ idir, pwall, pwallp
     !          Direction of confinement (1,2,3->x,y,z), position of left wall, position of right wall
     ! namelist /INPUT_DYN/ nbuffer, tmax, tmaxp, tlimit, jump
@@ -91,6 +102,8 @@ program trj_analysis
     !      - sqcl.dat Cluster-cluster S(Q)
     !      - sqmix.dat S_ii (i<=nsp)
     !      - sqw.dat  (S(Q_i,w), S_self(Q_i,w) for nwq Qs)
+    !      - order.dat Average Steinhardt order parameters <Q_l> (l=1,norder)
+    !      - order_per_mol.dat Average per particle Steinhardt order parameters <q_l>
     !
     !      * Cluster analysis
     !      - rhoprof.dat Average cluster density profile (only for finite clusters) 
@@ -100,7 +113,9 @@ program trj_analysis
     !      - distUcltot.dat Distribution of cluster internal energies (total)
     !      - clusevol.dat , conf no., no. of clusters, % of particles in clusters
     !      - fshape.dat, cluster shape (deviation from sphere and cylnder)
-    !                    (0,0) perfect sphere, (>0,0) perfect cylinder
+    !                    (0,0) perfect sphere, (>0,0) perfect cylindero
+    !      - orderprof.dat Steinhardt order parameter density profiles (within clusters): averaged over all clusters across slices
+    !      - order_per_cl.dat Average Steinhardt order parameters per cluster <Q_l> (l=1,norder)
     !      - centers.lammpstrj trajectory of clusters centers of mass (to be visualized with Ovito)
     !                          Particle no. not constant along the trajectory !!
     !
@@ -108,7 +123,7 @@ program trj_analysis
     !   OUTPUT Units: LAMMPS "real" units, except time (ps)
     !   Programmed in NVIDIA CUDA Fortran
     !
-    !   A. Diaz-Pozuelo & E. Lomba, Madrid/Santiago de Compostela, fall 2024 
+    !   A. Diaz-Pozuelo & E. Lomba, Madrid/Santiago de Compostela, summer 2025 
     !
    
     use mod_precision
@@ -214,13 +229,11 @@ program trj_analysis
 
         ! Compute density profile along idir direction
         if (confined) call profile_comp(nthread, ndim, idir, pwall, deltar)
-        
         ! Compute SQ
         if (run_sq) call SQcalc()
          
         ! Compute cluster properties
         if (run_clusters) call cluster_analysis(i)
-
         ! Compute potential energy
         if (run_thermo) call poteng(i, natoms)
 

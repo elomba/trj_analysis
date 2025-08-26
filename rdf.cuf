@@ -27,8 +27,8 @@ contains
             Allocate( gii(0:lsmax),g2ii(0:lsmax),gi(0:lsmax),g2i(0:lsmax))
         endif
         if (run_clusters) then
-            Allocate(gcluster(lsmax), gclustav(lsmax), gclcl(lsmax), rhoclus(0:lsmax),&
-            & rhoclusav(0:lsmax))
+            Allocate(gcluster(lsmax), gclustav(lsmax), gclcl(lsmax), rhoclus(0:ndrclus),&
+            & rhoclusav(0:ndrclus))
             Allocate(gclr(0:lsmax),gclr2(0:lsmax))
           gclustav(:) = 0.0
           rhoclus(:) = 0.0
@@ -73,9 +73,8 @@ contains
         !
         implicit none
         integer, intent(IN) :: Nmol, Iconf, nbcuda, nthread
-        integer :: istart, i, ind, k, j, l, istat=0, ierrSync
+        integer :: istart, i, ind, k, j, l, istat=0, ierrSync, rdfb, rdfth
         real :: time_gpu, suma
-        type(dim3) :: bloques, hilos
         histomix_d(:, :) = 0
         if (nrandom>0) then
             gii_d(:) = 0
@@ -87,18 +86,22 @@ contains
         !             memory (assumed sized arrays for the shared histogram)
         !
         istat = cudaEventRecord(startEvent, 0)
-
+        if (nthread*6 <= 1024) then
+            rdfth = 6*nthread
+            rdfb = nbcuda/6 + 1
+        else
+            rdfth = nthread*4
+            rdfb = nbcuda/4 + 1
+        end if
         if (ndim == 3) then
-            bloques = dim3(nbcuda/8+1,1,1)
-            hilos = dim3(8*nthread,1,1)
-            call rdf_sh<<<nbcuda/6 + 1, 6*nthread, lsmax*nit*4>>>(Nmol, ndim, nit&
+            call rdf_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, nit&
                  &, nsp, nbcuda*lsmax, lsmax, side2, sidel_d, deltar)
             call printcudaerror(" **! 3d-rdf_sh GPU kernel exit")
             if (nrandom>0) call s2D3_sh<<<nrandom,nthread,(lsmax+1)*4>>>(r_d, Nmol, ndim, gii_d, g2ii_d, lsmax &
             &, side2, sidel_d, deltar )
         
         else
-            call rdf2_sh<<<nbcuda/6 + 1, 6*nthread, lsmax*nit*4>>>(r_d, Nmol, ndim, histomix_d, nit&
+            call rdf2_sh<<<rdfb, rdfth, lsmax*nit*4>>>(r_d, Nmol, ndim, histomix_d, nit&
                  &, nsp, nbcuda*lsmax, lsmax, itype_d, side2, sidel_d, deltar)
             call printcudaerror(" **! 2d-rdf_sh GPU kernel exit")
             if (nrandom>0) call s2D2_sh<<<nrandom,nthread,(lsmax+1)*4>>>(r_d, Nmol, ndim, gii_d, g2ii_d, lsmax &
