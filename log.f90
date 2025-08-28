@@ -119,7 +119,7 @@ contains
                   kelvintokcal*ekin*(aunit/tunit)**2/Rgas, 0.00198717*ecaver*(aunit/tunit)**2/Rgas/Iconf
             
             endif 
-            if (rcl > 0) then
+            if (run_clusters) then
                if (tunits == 'lj') then
                   write (*, "(' ** Cluster kinetic energy/epsilon=',f15.4,' average=',f15.4)") &
                      ekincl, ekclaver/Iconf
@@ -159,7 +159,7 @@ contains
             Write (*, "(' ** Density=',f10.6,' A^-3')") natms/volumen
          end if
          ! Cluster information
-         if (rcl > 0) then
+         if (run_clusters) then
             if (iconf>1) then
                write (*, "(' ** Average cluster radius',f8.3,' average &
               &cluster density ',f10.7)") avradio/iconf, averdens/iconf
@@ -283,7 +283,7 @@ contains
          enddo
       endif
       if (nrandom>0) Open (199, file="s2n.dat")
-      if (rcl > 0) then
+      if (run_clusters) then
          write (99, "('#       r',16x,'g_cl(r)        g_cl-cl(r)        ',5x,16('g_',2i1,'(r)',8x:))")&
          & (((j, k), k=j, nsp), j=1, nsp)
          if (nrandom>0)  write (199, "('#       r',16x,'s2n(cl)       s2n')")
@@ -321,7 +321,7 @@ contains
          End Do
          if (i<lsmax) then
             if (nrandom>0) then
-               if (rcl>0) then
+               if (run_clusters) then
                   Write (199, '(18f16.5)') i*deltar,  gclr2(i)/(Nconf*nrandom)-(gclr(i)/(Nconf*nrandom))**2,&
                   & g2i(i)/(Nconf*nrandom)-(gi(i)/(Nconf*nrandom))**2
                else
@@ -329,7 +329,7 @@ contains
                endif
             endif
          endif
-         if (rcl > 0) then
+         if (run_clusters) then
             Write (99, '(28f16.5)') i*deltar,&
             & gclustav(i)/(deltaV*Nconf), 2*gclcl(i)/(deltaV*Nconf),(gmix(j, j:nsp), j=1, nsp)
          else
@@ -422,7 +422,6 @@ contains
       integer :: i, j, onunit
       real(myprec) :: dV
       open (newunit=onunit, file='order.dat')
-      write (onunit, "('#   order   psi_m')")
       if ( run_clusters) then
          write (onunit, "('#   order   psi_m   psi_m_clust   ')")
          do i = 1, norder

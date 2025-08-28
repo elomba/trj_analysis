@@ -2,7 +2,7 @@ module mod_order
 ! Module for order parameter calculations
     use mod_precision
     use mod_common, only: r_d, r, sidel_d, cellxd, cellyd, cellzd, maxjd, maxkd, nnd, headd, listad, neighd, gptime, startEvent, stopEvent, tord, side2, ndrclus, drclus
-    use mod_input, only: norder, orderp, nnbond, nthread, run_clusters, rclcl, deltar, minclsize 
+    use mod_input, only: norder, orderp, nnbond, nthread, run_clusters, rclcl, deltar, minclsize, use_cell 
     use mod_clusters, only: cluster, avcluster_order, avcluster_order_cos, avcluster_order_sin, &
     cluster_order_cos, cluster_order_sin, maxcln, rclxyz, nbigcl
     use cudafor
@@ -72,13 +72,21 @@ contains
         !
         if (norder > 0) then
             rcl2 = rcl*rcl
+
             
             istat = cudaEventRecord(startEvent, 0)
             ! Launch GPU kernel
             atomic_order_cos_d(:,:) = 0.0
             atomic_order_sin_d(:,:) = 0.0
             if (dim == 2) then
-                call gpu_comp_order<<<Nmol/nthread+1, nthread,8*norder+1>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
+                if (use_cell) then
+                    call gpu_comp_order<<<Nmol/nthread+1, nthread,8*norder+1>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
+                else
+                    ! If not using cell list, use a different kernel without cell list
+                    print *, 'calculating order parameter without cell list'
+                    print *, rcl, rcl2, sidel(1), sidel(2)
+                    call gpu_comp_order_nc<<<Nmol/nthread+1, nthread,8*norder+1>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
+                end if
                 if (run_clusters) Then
                     cluster_order_cos(:,:) = 0.0
                     cluster_order_sin(:,:) = 0.0
@@ -200,6 +208,74 @@ contains
             end if
         end if
     end subroutine gpu_comp_order 
+
+    attributes(global) subroutine gpu_comp_order_nc(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
+        integer, value, intent(IN) :: Nmol, dim, norder, nnbnd
+        real(myprec), value :: rcl2
+        real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
+        real(myprec)  :: rv(3), rr2, s0, s1, s2, c0, c1, c2, cx, sy, cz, d
+        real(myprec) :: cosd(norder), sind(norder)
+        integer :: i, j, counter, ncount, ix, jy, kz, cell, icell
+        i = (blockidx%x - 1)*blockdim%x + threadidx%x
+        if (i <= Nmol) then
+            cosd(:) = 0.0
+            sind(:) = 0.0
+            ncount = 0
+            do j = 1, Nmol 
+                    if (j .ne. i) then
+                        rv(1:dim) = r(1:dim, i) - r(1:dim, j)
+                        rv = rv - sidel*nint(rv/sidel)
+                        rr2 = Dot_product(rv, rv)
+                        if (rr2 < rcl2) then
+                            ncount = ncount + 1
+                        ! count neighbors within cutoff and
+                        ! compute per atom order parameter
+                            d = __fsqrt_rn(rr2)
+                            cx = rv(1)/d
+                            sy = rv(2)/d
+                            if (dim == 3) then  
+                                cz = rv(3)/d
+                            end if
+                            c0 = 1.0
+                            c1 = cx
+                            s0 = 0.0
+                            s1 = sy
+                            counter = 1
+                            do ix = 2, orderp_d(norder)
+                                ! iterate to comnute sin(m*theta) and cos(m*theta)  
+                                c2 = c1*cx-s1*sy
+                                s2 = s1*cx+c1*sy
+                                s0 = s1
+                                s1 = s2
+                                c0 = c1
+                                c1 = c2
+                                ! add contribution to order parameter
+                                if (ix == orderp_d(counter)) then
+                                    cosd(counter) = cosd(counter) + c2
+                                    sind(counter) = sind(counter) + s2
+                                    counter = counter + 1
+                                end if
+                            end do
+                        end if
+                    endif
+            end do
+            if (ncount > 0) then
+                if (nnbnd ==0) then
+                    atomic_order_cos_d(i, 1:norder) = cosd(1:norder)/real(ncount, myprec)
+                    atomic_order_sin_d(i, 1:norder) = sind(1:norder)/real(ncount, myprec)
+                else
+                    ! Only compute order parameter if number of neighbors 
+                    ! equals the order of the parameter
+                    do j=1, norder
+                        if (orderp_d(j) == ncount) then
+                            atomic_order_cos_d(i, j) = cosd(j)/real(ncount, myprec)
+                            atomic_order_sin_d(i, j) = sind(j)/real(ncount, myprec)
+                        end if
+                    end do
+                end if
+            end if
+        end if
+    end subroutine gpu_comp_order_nc
 
     subroutine cl_comp_order(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
         integer, intent(IN) :: Nmol, dim, norder, nnbnd

@@ -11,7 +11,7 @@ module mod_input
             & jump=1, norder=1, nnbond=6
    logical :: use_cell = .true., run_order = .false., print_orderp=.false.
    logical, dimension(7) :: rdf_sq_cl_dyn_sqw_conf_ord
-   real(myprec) :: deltar, rcl=-1.0, dcl, qmin, qmax, rcrdf, rclcl=0.0, &
+   real(myprec) :: deltar, rcl, dcl, qmin, qmax, rcrdf, rclcl=0.0, &
       tmax=-1, tmaxp=-1, tlimit=-1, potengmargin=0.0
    real(myprec), allocatable, dimension(:) :: mat, bsc, charge, qw, tmqw
    integer, allocatable, dimension(:) :: orderp
@@ -20,11 +20,11 @@ module mod_input
    ! Input namelists
    namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread, &
       & ncfs_from_to,  rdf_sq_cl_dyn_sqw_conf_ord, nqw, norder, ener_name, &
-      & press_name, potnbins, potengmargin
+      & press_name, potnbins, potengmargin, rcl
    namelist /INPUT_SP/ sp_types_selected, sp_labels, mat
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
    namelist /INPUT_SQ/ qmax, qmin, bsc
-   namelist /INPUT_CL/ rcl, dcl, jmin, minclsize, ndrclus
+   namelist /INPUT_CL/ dcl, jmin, minclsize, ndrclus
    namelist /INPUT_CONF/ idir
    namelist /INPUT_DYN/ nbuffer, tmax, tmaxp, tlimit, jump
    namelist /INPUT_SQW/ qw, tmqw
@@ -57,7 +57,6 @@ contains
       qmax = -1.0
       if (rdf_sq_cl_dyn_sqw_conf_ord(2) == .true. &
       & .or. rdf_sq_cl_dyn_sqw_conf_ord(3) == .true. .or. rdf_sq_cl_dyn_sqw_conf_ord(5) == .true.  ) read (unit=io_input_file, nml=INPUT_SQ)
-      rcl = -1.0
       if (rdf_sq_cl_dyn_sqw_conf_ord(3) == .true.) then
          minclsize = jmin
          read (unit=io_input_file, nml=INPUT_CL)
@@ -77,7 +76,6 @@ contains
       if (rdf_sq_cl_dyn_sqw_conf_ord(7) == .true.) then
          allocate(orderp(norder))
          orderp(:) = 0
-         rclcl = rcl
          read (unit=io_input_file, nml=INPUT_ORDER)
          call quicksort_nri(orderp)
       endif
