@@ -65,7 +65,7 @@ Trajectory analysis
     ! namelist /INPUT_SQ/ qmax, qmin, bsc
     !          Max value of Q for S(Q), max value for full calculations (all Qs for 0<Q<=qmin), 
     !          scattering lengths 
-    ! namelist /INPUT_CL/ rcl, dcl, jmin, minclsize, ndrclus
+    ! namelist /INPUT_CL/ dcl, jmin, minclsize, ndrclus
     !          Geometric clustering distance, grid for cluster distribution, minimum cluster size for analysis, no. of bins for cluster profiles
     ! namelist /INPUT_ORD/ orderp, print_orderp, rclcl, nnbond
     !     Orientational order parameters  to be computed

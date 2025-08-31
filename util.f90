@@ -148,6 +148,7 @@ contains
       endif
       ! Confined system (density profile analysis in the direction of confinement)
       if (rdf_sq_cl_dyn_sqw_conf_ord(6) == .true.) run_rdf = .true.
+      ! Calculation of order parameters set to .true
       if (rdf_sq_cl_dyn_sqw_conf_ord(7) == .true.) run_order = .true.
    end subroutine form_dependencies
 
