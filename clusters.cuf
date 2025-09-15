@@ -363,7 +363,7 @@ contains
                volcl = pi*rcluster**2
             end if
             cluster(i)%cldens = real(clussize)/volcl
-            indr = nint(cluster(i)%rg/deltar)
+            indr = nint(cluster(i)%rg/drclus)
             if (indr <= ndr) radii(indr) = radii(indr) + 1
             denscl = denscl + cluster(i)%cldens
             rclus = rclus + rcluster
