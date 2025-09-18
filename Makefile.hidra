@@ -1,21 +1,21 @@
 # Makefile to build trj_analysis.
-# A word of warning: when making changes in common
+# A word of warning: when making changes in commo
 # Specify main local directory
 #
-PATH := /usr/local/nvidia/hpc_sdk/Linux_x86_64/2024/compilers/bin:$(PATH)
+PATH := /opt/nvidia/hpc_sdk/Linux_x86_64/2025/compilers/bin:$(PATH)
 PROG_DIR = /usr/local
 # Specify directory to Netcdf libs. The must be compiled with NVIDIA's nvfortran !!
-NETCDF = nv_netcdf
+NETCDF = 
 NETCDF_INC = $(PROG_DIR)/$(NETCDF)/include
 NETCDF_LIB = $(PROG_DIR)/$(NETCDF)/lib64
 
 FC = nvfortran
-FCOPTS = -O2 -mavx2 -mno-avx512f -gpu=cc60,cc70,cc80 -cudalib=curand
+FCOPTS = -O2 -gpu=cc60,cc70,cc80 -cudalib=curand 
 FCINC = -I$(NETCDF_INC)
 FCLIBS = -L$(NETCDF_LIB)
 
 F90 = $(FC)
-F90OPTS = -O2 -C -mavx2 -mno-avx512f
+F90OPTS = -O2 -C -mavx2 
 F90INC = $(FCINC)
 F90LIBS = $(FCLIBS)
 
@@ -23,7 +23,7 @@ LKOPTS =  -cuda -c++libs -gpu=cc60,cc70,cc80 -lnetcdff -lfftw3 -llapack -lblas
 LKINC = -I$(NETCDF_INC)
 LKLIBS = -L$(NETCDF_LIB)
 
-CC = nvcc
+CC = nvcc -ccbin gcc-14
 
 EXE = -o trj_analysis.exe
 
