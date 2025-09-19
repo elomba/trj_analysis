@@ -7,7 +7,7 @@ module mod_input
    integer, allocatable, dimension(:) :: sp_types_selected, nw
    integer, dimension(3) :: ncfs_from_to
    character(len=4), allocatable, dimension(:) :: sp_labels
-   integer :: nthread, ndim, jmin=3, minclsize, idir=0, nsp, nbuffer, potnbins=100, nqw=0, &
+   integer :: nthread, ndim, jmin=3, minclsize, idir=0, nsp, nbuffer=2, potnbins=100, nqw=0, &
             & jump=1, norder=1, nnbond=6
    logical :: use_cell = .true., run_order = .false., print_orderp=.false.
    logical, dimension(7) :: rdf_sq_cl_dyn_sqw_conf_ord
@@ -76,7 +76,12 @@ contains
          endif
       endif
       if (rdf_sq_cl_dyn_sqw_conf_ord(4) == .true. &
-      &  .or. rdf_sq_cl_dyn_sqw_conf_ord(5) == .true. ) read (unit=io_input_file, nml=INPUT_DYN)
+      &  .or. rdf_sq_cl_dyn_sqw_conf_ord(5) == .true. ) then 
+         read (unit=io_input_file, nml=INPUT_DYN)
+         if (nbuffer<2) then
+            write(*,'("*** Warning: nbuffer (number of buffers for time correlations) reset to 2 !")')
+         endif
+      endif 
       if (rdf_sq_cl_dyn_sqw_conf_ord(5) == .true.) then
          allocate(qw(nqw),nw(nqw),tmqw(nqw))
          tmqw(:) = 0.0
