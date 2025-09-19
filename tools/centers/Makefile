@@ -4,13 +4,11 @@ FC = gfortran
 EXE = exe
 FCFLAGS = -Ofast
 
-all: build run verify
+all: build 
 
 build: $(TEST).f90
 	$(FC) $(FCFLAGS) $(MODS) -o $(TEST).$(EXE) $<
 
-
-verify:
 
 clean:
 	@echo 'Cleaning up...'

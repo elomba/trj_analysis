@@ -120,6 +120,7 @@ contains
          else
             itlimit = nint(tlimit/(t(2)-t(1)))
          endif
+         print *, tmax, tlimit, itlimit, nconf, t(2), t(1)
          if (itlimit > Nconf) then
             write(*, "(//' !!! *** Unrecoverable error: tmax=',f8.3,'> trajectory lenght !!')")tmax
             stop
