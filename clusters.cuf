@@ -560,7 +560,7 @@ contains
       open (newunit=io_centers_file, file=centers_filename)
       open (newunit=io_clusevol_file, file=clusevol_filename)
       open (newunit=io_shape_file, file=fshape_filename)
-      write (io_clusevol_file,"('# conf no. clusters % particles in cluster', &
+      write (io_clusevol_file,"('# conf no. clusters % particles in cluster ', &
       & 8('x_av(',i1,')':))")nsp-1
       write (io_shape_file, '("# cluster size, average deviation spherical shape, &
       & average dev axial symmetry")')
