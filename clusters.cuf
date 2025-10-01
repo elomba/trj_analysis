@@ -56,7 +56,7 @@ contains
       implicit none
       integer, intent(IN) :: Iconf
       integer :: i, j, k, cluster_id, icl, ip, ind, indr, maxcl,&
-      & imaxcl, clsz, clussize, cmin, NP_lconf, icount, im
+      & imaxcl, clsz, clussize, cmin, NP_lconf, icount, im, countlarge
       Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
       Real(myprec) :: denscl, rmcl, cdmax=0
       Real(myprec), allocatable, save :: molfrac(:), clmfrac(:)
@@ -413,6 +413,7 @@ contains
          countcl(:) = 0
       end if
       ! Determine average cluster density, cluster g(r) and density profiles, cluster shape
+      countlarge = 0
       do i = 1, cluster_id
          j = cluster(i)%clsize
          if (j >= minclsize) then
@@ -429,14 +430,20 @@ contains
                 dratio(j) = dratio(j) + cluster(i)%ratio
                 countcl(j) = countcl(j) + 1
              end if
-            ! Internal cluster g(r) is only calculared inside large clusters
-            call rdfcl(ndim, cluster(i)%members(:), j, sidel&
-            &, side2, gcluster, lsmax, deltar, densav(i), cmin)
+             if (densav(i) > 1.0e-6) then
+               countlarge = countlarge+1
+               ! Internal cluster g(r) is only calculared inside clusters with average density 
+               ! > 0
+               call rdfcl(ndim, cluster(i)%members(:), j, sidel&
+               &, side2, gcluster, lsmax, deltar, densav(i), cmin)
+             endif
             call denspcl(ndim, cluster(i)%members(:), j, sidel, side2&
             &, rhoclus(0:ndrclus), ndrclus, drclus, cluster(i)%center(1:ndim))
          end if
       end do
-      gclustav(:) = gclustav(:) + gcluster(:)/nbigcl
+      if (countlarge>0) then
+         gclustav(:) = gclustav(:) + gcluster(:)/nbigcl
+      endif
       rhoclusav(0:ndrclus) = rhoclusav(0:ndrclus) + rhoclus(0:ndrclus)/nbigcl
       !
       ! Cluster-cluster pdf
@@ -718,20 +725,19 @@ contains
       end if
       rclus2 = rclus*rclus
       count = 0
-      
       do i = 1, nm
-         j = members(i)
-         if (j<=0 .or.j>natoms) then
-             write(*,*) 'Error: particle id ', j, ' is out of range (1:', natoms, ')'
-             stop
-         end if   
-         rv(1:dim) = r(1:dim, j) - center(1:dim)
-         ! PBC (unwrap if necessary)
-         rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
-         rr2 = Dot_product(rv(1:dim), rv(1:dim))
-         if (rr2 < rclus2) then
-            count = count + 1
-         end if
+            j = members(i)
+            if (j<=0 .or.j>natoms) then
+                write(*,*) 'Error: particle id ', j, ' is out of range (1:', natoms, ')'
+               stop
+            end if   
+            rv(1:dim) = r(1:dim, j) - center(1:dim)
+            ! PBC (unwrap if necessary)
+            rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+            rr2 = Dot_product(rv(1:dim), rv(1:dim))
+            if (rr2 < rclus2) then
+               count = count + 1
+            end if
       end do
       cldens = real(count)/vol
    end function cldens
