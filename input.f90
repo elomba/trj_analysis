@@ -18,7 +18,7 @@ module mod_input
    character(len=128) :: input_filename, log_output_file, trj_input_file
    !
    ! Input namelists
-   namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread, &
+   namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread,  &
       & ncfs_from_to,  rdf_sq_cl_dyn_sqw_conf_ord, nqw, norder, ener_name, &
       & press_name, potnbins, potengmargin, rcl
    namelist /INPUT_SP/ sp_types_selected, sp_labels, mat

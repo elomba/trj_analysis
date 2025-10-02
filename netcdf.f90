@@ -436,6 +436,8 @@ subroutine select_ncdfinput()
    end do
    counter(:) = nct(:)
    qcharge(:) = 0.0
+   r(:,:) = 0.0
+   if (ex_vel) vel(:,:) = 0.0
    do i = 1, natoms
       if (any(wtypes == orgty(ity_in(i,1)))) then
          it = findloc(wtypes,orgty(ity_in(i, 1)))
@@ -480,7 +482,6 @@ subroutine select_ncdfinput()
          itype(j) = it(1)
       endif
    end do
-
    compcharge = .false.
    do i = 1, nsp
       masa(nct(i) + 1:nct(i) + ntype(i)) = mat(i)

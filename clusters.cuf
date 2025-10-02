@@ -9,10 +9,9 @@ module mod_clusters
    use cudafor
    use mod_nc_conf, only : conf, wtypes, natoms, imol
    implicit none
-   integer :: io_centers_file, io_clusevol_file, io_last_filter, io_shape_file, nmaxcl, nbigcl
+   integer :: io_centers_file, io_clusevol_file, io_shape_file, nmaxcl, nbigcl
    character(len=17) :: centers_filename = 'centers.lammpstrj'
    character(len=12) :: clusevol_filename = 'clusevol.dat'
-   character(len=15) :: last_filter_filename = 'last_filter.dat'
    character(len=10) :: fshape_filename = 'fshape.dat'
    Real(myprec), allocatable :: clmfracav(:), dsph(:), dratio(:), countcl(:)
    Real(myprec), allocatable :: cluster_order_cos(:,:), cluster_order_sin(:,:), &
@@ -238,63 +237,6 @@ contains
       Nu_clus = nbigcl
      ! Write particle id, type, charge and position for last configuration
       if (Iconf == Nconf) then
-         open (newunit=io_last_filter, file=last_filter_filename)
-         write(io_last_filter,"('LAMMPS last configuration filtered for cluster size > minclsize')")
-         write (io_last_filter,"(/i9,'   atoms'/i3,'   atom types'/)") NP_lconf, nsp
-         if (ndim==3) then
-            write (io_last_filter,"(2f12.4,' xlo xhi'/2f12.4,' ylo yhi'/2f12.4,' zlo zhi')") &
-            &     (0.0,sidel(i), i=1, ndim)
-         else
-            write (io_last_filter,"(2f12.4,' xlo xhi'/2f12.4,' ylo yhi')") &
-            &     (0.0,sidel(i), i=1, ndim)
-            write (io_last_filter,"(2f12.4,' zlo zhi')") -0.5, 0.5
-         end if
-         write (io_last_filter,"(/'Masses'/)")
-         do i = 1, nsp
-            write(io_last_filter,'(i4,f15.7)') wtypes(i), masa(i)
-         end do
-         write (io_last_filter,"(/'Atoms'/)")
-         icount = 1
-         do i = 1, cluster_id
-            j = cluster(i)%clsize
-            if (j >= minclsize) then
-               do k = 1, j
-                  ip = cluster(i)%members(k)
-                  !
-                  if (ndim==3) then
-                     if (ex_qc) then
-                        write(io_last_filter,'(2i10,6f15.7)') icount, itype(ip), qcharge(ip), r(1:ndim,ip)
-                     else
-                        write(io_last_filter,'(2i10,6f15.7)') icount, itype(ip), 0.0, r(1:ndim,ip)
-                     end if
-                  else
-                     if (ex_qc) then
-                        write(io_last_filter,'(2i10,6f15.7)') icount, itype(ip), qcharge(ip),r(1:ndim,ip), 0.0
-                     else
-                        write(io_last_filter,'(2i10,6f15.7)') icount, itype(ip), 0.0, r(1:ndim,ip), 0.0
-                     endif
-                  end if
-                  icount = icount + 1
-               enddo
-            end if
-         end do
-         write(io_last_filter,"(/'Velocities'/)")
-         icount = 1
-         do i = 1, cluster_id
-            j = cluster(i)%clsize
-            if (j >= minclsize) then
-               do k = 1, j
-                  ip = cluster(i)%members(k)
-                  if (ndim==3) then
-                     write(io_last_filter,'(i10,6f15.7)') icount, vel(1:ndim,ip)
-                  else
-                     write(io_last_filter,'(i10,6f15.7)') icount, vel(1:ndim,ip), 0.0
-                  end if
-                  icount = icount + 1
-               enddo
-            end if
-         end do
-         close(io_last_filter)
          ! Write shape file
          do i = 1, nmaxcl
             if (countcl(i) > 0) then
@@ -513,7 +455,7 @@ contains
       end do
       time_gpu = gptime(stopEvent, startEvent)
       tbfs = tbfs + time_gpu
-      if (maxval(neighbors(:)) > 50) then
+      if (maxval(neighbors(:)) > 60) then
          write (error_msg, '(" Warning:redimension next to at least ", i5)') maxval(neighbors(:))
          stop(error_msg)
       end if

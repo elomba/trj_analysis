@@ -241,6 +241,8 @@ contains
       endif
       if (run_clusters) then
          call print_clusinfo(nqmin, Nmol)
+         ! Print last cluster configuration
+         call print_last_clustconf()
          if (run_thermo) then
             call printPotEngCl()
          end if
@@ -249,6 +251,47 @@ contains
          call print_order()
       endif
    end subroutine print_results
+
+   subroutine print_last_clustconf()
+      ! 
+      ! Print last cluster configuration in LAMMPS format
+      ! Atom type is set to original type + cluster size
+      !
+      use mod_common, only : cluster, itype, r, Nu_clus,  sidel, nstep, ex_vel, Nconf
+      use mod_input,only : ndim, minclsize
+      implicit none
+      integer :: i, j, k, icl, id, io_lastclconf, natcl
+      natcl = 0
+      do i = 1, Nu_clus
+         if (cluster(i)%clsize >= minclsize) natcl = natcl + cluster(i)%clsize
+      end do
+      open(newunit=io_lastclconf, file='last_clconf.lammpstrj', status='replace')
+      write (io_lastclconf, "('ITEM: TIMESTEP'/I12/'ITEM: NUMBER OF ATOMS'/I12/'ITEM: BOX BOUNDS pp pp pp')") nstep, natcl
+      write (io_lastclconf, "(2f15.7)") (0.0, sidel(i), i=1, ndim)
+      if (ndim == 2) write (io_lastclconf, "('-0.5 0.5')")
+      if (ex_vel) then
+         write (io_lastclconf, "('ITEM: ATOMS id type x y z vx vy vz')")
+      else
+         write (io_lastclconf, "('ITEM: ATOMS id type x y z')")
+      end if
+      icl = 0
+      do i = 1, Nu_clus
+         j = cluster(i)%clsize
+         if (j >= minclsize) then
+            do k = 1, j
+               icl = icl + 1
+               id = cluster(i)%members(k)
+               if (ndim == 3) then
+                  write (io_lastclconf, "(I8,I4,3F15.7,3F15.7)") &
+                     & icl, itype(id)+j, r(1:3,id)
+               else
+                  write (io_lastclconf, "(I8,I4,2F15.7,3F15.7)") &
+                     & icl, itype(id)+j, r(1:ndim,id), 0.0
+               end if
+            end do
+         end if
+      end do
+   end subroutine print_last_clustconf
 
    subroutine reformat_input_conf(io,final_conf,current_conf,ntypes,nsp)
       implicit none

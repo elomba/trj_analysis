@@ -105,6 +105,7 @@ program trj_analysis
     !      - sqw.dat  (S(Q_i,w), S_self(Q_i,w) for nwq Qs)
     !      - order.dat Average Steinhardt order parameters <Q_l> (l=1,norder)
     !      - order_per_mol.dat Average per particle Steinhardt order parameters <q_l>
+    !      - last_clconf.dat Last configuration with cluster particle IDs (defined by size)
     !
     !      * Cluster analysis
     !      - rhoprof.dat Average cluster density profile (only for finite clusters) 
