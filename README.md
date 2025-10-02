@@ -17,6 +17,7 @@ Trajectory analysis
 - Kinetic energy (if velocities present in trajectory file) global and per cluster
 - Potential energy (if compute pe/peratom pressent in the trajectory file)
 - Stress tensor (pressure)  (if compute stress/atom pressent in the trajectory file)
+- Particle density and charge density profiles for systems confined along a space direction
 
 -   **Important notice:** in LAMMPS script the following computes must be 
     included in the dump in order to compute potential energies and pressures
@@ -24,7 +25,7 @@ Trajectory analysis
 ```
       compute stress all stress/atom NULL
       compute ener all pe/atom
-      dump trj1 all netcdf ${Ndump} run.nc  id type x y z vx vy vz c_stress[*] c_ener
+      dump trj1 all netcdf ${Ndump} run.nc  id type x y z vx vy vz q c_stress[*] c_ener
 ```
 
 
@@ -76,9 +77,7 @@ Trajectory analysis
     !    all NN are used up to the cutoff to compute, otherwise the number of 
     !    neighbors must be the same as the order of the parameter (default)
     !
-
     !          
-
     ! namelist /INPUT_CONF/ idir, pwall, pwallp
     !          Direction of confinement (1,2,3->x,y,z), position of left wall, position of right wall
     ! namelist /INPUT_DYN/ nbuffer, tmax, tmaxp, tlimit, jump

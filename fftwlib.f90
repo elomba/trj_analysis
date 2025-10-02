@@ -28,7 +28,6 @@ subroutine fftw1d(fin,fout,w,nin,dtin, tmax)
    forall (i=1:n) tx(i)=(i-1)*dt
    ! if tmax not defined use maximum time
    if (abs(tmax)<1.0e-6) tmax = n*dt
-  
    in(1:n) = in(1:n)*window(tx,tmax,n,alpha)
 
    Call fftw1(in,out,n,.True.)
@@ -37,9 +36,9 @@ subroutine fftw1d(fin,fout,w,nin,dtin, tmax)
       fout(i) = real(out(i))
    End Do
    deallocate(in,out)
- end subroutine fftw1d
+end subroutine fftw1d
 
-  Subroutine fftw1(in,out,n,forward)
+Subroutine fftw1(in,out,n,forward)
    !
    ! Use FFTW3 to compute the 1D Fourier cosine transform from t->w
    !
@@ -69,14 +68,14 @@ subroutine fftw1d(fin,fout,w,nin,dtin, tmax)
       ! FT(k_x) = 2*(Real(F(k_x))+Real(F(-K_x)) and we make use of the symmetry 
       out(i) = (out(i)+out(n-i+2))*dfact/2
    End Forall
- End Subroutine fftw1
+End Subroutine fftw1
 
- function window(t,x,n,alpha) result(w)
+function window(t,x,n,alpha) result(w)
    implicit none
    integer, intent(in) :: n
    real(float), intent(in) :: t(n), x, alpha
    real(float) :: w(n)
    w(1:n) = 0.5*(1-tanh(alpha*(t(1:n)-x)))
- end function window
+end function window
 
 end module fftw3
