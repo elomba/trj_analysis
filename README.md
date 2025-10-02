@@ -91,6 +91,7 @@ Trajectory analysis
     !          values of Q to compute F(Q,t), Fs(Q,t) and S(Q,w),Ss(Q,w) maximum times for F(Q,t),
     !          if omitted tmax is used
     !
+    !
     !    OUTPUT FILES:
     !      * Thermodynamics
     !      - thermo_run.dat (Instantaneous values of thermod. quantities)
