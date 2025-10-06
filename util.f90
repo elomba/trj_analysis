@@ -259,15 +259,18 @@ contains
       !
       use mod_common, only : cluster, itype, r, Nu_clus,  sidel, nstep, ex_vel, Nconf
       use mod_input,only : ndim, minclsize
+      use mod_nc_conf, only : org
       implicit none
-      integer :: i, j, k, icl, id, io_lastclconf, natcl
+      ! maxcolor is set to 32, so cluster size up to maxclsize can be distinguished by color in VMD
+      integer :: i, j, k, icl, id, io_lastclconf, natcl, maxclsize, maxcolor=32
       natcl = 0
+      maxclsize = maxval(cluster(1:Nu_clus)%clsize)
       do i = 1, Nu_clus
          if (cluster(i)%clsize >= minclsize) natcl = natcl + cluster(i)%clsize
       end do
       open(newunit=io_lastclconf, file='last_clconf.lammpstrj', status='replace')
       write (io_lastclconf, "('ITEM: TIMESTEP'/I12/'ITEM: NUMBER OF ATOMS'/I12/'ITEM: BOX BOUNDS pp pp pp')") nstep, natcl
-      write (io_lastclconf, "(2f15.7)") (0.0, sidel(i), i=1, ndim)
+      write (io_lastclconf, "(2f15.7)") (org(i,1), org(i,1)+sidel(i), i=1, ndim)
       if (ndim == 2) write (io_lastclconf, "('-0.5 0.5')")
       if (ex_vel) then
          write (io_lastclconf, "('ITEM: ATOMS id type x y z vx vy vz')")
@@ -283,10 +286,10 @@ contains
                id = cluster(i)%members(k)
                if (ndim == 3) then
                   write (io_lastclconf, "(I8,I4,3F15.7,3F15.7)") &
-                     & icl, itype(id)+j, r(1:3,id)
+                     & icl, min((j/maxclsize)*maxcolor,1), r(1:ndim,id)+org(1:ndim,1)
                else
                   write (io_lastclconf, "(I8,I4,2F15.7,3F15.7)") &
-                     & icl, itype(id)+j, r(1:ndim,id), 0.0
+                     & icl, itype(id)+j, r(1:ndim,id)+org(1:ndim,1), 0.0
                end if
             end do
          end if
