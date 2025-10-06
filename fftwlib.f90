@@ -7,6 +7,7 @@ Module fftw3
 
 Contains
 
+
 subroutine fftw1d(fin,fout,w,nin,dtin, tmax)
    !
    !
