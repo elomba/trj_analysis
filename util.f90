@@ -261,10 +261,9 @@ contains
       use mod_input,only : ndim, minclsize
       use mod_nc_conf, only : org
       implicit none
-      ! maxcolor is set to 32, so cluster size up to maxclsize can be distinguished by color in VMD
-      integer :: i, j, k, icl, id, io_lastclconf, natcl, maxclsize, maxcolor=32
+      ! maxcolor is set to 32, so cluster size distinguished by color in VMD
+      integer :: i, j, k, icl, id, io_lastclconf, natcl, maxcolor=32
       natcl = 0
-      maxclsize = maxval(cluster(1:Nu_clus)%clsize)
       do i = 1, Nu_clus
          if (cluster(i)%clsize >= minclsize) natcl = natcl + cluster(i)%clsize
       end do
@@ -286,10 +285,10 @@ contains
                id = cluster(i)%members(k)
                if (ndim == 3) then
                   write (io_lastclconf, "(I8,I4,3F15.7,3F15.7)") &
-                     & icl, min((j/maxclsize)*maxcolor,1), r(1:ndim,id)+org(1:ndim,1)
+                     & icl, mod(j,maxcolor), r(1:ndim,id)+org(1:ndim,1)
                else
                   write (io_lastclconf, "(I8,I4,2F15.7,3F15.7)") &
-                     & icl, itype(id)+j, r(1:ndim,id)+org(1:ndim,1), 0.0
+                     & icl, mod(j,maxcolor), r(1:ndim,id)+org(1:ndim,1), 0.0
                end if
             end do
          end if
