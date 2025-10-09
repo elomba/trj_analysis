@@ -293,8 +293,10 @@ contains
             end do
          end if
       end do
+      close(io_lastclconf)
    end subroutine print_last_clustconf
 
+   
    subroutine reformat_input_conf(io,final_conf,current_conf,ntypes,nsp)
       implicit none
       integer, intent(inout) :: final_conf

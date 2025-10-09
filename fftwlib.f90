@@ -9,6 +9,7 @@ Contains
 
 subroutine fftw1d(fin,fout,w,nin,dtin, tmax)
    !
+   !
    Implicit None
    integer, intent(IN) :: nin
    real(float), intent(IN) :: fin(nin), dtin
