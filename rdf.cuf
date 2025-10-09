@@ -63,6 +63,8 @@ contains
             deallocate (gclcl)
             deallocate (rhoclus)
             deallocate (rhoclusav)
+            deallocate (gclr)
+            deallocate (gclr2)
         endif
 
     end subroutine rdf_clear

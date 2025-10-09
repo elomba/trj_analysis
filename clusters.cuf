@@ -380,7 +380,7 @@ contains
                &, side2, gcluster, lsmax, deltar, densav(i), cmin)
              endif
             call denspcl(ndim, cluster(i)%members(:), j, sidel, side2&
-            &, rhoclus(0:ndrclus), ndrclus, drclus, cluster(i)%center(1:ndim))
+             &, rhoclus(0:ndrclus), ndrclus, drclus, cluster(i)%center(1:ndim))
          end if
       end do
       if (countlarge>0) then
@@ -552,7 +552,7 @@ contains
          if (rr2 <= side2)then
             rr = sqrt(rr2)
             ind = Nint(rr/deltar)
-            rho(ind) = rho(ind) + 1.0
+            if(ind>0.and.ind<=lsmax) rho(ind) = rho(ind) + 1.0
          endif
       end do
    end subroutine denspcl
