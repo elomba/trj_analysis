@@ -7,7 +7,8 @@ module mod_log
    use mod_clusters
    use mod_order, only: norder, orderp, avorder, avorder_cos, avorder_sin, &
         cluster_order_cos, cluster_order_sin, avcluster_order, avcluster_order_cos, &
-        avcluster_order_sin, atomic_order_cos, atomic_order_sin, rhoorderav
+        avcluster_order_sin, atomic_order_cos, atomic_order_sin, rhoorderav, &
+        ordercumav
    use cudafor
    use mod_thermo, only : engclus, engclpa
    implicit none
