@@ -10,7 +10,7 @@ module mod_order
     real(myprec) :: rclcl2
     real(myprec), allocatable :: atomic_order_cos(:,:), atomic_order_sin(:,:), &
         avorder_cos(:), avorder_sin(:), avorder(:)
-    real(myprec), allocatable :: rhoorder(:,:), rhoorderav(:,:)
+    real(myprec), allocatable :: rhoorder(:,:), ordercum(:,:), rhoorderav(:,:), ordercumav(:,:)
     real(myprec), device, allocatable :: atomic_order_cos_d(:,:), atomic_order_sin_d(:,:)
     integer, parameter :: nmax_order = 20
     integer, constant :: orderp_d(nmax_order)
@@ -40,10 +40,12 @@ contains
         endif
         if (run_clusters) then
             if (.not. allocated(rhoorder)) then
-                allocate(rhoorder(0:ndrclus, norder))
-                allocate(rhoorderav(0:ndrclus, norder))
+                allocate(rhoorder(0:ndrclus, norder), ordercum(0:ndrclus, norder))
+                allocate(rhoorderav(0:ndrclus, norder, ordercumav(0:ndrclus, norder))
                 rhoorder(:,:) = 0.0
+                ordercum(:,:) = 0.0
                 rhoorderav(:,:) = 0.0
+                ordercumav(:,:) = 0.0
             endif
         end if
 
@@ -59,7 +61,9 @@ contains
         if (allocated(avorder_sin)) deallocate(avorder_sin)
         if (allocated(avorder)) deallocate(avorder)
         if (allocated(rhoorder)) deallocate(rhoorder)
-        if (allocated(rhoorderav)) deallocate(rhoorderav)   
+        if (allocated(rhoorderav)) deallocate(rhoorderav)  
+        if (allocated(ordercum)) deallocate(ordercum)
+        if (allocated(ordercumav)) deallocate(ordercumav)    
     end subroutine order_clear
 
     subroutine compute_order(Nmol, dim, rcl, sidel)
@@ -114,11 +118,12 @@ contains
                 do i = 1, maxcln
                     if (cluster(i)%clsize >= minclsize) then
                         call clorderprof(r, dim, nbigcl, cluster(i)%members(:),&
-                        cluster(i)%clsize, sidel, rhoorder, ndrclus, drclus, &
+                        cluster(i)%clsize, sidel, rhoorder, ordercum, ndrclus, drclus, &
                         &  cluster(i)%center(1:dim))
                     endif
                 enddo
                 rhoorderav(:,:) = rhoorderav(:,:)+rhoorder(:,:)/real(nbigcl, myprec)
+                ordercumav(:,:) = ordercumav(:,:)+ordercum(:,:)/real(nbigcl, myprec)
             end if  
         end if
     end subroutine compute_order
@@ -344,19 +349,21 @@ contains
 
     end subroutine cl_comp_order 
 
-    subroutine clorderprof(r,dim, nmol, members, nm, sidel, rhoorder, lsmax, deltar, center)
+    subroutine clorderprof(r,dim, nmol, members, nm, sidel, rhoorder, ordercum, lsmax, deltar, center)
       integer, intent(IN) :: nm, lsmax, dim, nmol
       integer, intent(IN) :: members(nm)
       real, intent(IN) :: r(dim, Nmol), sidel(dim), center(dim), deltar
       real, intent(INOUT) :: rhoorder(0:lsmax, norder)
+      real, intent(INOUT) :: ordercum(0:lsmax, norder)
       real :: rv(3), rr2, rr, fact
-      integer :: count(0:lsmax)
+      integer :: count(0:lsmax), cumcount(0:lsmax)
       integer :: k, l, i, j, ind
       ! order(r) is normalized for each configuration,
       ! since particle number may change
       ! Order parameters are averaged over each slice
       ! and then over configurations
       count(:) = 0
+      cumcount(:) = 0
       do k = 1, nm
          i = members(k)
          rv(1:dim) = r(1:dim, i) - center(1:dim)
@@ -373,12 +380,19 @@ contains
          end If
       end do
       do i = 0, lsmax
-         if (count(i) > 0) then
+        do j = 1, norder
+            ordercum(i,j) = sum(rhoorder(0:i,j))
+            cumcount(i) = sum(count(0:i))
+            if (cumcount(i) > 0) then
+                ordercum(i,j) = ordercum(i,j)/real(cumcount(i), myprec)
+            end if
+        end do
+        if (count(i) > 0) then
             fact = 1.0/real(count(i), myprec)
             do j = 1, norder
-               rhoorder(i,j) = rhoorder(i,j)*fact
+                rhoorder(i,j) = rhoorder(i,j)*fact
             end do
-         end if
-      end do    
+        end if
+     end do    
    end subroutine clorderprof   
 end module mod_order    

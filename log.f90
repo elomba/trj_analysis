@@ -464,6 +464,13 @@ contains
                write (onunit, '(f10.5, 15f12.5)') i*drclus, rhoorderav(i,1:norder)/(Nconf)
             end do
             close(onunit)
+           open (newunit=onunit, file='ordprof_clcum.dat')
+             write (onunit, "('#      r     ',15('   psi_cum',i2,'(r)':))")(orderp(i), i=1, norder)
+              write (onunit, '(f10.5, 15f12.5)') 0.0, ordercumav(0,1:norder)/(Nconf)
+            do i = 1, ndrclus
+               write (onunit, '(f10.5, 15f12.5)') i*drclus, ordercumav(i,1:norder)/(Nconf)
+            end do
+            close(onunit)
          end if
       end if   
    end subroutine print_order
