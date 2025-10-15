@@ -13,7 +13,8 @@ Trajectory analysis
   clusters
 - Cluster analysis (average cluster profiles, cluster-cluster rdf's and sq's) size and
   radii distributions, and a trajectory file with the evolution of cluster  com's 
-- Dynamics (position and velocity time correlation functions)
+- Dynamics (position and velocity time correlation functions, viscosity if stress tensor
+- is computed)
 - Kinetic energy (if velocities present in trajectory file) global and per cluster
 - Potential energy (if compute pe/peratom pressent in the trajectory file)
 - Stress tensor (pressure)  (if compute stress/atom pressent in the trajectory file)
