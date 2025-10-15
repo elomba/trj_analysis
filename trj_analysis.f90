@@ -116,7 +116,8 @@ program trj_analysis
     !      - clusevol.dat , conf no., no. of clusters, % of particles in clusters
     !      - fshape.dat, cluster shape (deviation from sphere and cylnder)
     !                    (0,0) perfect sphere, (>0,0) perfect cylindero
-    !      - orderprof.dat Steinhardt order parameter density profiles (within clusters): averaged over all clusters across slices
+    !      - ordprof_clust.dat Steinhardt order parameter density profiles (within clusters): averaged over all clusters across slices
+    !      - ordprof_clcum.dat Steinhardt order parameter density profiles (cummulative)
     !      - order_per_cl.dat Average Steinhardt order parameters per cluster <Q_l> (l=1,norder)
     !      - centers.lammpstrj trajectory of clusters centers of mass (to be visualized with Ovito)
     !                          Particle no. not constant along the trajectory !!
