@@ -41,7 +41,7 @@ contains
         if (run_clusters) then
             if (.not. allocated(rhoorder)) then
                 allocate(rhoorder(0:ndrclus, norder), ordercum(0:ndrclus, norder))
-                allocate(rhoorderav(0:ndrclus, norder, ordercumav(0:ndrclus, norder))
+                allocate(rhoorderav(0:ndrclus, norder), ordercumav(0:ndrclus, norder))
                 rhoorder(:,:) = 0.0
                 ordercum(:,:) = 0.0
                 rhoorderav(:,:) = 0.0
