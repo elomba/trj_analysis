@@ -139,7 +139,6 @@ Requires NVIDIA CUDA SDK >= 11.6, netcdf v 4.9, FFTW3.
  A. Diaz-Pozuelo & E. Lomba, CSIC-Madrid/USC Santiago de Compostela, August 2025 
 
 ## License
-Not licensed yet.
 Creative Commons Non commercial CC BY-NC 4.0 (https://creativecommons.org/licenses/by-nc/4.0/)
 ## Project status
 Version 0.6 ready. Awaiting for publication
