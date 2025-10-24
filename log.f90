@@ -94,10 +94,7 @@ contains
             if (run_clusters) then
                if (tunits == 'lj') then
                   write (*, "(' ** Average intracluster potential energy/epsilon=',f15.4,' Peratom =',f15.4)") engclus, engclpa
-                  write (*, "(' ** Average intracluster potential energy/epsilon=',f15.4,' Peratom =',f15.4)") engclus, engclpa  
                else
-                  write (*, "(' ** Average intracluster potential energy=',f15.4,' Kcal/mol'&
-                  ,' Peratom =',f15.4,' Kcal/mol')") engclus, engclpa
                   write (*, "(' ** Average intracluster potential energy=',f15.4,' Kcal/mol'&
                   ,' Peratom =',f15.4,' Kcal/mol')") engclus, engclpa
                endif

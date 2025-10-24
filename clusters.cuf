@@ -638,8 +638,7 @@ contains
       integer, intent(IN) :: dim
       real, intent(INOUT) :: inerc(:,:)
       ! Diagonalize 3x3 inertia tensor
-      ! This is a placeholder for the actual diagonalization routine
-      ! You can use LAPACK or any other library to perform this operation
+      ! using LAPACK 
       integer, parameter :: lwork = 9
       integer :: info, i
       real :: d(dim), e(lwork)
