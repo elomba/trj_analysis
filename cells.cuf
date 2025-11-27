@@ -258,6 +258,8 @@ contains
     end function fijd
 
     attributes(global) subroutine gbfs(Nmol, visited, border, cluster_id, jmin)
+        ! GPU BFS routine, uses neighbor lists to run through adjacent nodes, marks visited nodes and border nodes. 
+        ! Starts from border nodes and border is being expanded. Completely parallel implementation.
         integer, value, intent(IN) :: Nmol, cluster_id, jmin
         logical(kind=1), intent(INOUT) :: visited(Nmol), border(Nmol)
         integer :: i, j, k
@@ -276,8 +278,8 @@ contains
         end if
     end subroutine gbfs
 
-    ! attributes(global) subroutine gpu_graph_cell(Nmol, dim, rcl2, jmin)
     attributes(global) subroutine gpu_graph_cell(r, Nmol, dim, rcl2, sidel, jmin)
+    ! Graph construction on GPU using linked cells
         integer, value, intent(IN) :: Nmol, dim, jmin
         real(myprec), value :: rcl2
         real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
@@ -316,13 +318,15 @@ contains
                     j = listad(j)
                 end do
             end do
+            ! determine number of neighbors and core status
             gneighbors(i) = counter
+            ! If number of neighbors >= jmin - 1 then mark as core node
             if (counter >= jmin - 1) gcore(i) = .true.
         end if
     end subroutine gpu_graph_cell
 
-    ! attributes(global) subroutine gpu_graf(Nmol, dim, rcl2, jmin)
     attributes(global) subroutine gpu_graf(r, Nmol, dim, rcl2, sidel, jmin)
+        ! Simple GPU graph construction without linked cells 
         integer, value, intent(IN) :: Nmol, dim
         integer, value :: jmin
         real, value :: rcl2
@@ -349,7 +353,6 @@ contains
         end if
     end subroutine gpu_graf
 
-    ! attributes(global) subroutine gpu_adj_cell(Nmol, dim, rcl2)
     attributes(global) subroutine gpu_adj_cell(r, Nmol, dim, rcl2, sidel)
         integer, value, intent(IN) :: Nmol, dim
         real(myprec), value :: rcl2
