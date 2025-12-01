@@ -5,9 +5,9 @@
 PATH := /opt/nvidia/hpc_sdk/Linux_x86_64/2025/compilers/bin:$(PATH)
 PROG_DIR = /usr/local
 # Specify directory to Netcdf libs. The must be compiled with NVIDIA's nvfortran !!
-NETCDF = 
+NETCDF = netcdf-nv
 NETCDF_INC = $(PROG_DIR)/$(NETCDF)/include
-NETCDF_LIB = $(PROG_DIR)/$(NETCDF)/lib64
+NETCDF_LIB = $(PROG_DIR)/$(NETCDF)/lib
 
 FC = nvfortran
 FCOPTS = -O2 -gpu=cc80 -cudalib=curand 
