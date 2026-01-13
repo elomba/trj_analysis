@@ -52,7 +52,7 @@ Trajectory analysis
 !
     ! namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, norder,nthread, &
     !       ncfs_from_to, rcl, rdf_sq_cl_dyn_sqw_conf_ord, nqw, ener_name, press_name, 
-    !       potnbins, potengmargin
+    !       potnbins, potengmargin, periodic(ndim)
     !       Name of log file, name of netcdf trajectory file, no. of dimensions (2,3), no. of species,
     !       no. of CUDA threads (default 128), no. of configurations-start-end, modules to run 
     !       NN distance for cluster analysis and order parameter computation
@@ -60,6 +60,7 @@ Trajectory analysis
     !       no. of Q's for dynamic analysis, name of compute for potential energy/atom in LAMMPS,
     !       name of stress/atom, no. of bins for energy histograms (def. 100), extra margins 
     !       in energy histograms (def. 0))
+    !       periodic(ndim): defaults to true, logical var to indicate non-periodic dimension
     ! namelist /INPUT_SP/ sp_types_selected, sp_labels, mat
     !          IDs of selected species (if nsp<ntypes in trajectory), character labels, atomic mass
     ! namelist /INPUT_RDF/ deltar, rcrdf, nrandom
