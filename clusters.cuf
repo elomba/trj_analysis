@@ -275,6 +275,14 @@ contains
       end if
       allocate (rclxyz(ndim, cluster_id), densav(cluster_id))
       allocate (rclxyzd(ndim, cluster_id))
+      if (.not.allocated(densclus)) then
+         allocate(densclus(0:ndrho))
+      end if
+      if (iconf == 1) then
+         nmaxcl = 1000
+         allocate(dratio(1:nmaxcl), dsph(1:nmaxcl), countcl(1:nmaxcl))
+         densclus(0:ndrho) = 0.0
+      end if
       rclxyz(:,:) = 0.0
       rclxyzd(:,:) = 0.0
       gcluster(:) = 0
@@ -285,8 +293,6 @@ contains
       !
       ! Determine cluster radii, density ..
       !
-      averg = 0
-      im = 0
       do i = 1, cluster_id
          clussize = cluster(i)%clsize
          if (clussize >= minclsize) then
@@ -295,6 +301,28 @@ contains
             rclxyz(1:ndim, im) = clcent(1:ndim)
             rcluster = radius(cluster(i)%members(:), clussize, clcent, sidel)
             cluster(i)%radio = rcluster
+         end if
+      end do
+      if (iconf==1) Then
+         if (2*maxval(cluster(1:cluster_id)%clsize) > nmaxcl) then
+            print *, ' Warning: increasing nmaxcl to ', 2*maxval(cluster(1:cluster_id)%clsize)
+            nmaxcl = 2*maxval(cluster(1:cluster_id)%clsize)
+            deallocate (dratio, dsph, countcl)
+            allocate(dratio(1:nmaxcl), dsph(1:nmaxcl), countcl(1:nmaxcl))
+         end if
+         nmaxcl = 2*maxval(cluster(1:cluster_id)%clsize)
+
+         rmcl = maxval(cluster(1:cluster_id)%radio)
+         drclus = 2*rmcl/ndrclus
+      endif
+      averg = 0
+      im = 0
+      do i = 1, cluster_id
+         clussize = cluster(i)%clsize
+         if (clussize >= minclsize) then
+            im = im + 1
+            clcent(:) = cluster(i)%center(1:ndim)
+            rclxyz(1:ndim, im) = clcent(1:ndim)
             ! Radius of gyration
             cluster(i)%rg = radiusrg(cluster(i)%members(:), clussize, &
             & clcent, sidel,cluster(i)%mass)
@@ -317,13 +345,9 @@ contains
       end do
       avrg = avrg +averg/nbigcl
       rclxyzd(:, :) = rclxyz(:, :)
-      if (iconf==1) then
+      if (iconf == 1) then
          drho = 2*cdmax/ndrho
-         allocate(densclus(0:ndrho))
-         densclus(:) = 0.0
-         rmcl = maxval(cluster(1:cluster_id)%radio)
-         drclus = 2*rmcl/ndrclus
-      endif
+      end if
       ! Cluster density distribution
       do i = 1, cluster_id
          clussize = cluster(i)%clsize
@@ -341,19 +365,6 @@ contains
       endif
       averdens = averdens + denscl/nbigcl
       avradio = avradio + rclus/nbigcl
-      if (.not. allocated(dratio)) then
-         nmaxcl = 2*maxval(cluster(1:cluster_id)%clsize)
-         allocate(dratio(1:nmaxcl))
-         dratio(:) = 0.0
-      end if
-      if (.not.allocated(dsph)) then
-         allocate(dsph(1:nmaxcl))
-         dsph(:) = 0.0
-      end if  
-      if (.not.allocated(countcl)) then
-         allocate(countcl(1:nmaxcl))
-         countcl(:) = 0
-      end if
       ! Determine average cluster density, cluster g(r) and density profiles, cluster shape
       countlarge = 0
       do i = 1, cluster_id

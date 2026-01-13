@@ -230,6 +230,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
             if (k.ne. idir) then
                r(k, 1:natoms, 1) = r(k, 1:natoms, 1) - org(k, 1)
             end if
+   
             if (cell(k, 1) == 0) then
                periodic(k) = .false.
                ! LAMMPS sets cell length to zero if not periodic
@@ -396,7 +397,7 @@ subroutine select_ncdfinput()
       nct, counter
    use mod_common, only: vel, r, force, cell, sidel, side, volumen, itype, bscat, tunit, &
       ntype, masa, nstep, vector_product, nmol, ex_vel, ex_force, ex_qc, &
-      tuniti, side2, u_p, stress, voigt, run_thermo, ex_stress, qcharge, chgh, ncharge, cntch
+      tuniti, side2, u_p, stress, voigt, run_thermo, ex_stress, qcharge, chgh, ncharge, cntch, periodic
    use mod_input, only: ndim, mat, bsc, rcrdf, nsp, charge, idir
    implicit none
    integer :: i, j, k, it(1), index, ipch(1)
@@ -404,6 +405,8 @@ subroutine select_ncdfinput()
    if (.not.allocated(nct)) allocate(nct(nsp))
    if (.not.allocated(counter)) allocate(counter(nsp))
    nstep = nstep_in(1)
+   ! quick and dirty fix to avoid problems with non-periodic directions
+   ! cell_in(:, 1) = 1.5*cell_in(:, 1)
    sidel(:) = cell_in(:, 1)
    side = Minval(sidel(1:ndim))
    ! secure rcrdf to be less that half the simulation box
@@ -473,12 +476,8 @@ subroutine select_ncdfinput()
             endif
          endif
          ! Coordinates are folded back into the simulation cell under PBC
-         ! stay the same if not periodic
-         do k=1, ndim
-            if (k .ne. idir) then
-               r(k, j) = r(k, j) - sidel(k)*int(r(k, j)/sidel(k))
-            end if
-         enddo
+         ! Has no effect  if not periodic
+         r(1:ndim, j) = r(1:ndim, j) - sidel(1:ndim)*int(r(1:ndim, j)/sidel(1:ndim))
          itype(j) = it(1)
       endif
    end do

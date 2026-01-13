@@ -1,6 +1,8 @@
 # Makefile to build trj_analysis.
-# A word of warning: when making changes in commo
+# A word of warning: when making changes in common
 # Specify main local directory
+#
+PATH := /usr/local/nvidia/hpc_sdk/Linux_x86_64/2024/compilers/bin:$(PATH)
 PROG_DIR = /usr/local
 # Specify directory to Netcdf libs. The must be compiled with NVIDIA's nvfortran !!
 NETCDF = nv_netcdf
@@ -8,12 +10,12 @@ NETCDF_INC = $(PROG_DIR)/$(NETCDF)/include
 NETCDF_LIB = $(PROG_DIR)/$(NETCDF)/lib64
 
 FC = nvfortran
-FCOPTS = -O0 -g -mavx2 -mno-avx512f -gpu=cc60,cc70,cc80 -cudalib=curand -Xptxas=-v 
+FCOPTS = -O0 -g -C -mavx2 -mno-avx512f -gpu=cc60,cc70,cc80 -cudalib=curand
 FCINC = -I$(NETCDF_INC)
 FCLIBS = -L$(NETCDF_LIB)
 
 F90 = $(FC)
-F90OPTS = -O0 -g -C -mavx2 -mno-avx512f
+F90OPTS = -O0 -C -g -mavx2 -mno-avx512f
 F90INC = $(FCINC)
 F90LIBS = $(FCLIBS)
 
@@ -23,10 +25,10 @@ LKLIBS = -L$(NETCDF_LIB)
 
 CC = nvcc
 
-EXE = -o trj_analysis_d.exe
+EXE = -o trj_analysis.exe
 
-OBJ = precision.o thrust.o common.o input.o netcdf.o cells.o \
-	sq.o rdf.o densprof.o thermo.o clusters.o log.o fftwlib.o dynamics.o\
+OBJ = precision.o thrust.o common.o sorts.o input.o netcdf.o cells.o \
+	sq.o rdf.o densprof.o thermo.o clusters.o order.o log.o fftwlib.o dynamics.o\
 	util.o trj_analysis.o ex-scan.o
 
 %.o : %.mod

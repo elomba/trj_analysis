@@ -351,7 +351,7 @@ subroutine read_nc_cfg(ncid,ncstart,io,unit)
         start(3) = ncstart
         count(2) = natoms
         call check(nf90_get_var(ncid,i,r,start,count),ioerr)
-        do k=1, 3
+        do k=1, ndim
          ! shift coordinates to start at 0 (ease cell list computations)
            r(k,1:natoms,1) = r(k,1:natoms,1)-org(k,1)
            if (cell(k,1) == 0) then

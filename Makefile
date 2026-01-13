@@ -15,7 +15,7 @@ FCINC = -I$(NETCDF_INC)
 FCLIBS = -L$(NETCDF_LIB)
 
 F90 = $(FC)
-F90OPTS = -O2 -C -mavx2 -mno-avx512f
+F90OPTS = -O2 -mavx2 -mno-avx512f
 F90INC = $(FCINC)
 F90LIBS = $(FCLIBS)
 
