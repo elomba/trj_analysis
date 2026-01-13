@@ -173,7 +173,7 @@ contains
             do k = 1, j
                ip = cluster(i)%members(k)
                rv(1:ndim) = r(1:ndim, ip)
-               theta(1:ndim) = 2*pi*rv(1:ndim)/sidel(1:ndim)
+               theta(1:ndim) = 2*pi*rv(1:ndim)/sidelv(1:ndim)
                xss(1:ndim) = xss(1:ndim) + cos(theta(1:ndim))
                sss(1:ndim) = sss(1:ndim) + sin(theta(1:ndim))
                vcl(1:ndim) = vcl(1:ndim) + masa(ip)*vel(1:ndim, ip)
@@ -185,7 +185,7 @@ contains
             !
             ! Restore origin for geometric centers  position to the original coordinate
             !
-            cluster(i)%center(1:ndim) = sidel(1:ndim)*theta(1:ndim)/(2*pi) + rlow(1:ndim)
+            cluster(i)%center(1:ndim) = sidelv(1:ndim)*theta(1:ndim)/(2*pi) + rlow(1:ndim)
             !
             ! Store cluster's center of mass velocity and net mass
             !

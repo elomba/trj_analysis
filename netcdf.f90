@@ -395,7 +395,7 @@ subroutine select_ncdfinput()
    use mod_nc_conf, only: org, cell_in => cell, r_in => r, v_in => v, f_in => fxyz, &
       ity_in => ity, nstep_in => step, natoms, ntypes, wtypes, u_pi, stress_i, orgty, qc, &
       nct, counter
-   use mod_common, only: vel, r, force, cell, sidel, side, volumen, itype, bscat, tunit, &
+   use mod_common, only: vel, r, force, cell, sidel, sidelv, side, volumen, itype, bscat, tunit, &
       ntype, masa, nstep, vector_product, nmol, ex_vel, ex_force, ex_qc, &
       tuniti, side2, u_p, stress, voigt, run_thermo, ex_stress, qcharge, chgh, ncharge, cntch, periodic
    use mod_input, only: ndim, mat, bsc, rcrdf, nsp, charge, idir
@@ -408,6 +408,13 @@ subroutine select_ncdfinput()
    ! quick and dirty fix to avoid problems with non-periodic directions
    ! cell_in(:, 1) = 1.5*cell_in(:, 1)
    sidel(:) = cell_in(:, 1)
+   do k = 1, ndim
+      if (.not.periodic(k)) then
+         sidelv(k) = 2.5*cell_in(k, 1)
+      else
+         sidelv(k) = sidel(k)
+      end if
+   end do
    side = Minval(sidel(1:ndim))
    ! secure rcrdf to be less that half the simulation box
    rcrdf = min(rcrdf,side/2)

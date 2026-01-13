@@ -30,7 +30,7 @@ module mod_common
    real(kind=8) :: ecaver
    real(myprec) :: tuniti, volumen, side, side2, dq, densty, Tfact, taver, &
       temperature, rdenst, volumen_r, tstep, pwall, pwallp, drclus
-   real(myprec), dimension(3) :: sidel, rlow
+   real(myprec), dimension(3) :: sidel, sidelv, rlow
    real, device, dimension(3) :: fk_d, sidel_d
    real(myprec), dimension(3, 3) :: cell
    real(myprec), allocatable, dimension(:) :: masa, bscat, sig2n, gaver, u_p
@@ -249,7 +249,7 @@ contains
       integer, intent(in) :: ndim
 
       ! side2 = (side/2)**2
-      sidel_d(:) = sidel(:)
+      sidel_d(:) = sidelv(:)
       r_d(1:ndim, 1:Nmol) = r(1:ndim, 1:Nmol)
       fk_d(:) = fk(:)
       itype_d(1:Nmol) = itype(1:Nmol)

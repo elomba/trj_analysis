@@ -87,8 +87,7 @@ contains
                     call gpu_comp_order<<<Nmol/nthread+1, nthread,8*norder+1>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
                 else
                     ! If not using cell list, use a different kernel without cell list
-                    print *, 'calculating order parameter without cell list'
-                    print *, rcl, rcl2, sidel(1), sidel(2)
+                    print *, '** Warnning: calculating order parameter without cell list'
                     call gpu_comp_order_nc<<<Nmol/nthread+1, nthread,8*norder+1>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
                 end if
                 if (run_clusters) Then
