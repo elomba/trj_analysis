@@ -7,7 +7,7 @@ module mod_log
    use mod_clusters
    use mod_order, only: norder, orderp, avorder, avorder_cos, avorder_sin, &
         cluster_order_cos, cluster_order_sin, avcluster_order, avcluster_order_cos, &
-        avcluster_order_sin, atomic_order_cos, atomic_order_sin, rhoorderav, &
+        avcluster_order_sin, atomic_order_cos, atomic_order_sin, atomic_ql, rhoorderav, &
         ordercumav
    use cudafor
    use mod_thermo, only : engclus, engclpa
@@ -437,12 +437,16 @@ contains
          open (newunit=onunit, file='order_per_mol.dat')
          if (ndim==2) then
             write (onunit, "('# mol        x       y     ',15('Real(psi_m)     Im(psi_m)   ',i3,8x:))") (orderp(i), i=1, norder)
+            do i = 1, nmol
+               write (onunit, '(i5,15f12.5)') i, r(1:ndim,i), (atomic_order_cos(i,j), atomic_order_sin(i,j), j=1, norder)
+            end do
          else
-            write (onunit, "('# mol        x       y       z   ',15('Real(psi_m)     Im(psi_m)   ',i3,8x:))") (orderp(i), i=1, norder)
+            write (onunit, "('# mol        x       y       z   ',15('Q_l)  ',i3,8x:))") (orderp(i), i=1, norder)
+            do i = 1, nmol
+               write (onunit, '(i4,15f12.5)') i, r(1:ndim,i), atomic_ql(i,1:norder)
+            end do
          end if
-         do i = 1, nmol
-            write (onunit, '(i5,15f12.5)') i, r(1:ndim,i), (atomic_order_cos(i,j), atomic_order_sin(i,j), j=1, norder)
-         end do
+ 
          close (onunit)
          if (run_clusters) then
             open (newunit=onunit, file='order_per_mol_clust.dat')

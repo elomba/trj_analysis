@@ -8,10 +8,10 @@ module mod_order
     use cudafor
     implicit none
     real(myprec) :: rclcl2
-    real(myprec), allocatable :: atomic_order_cos(:,:), atomic_order_sin(:,:), atomic_q(:,:),&
+    real(myprec), allocatable :: atomic_order_cos(:,:), atomic_order_sin(:,:), atomic_ql(:,:),&
         avorder_cos(:), avorder_sin(:), avorder(:)
     real(myprec), allocatable :: rhoorder(:,:), ordercum(:,:), rhoorderav(:,:), ordercumav(:,:)
-    real(myprec), device, allocatable :: atomic_order_cos_d(:,:), atomic_order_sin_d(:,:)i, &
+    real(myprec), device, allocatable :: atomic_order_cos_d(:,:), atomic_order_sin_d(:,:), &
         atomic_ql_d(:,:)
     real(myprec), dimension(:,:), allocatable :: pref
     real(myprec), device, dimension(:,:), allocatable :: yll,  prefd
@@ -19,6 +19,17 @@ module mod_order
     integer, parameter :: nmax_order = 20
     integer, constant :: orderp_d(nmax_order)
 contains
+    function fact(x) result(res)
+    integer :: x, y
+    real(myprec) :: res
+    y = x
+    res = -1.0
+    do while (y>-2)
+        res = res*y 
+        y=y-3
+    end do
+    end function fact
+
     subroutine order_init(norder,nmol)
         integer, intent(in) :: norder, nmol
         if (norder > nmax_order) then
@@ -51,6 +62,9 @@ contains
                 sinmphi(:) = 0.0
                 allocate(prefd(0:norder, 0:norder))
                 allocate(atomic_ql_d(nmol, norder))
+                allocate(atomic_ql(nmol, norder))
+                atomic_ql_d(:,:) = 0.0
+                atomic_ql(:,:) = 0.0
                 prefd(:,:) = 0.0
             end if  
         endif
@@ -86,6 +100,8 @@ contains
             if (allocated(cosmphi)) deallocate(cosmphi)
             if (allocated(sinmphi)) deallocate(sinmphi)
             if (allocated(prefd)) deallocate(prefd)
+            if (allocated(atomic_ql_d)) deallocate(atomic_ql_d)
+            if (allocated(atomic_ql)) deallocate(atomic_ql)
         end if  
     end subroutine order_clear
 
@@ -133,26 +149,35 @@ contains
                 end if
             end if
             time_gpu = gptime(stopEvent, startEvent)
-            tord = tord + time_gpu  
-            atomic_order_cos(:,:) = atomic_order_cos_d(:,:)
-            atomic_order_sin(:,:) = atomic_order_sin_d(:,:)
-            avorder_cos(1:norder) = sum(atomic_order_cos(1:nmol,1:norder), dim=1)/Nmol
-            avorder_sin(1:norder) = sum(atomic_order_sin(1:Nmol,1:norder), dim=1)/Nmol
-            avorder(1:norder)=avorder(1:norder)+sqrt(avorder_cos(:)**2+avorder_sin(:)**2)
+            tord = tord + time_gpu
+            if (ndim==2) then  
+                atomic_order_cos(:,:) = atomic_order_cos_d(:,:)
+                atomic_order_sin(:,:) = atomic_order_sin_d(:,:)
+                avorder_cos(1:norder) = sum(atomic_order_cos(1:nmol,1:norder), dim=1)/Nmol
+                avorder_sin(1:norder) = sum(atomic_order_sin(1:Nmol,1:norder), dim=1)/Nmol
+                avorder(1:norder)=avorder(1:norder)+sqrt(avorder_cos(:)**2+avorder_sin(:)**2)
+            else
+                atomic_ql(:,:) = atomic_ql_d(:,:)
+                avorder(1:norder) = avorder(1:norder) + sum(atomic_ql(1:Nmol,1:norder), dim=1)/Nmol
+            end if  
             if (run_clusters) then
-                avcluster_order_cos(1:norder) = sum(cluster_order_cos(1:nbigcl,1:norder), dim=1)/nbigcl
-                avcluster_order_sin(1:norder) = sum(cluster_order_sin(1:nbigcl,1:norder), dim=1)/nbigcl
-                avcluster_order(1:norder)=avcluster_order(1:norder)+sqrt(avcluster_order_cos(:)**2+avcluster_order_sin(:)**2)
-                rhoorder(:,:) = 0.0
-                do i = 1, maxcln
-                    if (cluster(i)%clsize >= minclsize) then
-                        call clorderprof(r, dim, nbigcl, cluster(i)%members(:),&
-                        cluster(i)%clsize, sidel, rhoorder, ordercum, ndrclus, drclus, &
-                        &  cluster(i)%center(1:dim))
-                    endif
-                enddo
-                rhoorderav(:,:) = rhoorderav(:,:)+rhoorder(:,:)/real(nbigcl, myprec)
-                ordercumav(:,:) = ordercumav(:,:)+ordercum(:,:)/real(nbigcl, myprec)
+                if (ndim==2) then  
+                    avcluster_order_cos(1:norder) = sum(cluster_order_cos(1:nbigcl,1:norder), dim=1)/nbigcl
+                    avcluster_order_sin(1:norder) = sum(cluster_order_sin(1:nbigcl,1:norder), dim=1)/nbigcl
+                    avcluster_order(1:norder)=avcluster_order(1:norder)+sqrt(avcluster_order_cos(:)**2+avcluster_order_sin(:)**2)
+                    rhoorder(:,:) = 0.0
+                    do i = 1, maxcln
+                        if (cluster(i)%clsize >= minclsize) then
+                            call clorderprof(r, dim, nbigcl, cluster(i)%members(:),&
+                            cluster(i)%clsize, sidel, rhoorder, ordercum, ndrclus, drclus, &
+                            &  cluster(i)%center(1:dim))
+                        endif
+                    enddo
+                    rhoorderav(:,:) = rhoorderav(:,:)+rhoorder(:,:)/real(nbigcl, myprec)
+                    ordercumav(:,:) = ordercumav(:,:)+ordercum(:,:)/real(nbigcl, myprec)
+                else
+                    ! 3D cluster order parameter calculation can be added here
+                end if
             end if  
         end if
     end subroutine compute_order
@@ -174,12 +199,7 @@ contains
             !
             ix = int((r(1, i))/cellxd)
             jy = int((r(2, i))/cellyd)
-            if (dim == 3) then
-                kz = int((r(3, i))/cellzd)
-                cell = (ix*maxjd + jy)*maxkd + kz
-            else
-                cell = (ix*maxjd + jy)
-            end if
+            cell = (ix*maxjd + jy)
             !
             ! Loop over neighbouring cells
             !
@@ -243,12 +263,14 @@ contains
         end if
     end subroutine gpu_comp_order2D
 
+   
+
     subroutine prefactors(lmax,pref)
     implicit none
     real(myprec), parameter :: pi=3.141592653589793
     integer, intent(IN) :: lmax
     real(myprec), intent(INOUT) :: pref(0:lmax,0:lmax)
-    real(myprec), external :: fact
+    real(myprec) :: fact
     integer :: l, m
     pref(:,:) = 0
     do l=0, lmax
@@ -258,27 +280,17 @@ contains
     enddo
     end subroutine prefactors
 
-    function fact(x) result(res)
-    integer :: x, y
-    real(myprec) :: res
-    y = x
-    res = 1.0
-    do while (y>0)
-        res = res*y
-        y=y-1
-    end do
-    end function fact
-
-
+    
     attributes(global) subroutine gpu_comp_order3D(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
         integer, value, intent(IN) :: Nmol, dim, norder, nnbnd
         real(myprec), value :: rcl2
         real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
-        real(myprec)  :: rv(3), rr2, s0, s1, s2, c0, c1, c2, cx, sy, cz, d
+        real(myprec)  :: rv(3), rr2, s0, s1, s2, c0, c1, c2, cx, sy, cy, d, d2
         real(myprec) :: cosd(norder), sind(norder)
-        integer :: i, j, counter, ncount, ix, jy, kz, cell, icell
+        integer :: i, j, counter, ncount, ix, jy, kz, cell, icell, lmax, m
         i = (blockidx%x - 1)*blockdim%x + threadidx%x
         if (i <= Nmol) then
+            lmax = orderp_d(norder)
             cosd(:) = 0.0
             sind(:) = 0.0
             ncount = 0
@@ -304,18 +316,23 @@ contains
                         ! count neighbors within cutoff and
                         ! compute per atom order parameter
                             d = __fsqrt_rn(rr2)
-                            cx = rv(1)/d
+                            cx = rv(3)/d
                             d2 = __fsqrt_rn(rv(2)*rv(2) + rv(3)*rv(3))
-                            sy = rv(2)/d2
-                            cy = rv(3)/d2
-                            call ysph(cx, sy, cy, norder)
+                            if (d2 < 1.0e-12_myprec) then
+                                sy = 0.0_myprec
+                                cy = 1.0_myprec
+                            else    
+                                sy = rv(2)/d2
+                                cy = rv(1)/d2
+                            endif
+                            call ysph(cx, sy, cy, lmax)
                             counter = 1
-                            do ix = 2, orderp_d(norder)
-                                c2= 0.0
-                                s2= 0.0
-                                do m = 0, ix
-                                    c2 = c2+yll(ix,m)*cosmphi(m)
-                                    s2 = s2+yll(ix,m)*sinmphi(m)
+                            do ix = 2, lmax
+                                c2= yll(ix,0)*cosmphi(0)
+                                s2= yll(ix,0)*sinmphi(0)
+                                do m = 1, ix
+                                    c2 = c2+2*yll(ix,m)*cosmphi(m)
+                                    s2 = s2+2*yll(ix,m)*sinmphi(m)
                                 end do
                                 ! add contribution to order parameter
                                 ! iterate to compute Q_lm
@@ -332,15 +349,17 @@ contains
             end do
             if (ncount > 0) then
                 if (nnbnd ==0) then
-                    atomic_ql_d(i, 1:norder) = __fsqrt_rn((cosd(1:norder)/real(ncount, myprec))**2+&
-                    (sind(1:norder)/real(ncount, myprec))**2)
+                    do j=1, norder
+                        atomic_ql_d(i, j) = __fsqrt_rn((cosd(j)/real(ncount, myprec))**2+&
+                    (sind(j)/real(ncount, myprec))**2)
+                    end do
                 else
                     ! Only compute order parameter if number of neighbors 
                     ! equals the order of the parameter
                     do j=1, norder
                         if (orderp_d(j) == ncount) then
-                            atomic_ql_d(i, j) = __fsqrt_rn((cosd(1:norder)/real(ncount, myprec))**2+&
-                    (sind(1:norder)/real(ncount, myprec))**2)
+                            atomic_ql_d(i, j) = __fsqrt_rn((cosd(j)/real(ncount, myprec))**2+&
+                    (sind(j)/real(ncount, myprec))**2)
                         end if
                     end do
                 end if
@@ -349,11 +368,10 @@ contains
     end subroutine gpu_comp_order3D
 
     attributes(device) subroutine ysph(x,y,z,lmax)
-    use order, only : cosmphi, sinmphi, yll, pref=>prefd
     implicit none
-    real(kind=8), intent(IN) :: x, y, z
+    real(myprec), intent(IN) :: x, y, z
     integer, intent(IN) :: lmax
-    real(kind=8) :: cx, sy, c0, s0, c1, s1, c2, s2
+    real(myprec) :: cx, sy, c0, s0, c1, s1, c2, s2
     integer :: l, m
     !
     ! Iterate to compute cos(m*phi) and sin(m*phi) with y=cos(phi), z= sin(phi)
@@ -379,17 +397,17 @@ contains
         cosmphi(m) = c2
         sinmphi(m) = s2
     end do
-    yll(:,:) = yll(:,:)*pref(:,:)
-end subroutine ysph
+    yll(:,:) = yll(:,:)*prefd(:,:)
+    end subroutine ysph
 
 
 
     attributes(device) subroutine plm(x,l,p)
-        real(kind=8), intent(IN) :: x
+        real(myprec), intent(IN) :: x
         integer, intent(IN) :: l
-        real(kind=8), dimension(0:l,0:l) :: p
+        real(myprec), dimension(0:l,0:l) :: p
         integer :: mmax, m, i
-        real(kind=8) :: pmm, pmmp1, pll
+        real(myprec) :: pmm, pmmp1, pll
         !
         ! Compute associated Legendre polynomial P_l^m(x) using recursion
         !
@@ -426,9 +444,10 @@ end subroutine ysph
         real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
         real(myprec)  :: rv(3), rr2, s0, s1, s2, c0, c1, c2, cx, sy, cz, d
         real(myprec) :: cosd(norder), sind(norder)
-        integer :: i, j, counter, ncount, ix, jy, kz, cell, icell
+        integer :: i, j, counter, ncount, lmax, ix
         i = (blockidx%x - 1)*blockdim%x + threadidx%x
         if (i <= Nmol) then
+            lmax = orderp_d(norder)
             cosd(:) = 0.0
             sind(:) = 0.0
             ncount = 0
@@ -452,8 +471,8 @@ end subroutine ysph
                             s0 = 0.0
                             s1 = sy
                             counter = 1
-                            do ix = 2, orderp_d(norder)
-                                ! iterate to comnute sin(m*theta) and cos(m*theta)  
+                            do ix = 2, lmax
+                                ! iterate to compute sin(m*theta) and cos(m*theta)  
                                 c2 = c1*cx-s1*sy
                                 s2 = s1*cx+c1*sy
                                 s0 = s1
@@ -487,6 +506,79 @@ end subroutine ysph
             end if
         end if
     end subroutine gpu_comp_order_nc
+
+       attributes(global) subroutine gpu_comp_order3D_nc(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
+        integer, value, intent(IN) :: Nmol, dim, norder, nnbnd
+        real(myprec), value :: rcl2
+        real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
+        real(myprec)  :: rv(3), rr2, s0, s1, s2, c0, c1, c2, cx, cy, sy, d, d2
+        real(myprec) :: cosd(norder), sind(norder)
+        integer :: i, j, counter, ncount, lmax, ix, m
+        i = (blockidx%x - 1)*blockdim%x + threadidx%x
+        if (i <= Nmol) then
+            lmax = orderp_d(norder)
+            cosd(:) = 0.0
+            sind(:) = 0.0
+            ncount = 0
+            do j = 1, Nmol
+                    if (j .ne. i) then
+                        rv(1:dim) = r(1:dim, i) - r(1:dim, j)
+                        rv = rv - sidel*nint(rv/sidel)
+                        rr2 = Dot_product(rv, rv)
+                        if (rr2 < rcl2) then
+                            ncount = ncount + 1
+                        ! count neighbors within cutoff and
+                        ! compute per atom order parameter
+                            d = __fsqrt_rn(rr2)
+                            cx = rv(3)/d
+                            d2 = __fsqrt_rn(rv(2)*rv(2) + rv(3)*rv(3))
+                            if (d2 < 1.0e-12_myprec) then
+                                sy = 0.0_myprec
+                                cy = 1.0_myprec
+                            else    
+                                sy = rv(2)/d2
+                                cy = rv(1)/d2
+                            endif
+                            call ysph(cx, sy, cy, lmax)
+                            counter = 1
+                            do ix = 2, lmax
+                                c2= yll(ix,0)*cosmphi(0)
+                                s2= yll(ix,0)*sinmphi(0)
+                                do m = 1, ix
+                                    c2 = c2+2*yll(ix,m)*cosmphi(m)
+                                    s2 = s2+2*yll(ix,m)*sinmphi(m)
+                                end do
+                                ! add contribution to order parameter
+                                ! iterate to compute Q_lm
+                                if (ix == orderp_d(counter)) then
+                                    cosd(counter) = cosd(counter) + c2
+                                    sind(counter) = sind(counter) + s2
+                                    counter = counter + 1
+                                end if
+                            end do
+                        end if
+                    end if
+            end do
+            if (ncount > 0) then
+                if (nnbnd ==0) then
+                    do j=1, norder
+                        atomic_ql_d(i, j) = __fsqrt_rn((cosd(j)/real(ncount, myprec))**2+&
+                    (sind(j)/real(ncount, myprec))**2)
+                    end do
+                else
+                    ! Only compute order parameter if number of neighbors 
+                    ! equals the order of the parameter
+                    do j=1, norder
+                        if (orderp_d(j) == ncount) then
+                            atomic_ql_d(i, j) = __fsqrt_rn((cosd(j)/real(ncount, myprec))**2+&
+                    (sind(j)/real(ncount, myprec))**2)
+                        end if
+                    end do
+                end if
+            end if
+        end if
+    end subroutine gpu_comp_order3D_nc
+
 
     subroutine cl_comp_order2D(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
         integer, intent(IN) :: Nmol, dim, norder, nnbnd
