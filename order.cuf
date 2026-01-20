@@ -1,5 +1,6 @@
 module mod_order
-! Module for order parameter calculations
+    ! Module for order parameter calculationso
+    ! Added 3D order parameter calculation
     use mod_precision
     use mod_common, only: r_d, r, sidel_d, cellxd, cellyd, cellzd, maxjd, maxkd, nnd, headd, listad, neighd, gptime, startEvent, stopEvent, tord, side2, ndrclus, drclus
     use mod_input, only: norder, orderp, nnbond, nthread, run_clusters, rclcl, deltar, minclsize, use_cell, ndim 
