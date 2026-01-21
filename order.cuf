@@ -24,10 +24,10 @@ contains
     integer :: x, y
     real(myprec) :: res
     y = x
-    res = -1.0
-    do while (y>-2)
+    res = 1.0
+    do while (y>0)
         res = res*y 
-        y=y-3
+        y=y-1
     end do
     end function fact
 
@@ -159,6 +159,9 @@ contains
                 avorder(1:norder)=avorder(1:norder)+sqrt(avorder_cos(:)**2+avorder_sin(:)**2)
             else
                 atomic_ql(:,:) = atomic_ql_d(:,:)
+                do i=1,10
+                    write(*,'(" Q_l for atom ",i3,": ",10f12.5)') i, atomic_ql(i,1:norder)
+                end do
                 avorder(1:norder) = avorder(1:norder) + sum(atomic_ql(1:Nmol,1:norder), dim=1)/Nmol
             end if  
             if (run_clusters) then
@@ -278,6 +281,7 @@ contains
         do m=0, l
             pref(l,m) = sqrt((2*l+1)/(4*pi)*fact(l-m)/fact(l+m))
         enddo
+        write(*,*) 'Prefactors for l=',l,': ', (pref(l,m), m=0,l)
     enddo
     end subroutine prefactors
 
