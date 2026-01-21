@@ -33,6 +33,8 @@ contains
 
     subroutine order_init(norder,nmol)
         integer, intent(in) :: norder, nmol
+        integer :: lmax
+        lmax = orderp(norder)
         if (norder > nmax_order) then
             write(*,'("*** Error: norder exceeds maximum allowed value of ",i0)') nmax_order
         else
@@ -53,15 +55,15 @@ contains
             atomic_order_cos_d(:,:) = 0.0
             atomic_order_sin_d(:,:) = 0.0
             if (ndim == 3) then
-                allocate(yll(0:norder, 0:norder))
-                allocate(pref(0:norder, 0:norder))
-                allocate(cosmphi(0:norder))
-                allocate(sinmphi(0:norder))
+                allocate(yll(0:lmax, 0:lmax))
+                allocate(pref(0:lmax, 0:lmax))
+                allocate(cosmphi(0:lmax))
+                allocate(sinmphi(0:lmax))
                 yll(:,:) = 0.0
                 pref(:,:) = 0.0
                 cosmphi(:) = 0.0
                 sinmphi(:) = 0.0
-                allocate(prefd(0:norder, 0:norder))
+                allocate(prefd(0:lmax, 0:lmax))
                 allocate(atomic_ql_d(nmol, norder))
                 allocate(atomic_ql(nmol, norder))
                 atomic_ql_d(:,:) = 0.0
@@ -331,6 +333,12 @@ contains
                                 cy = rv(1)/d2
                             endif
                             call ysph(cx, sy, cy, lmax)
+                            if (i==1) then
+                                print *,  j, ncount, cx, sy,cy
+                                print *, ' Y_lm for l=',2,': ', yll(2,0),yll(2,1),yll(2,2) 
+                                print *, ' cosmphi: ', cosmphi(0),cosmphi(1),cosmphi(2)
+                                print *, ' sinmphi: ', sinmphi(0),sinmphi(1),sinmphi(2)
+                            end if
                             counter = 1
                             do ix = 2, lmax
                                 c2= yll(ix,0)*cosmphi(0)
@@ -381,16 +389,16 @@ contains
     !
     ! Iterate to compute cos(m*phi) and sin(m*phi) with y=cos(phi), z= sin(phi)
     call plm(x,lmax,yll)
+    cosmphi(0) = 1.0
+    cosmphi(1) = y
+    sinmphi(0) = 0.0
+    sinmphi(1) = z
     cx = y
     sy = z
     c0 = 1.0
-    cosmphi(0) = c0
     c1 = cx
-    cosmphi(1) = c1
     s0 = 0.0
-    sinmphi(0) = s0
     s1 = sy
-    sinmphi(1) = s1
     do m = 2, lmax
         ! iterate to compute sin(m*theta) and cos(m*theta)  
         c2 = c1*cx-s1*sy
