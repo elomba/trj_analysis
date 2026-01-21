@@ -112,11 +112,12 @@ contains
         integer, intent(in) :: Nmol, dim
         real(myprec), intent(in) :: sidel(dim), rcl
         real(myprec) :: rcl2, time_gpu, sumac
-        integer :: istat,i
+        integer :: istat,i, lmax
         !
         ! Compute order parameter
         !
         if (norder > 0) then
+            lmax = orderp(norder)
             rcl2 = rcl*rcl
 
             
@@ -141,7 +142,7 @@ contains
                     end if
                 end if
             else
-                call prefactors(norder,pref)
+                call prefactors(lmax,pref)
                 prefd(:,:) = pref(:,:)
                 if (use_cell) then
                     call gpu_comp_order3D<<<Nmol/nthread+1, nthread,8*norder+1>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
@@ -279,6 +280,7 @@ contains
     real(myprec) :: fact
     integer :: l, m
     pref(:,:) = 0
+    print *, 'lmax=',lmax
     do l=0, lmax
         do m=0, l
             pref(l,m) = sqrt((2*l+1)/(4*pi)*fact(l-m)/fact(l+m))
@@ -324,7 +326,7 @@ contains
                         ! compute per atom order parameter
                             d = __fsqrt_rn(rr2)
                             cx = rv(3)/d
-                            d2 = __fsqrt_rn(rv(2)*rv(2) + rv(3)*rv(3))
+                            d2 = __fsqrt_rn(rv(1)*rv(1) + rv(2)*rv(2))
                             if (d2 < 1.0e-12_myprec) then
                                 sy = 0.0_myprec
                                 cy = 1.0_myprec
@@ -410,6 +412,9 @@ contains
         cosmphi(m) = c2
         sinmphi(m) = s2
     end do
+    print *, ' cosmphi: ', lmax, y,z, cosmphi(0), cosmphi(1),cosmphi(2)
+    print *, ' sinmphi: ', lmax, y,z, sinmphi(0), sinmphi(1),sinmphi(2)
+    !
     yll(:,:) = yll(:,:)*prefd(:,:)
     end subroutine ysph
 
