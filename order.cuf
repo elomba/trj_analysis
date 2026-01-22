@@ -17,7 +17,7 @@ module mod_order
     real(myprec), dimension(:,:), allocatable :: pref
     real(myprec), device, dimension(:,:), allocatable :: yll,  prefd
     real(myprec), device, dimension(:), allocatable :: cosmphi, sinmphi
-    integer, parameter :: nmax_order = 20
+    integer, parameter :: nmax_order = 20, llmax = 12
     integer, constant :: orderp_d(nmax_order)
 contains
     function fact(x) result(res)
@@ -35,6 +35,10 @@ contains
         integer, intent(in) :: norder, nmol
         integer :: lmax
         lmax = orderp(norder)
+        if (lmax > llmax) then
+            write(*,'("*** Error: maximum allowed order parameter value is ",i0)') llmax
+            stop
+        end if
         if (norder > nmax_order) then
             write(*,'("*** Error: norder exceeds maximum allowed value of ",i0)') nmax_order
         else
@@ -285,7 +289,6 @@ contains
         do m=0, l
             pref(l,m) = sqrt((2*l+1)/(4*pi)*fact(l-m)/fact(l+m))
         enddo
-        write(*,*) 'Prefactors for l=',l,': ', (pref(l,m), m=0,l)
     enddo
     end subroutine prefactors
 
@@ -295,8 +298,9 @@ contains
         real(myprec), value :: rcl2
         real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
         real(myprec)  :: rv(3), rr2, s0, s1, s2, c0, c1, c2, cx, sy, cy, d, d2
+        real(myprec) :: pr(0:llmax), pi(0:llmax)
         real(myprec) :: cosd(norder), sind(norder)
-        integer :: i, j, counter, ncount, ix, jy, kz, cell, icell, lmax, m
+        integer :: i, j, counter, ncount, ix, jy, kz, cell, icell, lmax, m, l
         i = (blockidx%x - 1)*blockdim%x + threadidx%x
         if (i <= Nmol) then
             lmax = orderp_d(norder)
@@ -334,28 +338,19 @@ contains
                                 sy = rv(2)/d2
                                 cy = rv(1)/d2
                             endif
-                            call ysph(cx, sy, cy, lmax)
-                            if (i==1) then
-                                print *,  j, ncount, cx, sy,cy
-                                print *, ' Y_lm for l=',2,': ', yll(2,0),yll(2,1),yll(2,2) 
-                                print *, ' cosmphi: ', cosmphi(0),cosmphi(1),cosmphi(2)
-                                print *, ' sinmphi: ', sinmphi(0),sinmphi(1),sinmphi(2)
-                            end if
-                            counter = 1
-                            do ix = 2, lmax
-                                c2= yll(ix,0)*cosmphi(0)
-                                s2= yll(ix,0)*sinmphi(0)
-                                do m = 1, ix
-                                    c2 = c2+2*yll(ix,m)*cosmphi(m)
-                                    s2 = s2+2*yll(ix,m)*sinmphi(m)
+                            do ix=1, norder
+                                l = orderp_d(ix)
+                                call ylm(cx, sy, cy, l, pr, pi)
+                                c2= pr(0)
+                                s2= pi(0)
+                                do m = 1, l
+                                    c2 = c2+2*pr(m)
+                                    s2 = s2+2*pi(m)
                                 end do
                                 ! add contribution to order parameter
                                 ! iterate to compute Q_lm
-                                if (ix == orderp_d(counter)) then
-                                    cosd(counter) = cosd(counter) + c2
-                                    sind(counter) = sind(counter) + s2
-                                    counter = counter + 1
-                                end if
+                                cosd(ix) = cosd(ix) + c2
+                                sind(ix) = sind(ix) + s2
                             end do
                         end if
                     end if
@@ -372,90 +367,20 @@ contains
                     ! Only compute order parameter if number of neighbors 
                     ! equals the order of the parameter
                     do j=1, norder
-                        if (orderp_d(j) == ncount) then
-                            atomic_ql_d(i, j) = __fsqrt_rn((cosd(j)/real(ncount, myprec))**2+&
+                        atomic_ql_d(i, j) = __fsqrt_rn((cosd(j)/real(ncount, myprec))**2+&
                     (sind(j)/real(ncount, myprec))**2)
-                        end if
                     end do
                 end if
+            end if
+            if (i==1) then
+                print *, " Number of neighbors for atom 1: ", ncount, orderp_d(1), rcl2
+                print*,"cosd: ", cosd(1)/ncount,sind(1)/ncount,sqrt((cosd(1)/ncount)**2+(sind(1)/ncount)**2)
+                
             end if
         end if
     end subroutine gpu_comp_order3D
 
-    attributes(device) subroutine ysph(x,y,z,lmax)
-    implicit none
-    real(myprec), intent(IN) :: x, y, z
-    integer, intent(IN) :: lmax
-    real(myprec) :: cx, sy, c0, s0, c1, s1, c2, s2
-    integer :: l, m
-    !
-    ! Iterate to compute cos(m*phi) and sin(m*phi) with y=cos(phi), z= sin(phi)
-    call plm(x,lmax,yll)
-    cosmphi(0) = 1.0
-    cosmphi(1) = y
-    sinmphi(0) = 0.0
-    sinmphi(1) = z
-    cx = y
-    sy = z
-    c0 = 1.0
-    c1 = cx
-    s0 = 0.0
-    s1 = sy
-    do m = 2, lmax
-        ! iterate to compute sin(m*theta) and cos(m*theta)  
-        c2 = c1*cx-s1*sy
-        s2 = s1*cx+c1*sy
-        s0 = s1
-        s1 = s2
-        c0 = c1
-        c1 = c2
-        cosmphi(m) = c2
-        sinmphi(m) = s2
-    end do
-    print *, ' cosmphi: ', lmax, y,z, cosmphi(0), cosmphi(1),cosmphi(2)
-    print *, ' sinmphi: ', lmax, y,z, sinmphi(0), sinmphi(1),sinmphi(2)
-    !
-    yll(:,:) = yll(:,:)*prefd(:,:)
-    end subroutine ysph
-
-
-
-    attributes(device) subroutine plm(x,l,p)
-        real(myprec), intent(IN) :: x
-        integer, intent(IN) :: l
-        real(myprec), dimension(0:l,0:l) :: p
-        integer :: mmax, m, i
-        real(myprec) :: pmm, pmmp1, pll
-        !
-        ! Compute associated Legendre polynomial P_l^m(x) using recursion
-        !
-        mmax = l
-        if (abs(x) > 1.0) then
-            p(:,:) = 0.0
-            return
-        end if
-        do m = 0, mmax
-           pmm = 1.0
-            if (m == 0) then
-                p(0,0) = 1.0
-             else
-                do i = 1, m
-                   pmm = pmm * (-sqrt(1.0 - x*x)) * (2*i - 1)
-                   p(m,m) = pmm
-                end do
-             endif
-             pmmp1 = x * (2*m + 1) * p(m,m)
-             p(m+1,m) = pmmp1
-             do i = m + 2, l
-                pll = ((2*i - 1)*x*pmmp1 - (i + m - 1)*pmm)/(i - m)
-                pmm = pmmp1
-                pmmp1 = pll
-                p(i,m) = pll
-             end do
-          end do
-      end subroutine plm
-
-
+    
     attributes(global) subroutine gpu_comp_order_nc(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
         integer, value, intent(IN) :: Nmol, dim, norder, nnbnd
         real(myprec), value :: rcl2
@@ -525,13 +450,67 @@ contains
         end if
     end subroutine gpu_comp_order_nc
 
+    attributes(device)  subroutine ylm(x,y,z,l,pr,pi)
+        implicit none
+        real(myprec), intent(IN) :: x, y, z
+        integer, intent(IN) :: l
+        real(myprec), dimension(0:l) :: pr, pi
+        integer :: mmax, m, i
+        real(myprec) :: pmm, pmmp1, pll
+        real(myprec) :: cx, sy, c0, s0, c1, s1, c2, s2, temp
+
+        !
+        ! Compute associated Legendre polynomial P_l^m(x) using recursion
+        !
+        cx = y
+        sy = z
+        c0 = 1.0
+        c1 = cx
+        s0 = 0.0
+        s1 = sy
+        pi(0) = 1
+        pi(1) = c1
+        do m = 0, l
+           if (m>1) then
+              c2 = c1*cx-s1*sy
+              s2 = s1*cx+c1*sy
+              s0 = s1
+              s1 = s2
+              c0 = c1
+              c1 = c2
+              pi(m) = c2
+           endif
+           pmm = 1.0
+           do i = 1, m
+              pmm = pmm * (-sqrt(1.0 - x*x)) * (2*i - 1)
+           end do
+           if (m==l) pr(m) = pmm
+           pmmp1 = x * (2*m + 1) * pmm
+           if (m+1==l) pr(m) = pmmp1
+           do i = m + 2, l
+              pll = ((2*i - 1)*x*pmmp1 - (i + m - 1)*pmm)/(i - m)
+              pmm = pmmp1
+              pmmp1 = pll
+              if (i==l) pr(m) = pll
+           end do
+        end do
+        do m=0, l
+           temp = prefd(l,m)*pr(m)
+           pr(m) = temp*pi(m)
+           pi(m) = temp*sqrt(1-pi(m)**2)
+        enddo
+      end subroutine ylm
+
+
+
        attributes(global) subroutine gpu_comp_order3D_nc(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
         integer, value, intent(IN) :: Nmol, dim, norder, nnbnd
         real(myprec), value :: rcl2
         real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
         real(myprec)  :: rv(3), rr2, s0, s1, s2, c0, c1, c2, cx, cy, sy, d, d2
         real(myprec) :: cosd(norder), sind(norder)
-        integer :: i, j, counter, ncount, lmax, ix, m
+        real(myprec) :: pr(0:llmax), pi(0:llmax)
+        integer :: i, j, counter, ncount, lmax, ix, m, l
         i = (blockidx%x - 1)*blockdim%x + threadidx%x
         if (i <= Nmol) then
             lmax = orderp_d(norder)
@@ -556,23 +535,20 @@ contains
                             else    
                                 sy = rv(2)/d2
                                 cy = rv(1)/d2
-                            endif
-                            call ysph(cx, sy, cy, lmax)
-                            counter = 1
-                            do ix = 2, lmax
-                                c2= yll(ix,0)*cosmphi(0)
-                                s2= yll(ix,0)*sinmphi(0)
-                                do m = 1, ix
-                                    c2 = c2+2*yll(ix,m)*cosmphi(m)
-                                    s2 = s2+2*yll(ix,m)*sinmphi(m)
+                            endif                           
+                            do ix=1, norder
+                                l = orderp_d(ix)
+                                call ylm(cx, sy, cy, l, pr, pi)
+                                c2= pr(0)
+                                s2= pi(0)
+                                do m = 1, l
+                                    c2 = c2+2*pr(m)
+                                    s2 = s2+2*pi(m)
                                 end do
                                 ! add contribution to order parameter
                                 ! iterate to compute Q_lm
-                                if (ix == orderp_d(counter)) then
-                                    cosd(counter) = cosd(counter) + c2
-                                    sind(counter) = sind(counter) + s2
-                                    counter = counter + 1
-                                end if
+                                cosd(ix) = cosd(ix) + c2
+                                sind(ix) = sind(ix) + s2
                             end do
                         end if
                     end if
@@ -587,10 +563,8 @@ contains
                     ! Only compute order parameter if number of neighbors 
                     ! equals the order of the parameter
                     do j=1, norder
-                        if (orderp_d(j) == ncount) then
-                            atomic_ql_d(i, j) = __fsqrt_rn((cosd(j)/real(ncount, myprec))**2+&
-                    (sind(j)/real(ncount, myprec))**2)
-                        end if
+                        atomic_ql_d(i, j) = __fsqrt_rn((cosd(j)/real(ncount, myprec))**2+&
+                                            (sind(j)/real(ncount, myprec))**2)
                     end do
                 end if
             end if
