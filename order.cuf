@@ -150,6 +150,8 @@ contains
                 prefd(:,:) = pref(:,:)
                 if (use_cell) then
                     call gpu_comp_order3D<<<Nmol/nthread+1, nthread,8*norder+1>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
+!                    call gpu_comp_order3D<<<1, 10>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
+                    print *, ' exited kernel '
                 else
                     ! If not using cell list, use a different kernel without cell list
                     print *, '** Warnning: calculating order parameter without cell list'
@@ -295,17 +297,19 @@ contains
     
     attributes(global) subroutine gpu_comp_order3D(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
         integer, value, intent(IN) :: Nmol, dim, norder, nnbnd
+        real(myprec), parameter :: pi_constant=3.141592653589793
+
+
         real(myprec), value :: rcl2
         real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
-        real(myprec)  :: rv(3), rr2, s0, s1, s2, c0, c1, c2, cx, sy, cy, d, d2
-        real(myprec) :: pr(0:llmax), pi(0:llmax)
-        real(myprec) :: cosd(norder), sind(norder)
-        integer :: i, j, counter, ncount, ix, jy, kz, cell, icell, lmax, m, l
+        real(myprec)  :: rv(3), rr2, cx, sy, cy, d, d2, cte, suma
+        real(myprec) :: pr(0:llmax), pi(0:llmax), ylr(norder,0:llmax), yli(norder,0:llmax)
+        integer :: i, j, ncount, ix, jy, kz, cell, icell, lmax, m, l
         i = (blockidx%x - 1)*blockdim%x + threadidx%x
         if (i <= Nmol) then
             lmax = orderp_d(norder)
-            cosd(:) = 0.0
-            sind(:) = 0.0
+            ylr(:,:) = 0.0
+            yli(:,:) = 0.0
             ncount = 0
             !
             ! Locate cell
@@ -338,44 +342,41 @@ contains
                                 sy = rv(2)/d2
                                 cy = rv(1)/d2
                             endif
+                            !
+                            ! Average Ylm over neighbors
+                            !
                             do ix=1, norder
                                 l = orderp_d(ix)
                                 call ylm(cx, sy, cy, l, pr, pi)
-                                c2= pr(0)
-                                s2= pi(0)
-                                do m = 1, l
-                                    c2 = c2+2*pr(m)
-                                    s2 = s2+2*pi(m)
-                                end do
-                                ! add contribution to order parameter
-                                ! iterate to compute Q_lm
-                                cosd(ix) = cosd(ix) + c2
-                                sind(ix) = sind(ix) + s2
+                                ! compute Y_lm contributions
+                                ylr(ix,0:l) = pr(0:l)+ylr(ix,0:l)
+                                yli(ix,0:l) = pi(0:l)+yli(ix,0:l)
+                                if (i==1) then
+                                    print *, i, j, l, pr(0), pr(1), pr(2), pr(3), pr(4)
+                                end if
                             end do
                         end if
                     end if
                     j = listad(j)
                 end do
             end do
-            if (ncount > 0) then
-                if (nnbnd ==0) then
-                    do j=1, norder
-                        atomic_ql_d(i, j) = __fsqrt_rn((cosd(j)/real(ncount, myprec))**2+&
-                    (sind(j)/real(ncount, myprec))**2)
-                    end do
-                else
-                    ! Only compute order parameter if number of neighbors 
-                    ! equals the order of the parameter
-                    do j=1, norder
-                        atomic_ql_d(i, j) = __fsqrt_rn((cosd(j)/real(ncount, myprec))**2+&
-                    (sind(j)/real(ncount, myprec))**2)
-                    end do
+            do ix = 1, norder
+                l = orderp_d(ix)
+                !
+                ! Compute Q_l per atom adding contributions from m = 0 to l
+                !
+                suma = ylr(ix,0)*ylr(l,0) + yli(ix,0)*yli(l,0)
+                do m=1, l
+                    suma = suma + 2.0_myprec*(ylr(ix,m)*ylr(l,m) + yli(ix,m)*yli(l,m))
+                end do 
+                if ( i<10) then
+                    print *, " Atom ", i, " l=", l, " sum=", suma
                 end if
-            end if
+                cte = 4.0_myprec*pi_constant/(2.0_myprec*real(l+1, myprec))
+                if (ncount>0)atomic_ql_d(i, ix) = __fsqrt_rn(suma*cte/ncount**2)
+            end do
             if (i==1) then
-                print *, " Number of neighbors for atom 1: ", ncount, orderp_d(1), rcl2
-                print*,"cosd: ", cosd(1)/ncount,sind(1)/ncount,sqrt((cosd(1)/ncount)**2+(sind(1)/ncount)**2)
-                
+                print *, " Number of neighbors for atom 1: ", ncount, orderp_d(1), rcl2,sqrt(suma*cte/ncount**2)
             end if
         end if
     end subroutine gpu_comp_order3D
