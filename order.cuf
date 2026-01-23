@@ -35,8 +35,8 @@ contains
         integer, intent(in) :: norder, nmol
         integer :: lmax
         lmax = orderp(norder)
-        if (lmax > llmax) then
-            write(*,'("*** Error: maximum allowed order parameter value is ",i0)') llmax
+        if (lmax > llmax.and. ndim == 3) then
+            write(*,'("*** Error: in 3D maximum allowed order parameter value is ",i0)') llmax
             stop
         end if
         if (norder > nmax_order) then
@@ -352,7 +352,9 @@ contains
                                 ylr(ix,0:l) = pr(0:l)+ylr(ix,0:l)
                                 yli(ix,0:l) = pi(0:l)+yli(ix,0:l)
                                 if (i==1) then
+                                    print *, i,j,cx,sy,cy
                                     print *, i, j, l, pr(0), pr(1), pr(2), pr(3), pr(4)
+                                    print *, i, j, l, pi(0), pi(1), pi(2), pi(3), pi(4)
                                 end if
                             end do
                         end if

@@ -290,6 +290,7 @@ contains
       rhoclus(:) = 0
       denscl = 0.0
       rclus = 0.0
+      im = 0
       !
       ! Determine cluster radii, density ..
       !
@@ -303,17 +304,19 @@ contains
             cluster(i)%radio = rcluster
          end if
       end do
+      !
+      ! Resize arrays if necessary
+      !
       if (iconf==1) Then
+         rmcl = maxval(cluster(1:cluster_id)%radio)  
+         drclus = 2*rmcl/ndrclus
          if (2*maxval(cluster(1:cluster_id)%clsize) > nmaxcl) then
-            print *, ' Warning: increasing nmaxcl to ', 2*maxval(cluster(1:cluster_id)%clsize)
+            print *, ' *** Warning: increasing nmaxcl=',nmaxcl,' to ', 2*maxval(cluster(1:cluster_id)%clsize)
             nmaxcl = 2*maxval(cluster(1:cluster_id)%clsize)
             deallocate (dratio, dsph, countcl)
             allocate(dratio(1:nmaxcl), dsph(1:nmaxcl), countcl(1:nmaxcl))
          end if
-         nmaxcl = 2*maxval(cluster(1:cluster_id)%clsize)
-
-         rmcl = maxval(cluster(1:cluster_id)%radio)
-         drclus = 2*rmcl/ndrclus
+!         nmaxcl = 2*maxval(cluster(1:cluster_id)%clsize)
       endif
       averg = 0
       im = 0
@@ -538,6 +541,7 @@ contains
       ! deallocate (sizedist)
       deallocate (densclus)
       deallocate (radii)
+      deallocate (dratio, dsph, countcl)
 
       ! Close open files
       close (io_centers_file)
