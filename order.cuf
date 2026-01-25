@@ -3,7 +3,7 @@ module mod_order
     ! Module for order parameter calculationso
     ! Added 3D order parameter calculation
     use mod_precision
-    use mod_common, only: r_d, r, sidel_d, cellxd, cellyd, cellzd, maxjd, maxkd, nnd, headd, listad, neighd, gptime, startEvent, stopEvent, tord, side2, ndrclus, drclus
+    use mod_common, only: r_d, r, sidel_d, cellxd, cellyd, cellzd, maxjd, maxkd, nnd, headd, listad, neighd, gptime, startEvent, stopEvent, tord, side2, ndrclus, drclus, neighbors
     use mod_input, only: norder, orderp, nnbond, nthread, run_clusters, rclcl, deltar, minclsize, use_cell, ndim 
     use mod_clusters, only: cluster, avcluster_order, avcluster_order_cos, avcluster_order_sin, &
     cluster_order_cos, cluster_order_sin, maxcln, rclxyz, nbigcl
@@ -22,7 +22,7 @@ module mod_order
     real(myprec), dimension(:,:), allocatable :: pref
     real(myprec), device, dimension(:,:), allocatable :: yll,  prefd
     real(myprec), device, dimension(:), allocatable :: cosmphi, sinmphi
-    integer, parameter :: nmax_order = 6, llmax = 12
+    integer, parameter :: nmax_order = 6, llmax = 12, nmbmax = 35
     integer, constant :: orderp_d(nmax_order)
 contains
     function fact(x) result(res)
@@ -121,11 +121,21 @@ contains
         integer, intent(in) :: Nmol, dim
         real(myprec), intent(in) :: sidel(dim), rcl
         real(myprec) :: rcl2, time_gpu, sumac
-        integer :: istat,i, lmax
+        integer :: istat,i, lmax, maxneigh
         !
         ! Compute order parameter
         !
         if (norder > 0) then
+            if (.not.allocated(neighbors)) then
+                write(*,'("*** Error: neighbor list not allocated before order parameter calculation !")')
+                stop
+            end if
+            maxneigh = maxval(neighbors(:))
+            write(*,"(/'-- Maximum number of neighbors found: ',i0)") maxneigh
+            if (maxneigh > nmbmax) then
+                write (*,'("*** Error: increase nmbmax parameter in gpu_comp_order3D to at least ", i5)') maxneigh
+                stop
+            end if
             lmax = orderp(norder)
             rcl2 = rcl*rcl
 
@@ -297,14 +307,13 @@ contains
     
     attributes(global) subroutine gpu_comp_order3D(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
         integer, value, intent(IN) :: Nmol, dim, norder, nnbnd
-        integer, parameter :: nmbmax=20
         type(neighbor) :: vecinos(nmbmax)
         real(myprec), parameter :: pi_constant=3.141592653589793
         real(myprec), value :: rcl2
         real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
-        real(myprec)  :: rv(3), rr2, cx, sy, cy, d, d2, cte, suma
+        real(myprec)  :: rv(3), rr2, cx, sy, cy, d, d2, cte
         real(myprec) :: pr(0:llmax), pi(0:llmax)
-        real(myprec) :: ylr(nmax_order,0:llmax), yli(nmax_order,0:llmax)
+        real(kind=8) :: ylr(nmax_order,0:llmax), yli(nmax_order,0:llmax), suma
         integer :: i, j, ncount, ix, jy, kz, cell, icell, lmax, m, l, k, nlimit
         i = (blockidx%x - 1)*blockdim%x + threadidx%x
         if (i <= Nmol) then
@@ -357,6 +366,10 @@ contains
                 !choose only up to nnbnd nearest neighbors 
                 nlimit = nnbnd
             end if
+
+            if (ncount==0) nlimit = 0
+            ! Loop over neighbors
+            !
             do k = 1, nlimit
                 ! count neighbors within cutoff and
                 ! compute per atom order parameter
@@ -387,7 +400,7 @@ contains
             end do
             ! Compute Q_l per atom
             !   
-            if (ncount >= nnbnd) then
+            if (ncount >= nnbnd .and. nlimit > 0) then
                 ylr(:,:) = ylr(:,:)/real(nlimit, myprec)
                 yli(:,:) = yli(:,:)/real(nlimit, myprec)
                 do ix = 1, norder
@@ -533,7 +546,6 @@ contains
 
         attributes(global) subroutine gpu_comp_order3D_nc(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
         integer, value, intent(IN) :: Nmol, dim, norder, nnbnd
-        integer, parameter :: nmbmax=20
         type(neighbor) :: vecinos(nmbmax)
         real(myprec), parameter :: pi_constant=3.141592653589793
         real(myprec), value :: rcl2
@@ -579,6 +591,9 @@ contains
                 !choose only up to nnbnd nearest neighbors 
                 nlimit = nnbnd
             end if
+            if (ncount==0) nlimit = 0
+            ! Loop over neighbors
+            !
             do k = 1, nlimit
                 ! count neighbors within cutoff and
                 ! compute per atom order parameter
@@ -609,7 +624,7 @@ contains
             end do
             ! Compute Q_l per atom
             !   
-            if (ncount >= nnbnd) then
+            if (ncount >= nnbnd .and. nlimit > 0) then
                 ylr(:,:) = ylr(:,:)/real(nlimit, myprec)
                 yli(:,:) = yli(:,:)/real(nlimit, myprec)
                 do ix = 1, norder

@@ -469,6 +469,7 @@ contains
       end do
       time_gpu = gptime(stopEvent, startEvent)
       tbfs = tbfs + time_gpu
+      ! Check for redimensioning of neighbor list
       if (maxval(neighbors(:)) > 60) then
          write (error_msg, '(" Warning:redimension next to at least ", i5)') maxval(neighbors(:))
          stop(error_msg)

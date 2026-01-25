@@ -446,12 +446,12 @@ contains
          if (ndim==2) then
             write (onunit, "('# mol        x       y     ',15('Real(psi_m)     Im(psi_m)   ',i3,8x:))") (orderp(i), i=1, norder)
             do i = 1, nmol
-               write (onunit, '(i5,15f12.5)') i, r(1:ndim,i), (atomic_order_cos(i,j), atomic_order_sin(i,j), j=1, norder)
+               write (onunit, '(i6,15f12.5)') i, r(1:ndim,i), (atomic_order_cos(i,j), atomic_order_sin(i,j), j=1, norder)
             end do
          else
-            write (onunit, "('# mol        x          y          z   ',7x,15('Q_l(',i2,')'5x:))") (orderp(i), i=1, norder)
+            write (onunit, "('# mol        x          y           z   ',7x,15('Q_l(',i2,')'5x:))") (orderp(i), i=1, norder)
             do i = 1, nmol
-               write (onunit, '(i5,15f12.5)') i, r(1:ndim,i), atomic_ql(i,1:norder)
+               write (onunit, '(i6,15f12.5)') i, r(1:ndim,i), atomic_ql(i,1:norder)
             end do
          end if
  
