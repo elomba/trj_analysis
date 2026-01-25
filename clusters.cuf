@@ -442,6 +442,15 @@ contains
       time_gpu = gptime(stopEvent, startEvent)
       tthrus = tthrus + time_gpu
       offset(:) = goffset(:)
+      istat = cudaEventRecord(startEvent, 0)
+      if (use_cell) then
+         call gpu_adj_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d)
+      else
+         call gpu_adj<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d)
+      end if
+      time_gpu = gptime(stopEvent, startEvent)
+      tadj = tadj + time_gpu
+      adjacency(:) = gadjacency(:)
    end subroutine neighbor_search
 
    subroutine cluster_search()
@@ -461,42 +470,15 @@ contains
       !
       call neighbor_search()
       ! !
-      ! ! Build neighbor tables for graph constructtion
-      ! !
-      ! istat = cudaEventRecord(startEvent, 0)
-      ! if (use_cell) then
-      !    call gpu_graph_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, jmin)
-      ! else
-      !    call gpu_graf<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, jmin)
-      ! end if
-      ! time_gpu = gptime(stopEvent, startEvent)
-      ! tgraph = tgraph + time_gpu
-      ! goffset(:) = gneighbors(:)
-      ! neighbors(:) = gneighbors(:)
-      ! core(:) = gcore(:)
-      ! istat = cudaEventRecord(startEvent, 0)
-      ! call thrustscan(goffset, Nmol, 1)
-      ! time_gpu = gptime(stopEvent, startEvent)
-      ! tthrus = tthrus + time_gpu
-      ! offset(:) = goffset(:)
-!       !
-!       ! Determine adjacency between nodes
-!       !
-      istat = cudaEventRecord(startEvent, 0)
-      if (use_cell) then
-         call gpu_adj_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d)
-      else
-         call gpu_adj<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d)
-      end if
-      time_gpu = gptime(stopEvent, startEvent)
-      tadj = tadj + time_gpu
-      adjacency(:) = gadjacency(:)
       gdone(:) = 0
       done(:) = 0
       cluster_id = 0
       visited(:) = .false.
       ! Recursive BFS search of connected clusters
       istat = cudaEventRecord(startEvent, 0)
+      ! 
+      ! Main loop over all particles
+      ! (remains to be optimized in parallel)
       do i = 1, nmol
          if (core(i) .and. done(i) == 0) then
             gvisited(:) = .false.

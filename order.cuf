@@ -6,7 +6,7 @@ module mod_order
     use mod_common, only: r_d, r, sidel_d, cellxd, cellyd, cellzd, maxjd, maxkd, nnd, headd, listad, neighd, gptime, startEvent, stopEvent, tord, side2, ndrclus, drclus, neighbors
     use mod_input, only: norder, orderp, nnbond, nthread, run_clusters, rclcl, deltar, minclsize, use_cell, ndim 
     use mod_clusters, only: cluster, avcluster_order, avcluster_order_cos, avcluster_order_sin, &
-    cluster_order_cos, cluster_order_sin, maxcln, rclxyz, nbigcl, neighbor_search
+    cluster_order_cos, cluster_order_sin, maxcln, rclxyz, nbigcl, neighbor_search, goffset, gneighbors, gadjacency
     use cudafor
     implicit none
     type neighbor
@@ -169,14 +169,7 @@ contains
             else
                 call prefactors(lmax,pref)
                 prefd(:,:) = pref(:,:)
-                if (use_cell) then
-                    call gpu_comp_order3D<<<Nmol/nthread+1, nthread,8*norder+1>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
-!                    call gpu_comp_order3D<<<1, 10>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
-                else
-                    ! If not using cell list, use a different kernel without cell list
-                    print *, '** Warning: calculating order parameter without cell list'
-                    call gpu_comp_order3D_nc<<<Nmol/nthread+1, nthread,8*norder+1>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
-                end if
+                call gpu_comp_order3D<<<Nmol/nthread+1, nthread,8*norder+1>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
             end if
             time_gpu = gptime(stopEvent, startEvent)
             tord = tord + time_gpu
@@ -312,6 +305,11 @@ contains
 
     
     attributes(global) subroutine gpu_comp_order3D(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
+    ! Compute 3D order parameter Q_l
+    ! Based on  Ylm calculation from https://developer.nvidia.com/blog/cuda-pro-tip-implementing-spherical-harmonics-in-cuda-c/ 
+    ! Modified to compute atomic Q_l
+    ! Implements neighbor list 
+    !
         integer, value, intent(IN) :: Nmol, dim, norder, nnbnd
         type(neighbor) :: vecinos(nmbmax)
         real(myprec), parameter :: pi_constant=3.141592653589793
@@ -320,59 +318,43 @@ contains
         real(myprec)  :: rv(3), rr2, cx, sy, cy, d, d2, cte
         real(myprec) :: pr(0:llmax), pi(0:llmax)
         real(kind=8) :: ylr(nmax_order,0:llmax), yli(nmax_order,0:llmax), suma
-        integer :: i, j, ncount, ix, jy, kz, cell, icell, lmax, m, l, k, nlimit
+        integer :: i, j, ncount, ix, jy, kz, cell, icell, lmax, m, l, k, nlimit, idx, n
         i = (blockidx%x - 1)*blockdim%x + threadidx%x
         if (i <= Nmol) then
             lmax = orderp_d(norder)
             ylr(:,:) = 0.0
             yli(:,:) = 0.0
-            ncount = 0
-            !
-            ! Locate cell
-            !
-            ix = int((r(1, i))/cellxd)
-            jy = int((r(2, i))/cellyd)
-            kz = int((r(3, i))/cellzd)
-            cell = (ix*maxjd + jy)*maxkd + kz
-            !
-            ! Loop over neighbouring cells
-            !
-            do icell = 1, nnd
-                j = headd(neighd(cell, icell))
-                do while (j .ne. 0)
-                    if (j .ne. i) then
-                        rv(1:dim) = r(1:dim, i) - r(1:dim, j)
-                        rv = rv - sidel*nint(rv/sidel)
-                        rr2 = Dot_product(rv, rv)
-                        if (rr2 < rcl2) then
-                            ncount = ncount + 1
-                            ! store neighbor distance and id in sorted order
-                            vecinos(ncount)%dist2 = rr2
-                            vecinos(ncount)%id = j
-                            do k=1,ncount-1
-                                if (vecinos(k)%dist2 > rr2) then
-                                    ! insert rr2 at position k
-                                    do m=ncount, k+1, -1
-                                        vecinos(m)%dist2 = vecinos(m-1)%dist2
-                                        vecinos(m)%id = vecinos(m-1)%id
-                                    end do
-                                    vecinos(k)%dist2 = rr2
-                                    vecinos(k)%id = j   
-                                    exit
-                                end if
-                            end do
-                        endif
-                    endif
-                    j = listad(j)
-                end do
-            enddo
+ 
+            ncount = gneighbors(i)
             if (nnbnd ==0) then
                 nlimit = ncount
             else
                 !choose only up to nnbnd nearest neighbors 
                 nlimit = nnbnd
             end if
-
+            idx = 0
+            do j = goffset(i), goffset(i) + ncount - 1
+                idx = idx + 1
+                k = gadjacency(j)
+                rv(1:dim) = r(1:dim, i) - r(1:dim, k)
+                rv = rv - sidel*nint(rv/sidel)
+                rr2 = Dot_product(rv, rv)
+                ! store neighbor distance and id in sorted order
+                vecinos(idx)%dist2 = rr2
+                vecinos(idx)%id = k
+                do n=1,idx-1
+                    if (vecinos(n)%dist2 > rr2) then
+                        ! insert rr2 at position n
+                        do m=idx, n+1, -1
+                            vecinos(m)%dist2 = vecinos(m-1)%dist2
+                            vecinos(m)%id = vecinos(m-1)%id
+                        end do
+                        vecinos(n)%dist2 = rr2
+                        vecinos(n)%id = k   
+                        exit
+                    end if
+                end do  
+            end do
             if (ncount==0) nlimit = 0
             ! Loop over neighbors
             !
@@ -550,107 +532,7 @@ contains
 
 
 
-        attributes(global) subroutine gpu_comp_order3D_nc(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
-        integer, value, intent(IN) :: Nmol, dim, norder, nnbnd
-        type(neighbor) :: vecinos(nmbmax)
-        real(myprec), parameter :: pi_constant=3.141592653589793
-        real(myprec), value :: rcl2
-        real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
-        real(myprec)  :: rv(3), rr2, cx, sy, cy, d, d2, cte, suma
-        real(myprec) :: pr(0:llmax), pi(0:llmax)
-        real(myprec) :: ylr(nmax_order,0:llmax), yli(nmax_order,0:llmax)
-        integer :: i, j, ncount, ix, jy, kz, cell, icell, lmax, m, l, k, nlimit
-        i = (blockidx%x - 1)*blockdim%x + threadidx%x
-        if (i <= Nmol) then
-            lmax = orderp_d(norder)
-            ylr(:,:) = 0.0
-            yli(:,:) = 0.0
-            ncount = 0
-            do j = 1, Nmol                  
-                if (j .ne. i) then
-                    rv(1:dim) = r(1:dim, i) - r(1:dim, j)
-                    rv = rv - sidel*nint(rv/sidel)
-                    rr2 = Dot_product(rv, rv)
-                    if (rr2 < rcl2) then
-                        ncount = ncount + 1
-                        ! store neighbor distance and id in sorted order
-                        vecinos(ncount)%dist2 = rr2
-                        vecinos(ncount)%id = j
-                        do k=1,ncount-1
-                            if (vecinos(k)%dist2 > rr2) then
-                                ! insert rr2 at position k
-                                do m=ncount, k+1, -1
-                                    vecinos(m)%dist2 = vecinos(m-1)%dist2
-                                    vecinos(m)%id = vecinos(m-1)%id
-                                end do
-                                vecinos(k)%dist2 = rr2
-                                vecinos(k)%id = j   
-                                exit
-                            end if
-                        end do
-                    endif
-                endif
-            end do
-            if (nnbnd ==0) then
-                nlimit = ncount
-            else
-                !choose only up to nnbnd nearest neighbors 
-                nlimit = nnbnd
-            end if
-            if (ncount==0) nlimit = 0
-            ! Loop over neighbors
-            !
-            do k = 1, nlimit
-                ! count neighbors within cutoff and
-                ! compute per atom order parameter
-                j = vecinos(k)%id
-                rv(1:dim) = r(1:dim, i) - r(1:dim, j)
-                rv = rv - sidel*nint(rv/sidel)
-                rr2 = vecinos(k)%dist2
-                d = __fsqrt_rn(rr2)
-                cx = rv(3)/d
-                d2 = __fsqrt_rn(rv(1)*rv(1) + rv(2)*rv(2))
-                if (d2 < 1.0e-12_myprec) then
-                    sy = 0.0_myprec
-                    cy = 1.0_myprec
-                    else    
-                    sy = rv(2)/d2
-                    cy = rv(1)/d2
-                endif
-                !
-                ! Average Ylm over neighbors
-                !
-                do ix=1, norder
-                    l = orderp_d(ix)
-                    call ylm(cx, cy, sy, l, pr, pi)
-                    ! compute Y_lm contributions
-                    ylr(ix,0:l) = pr(0:l)+ylr(ix,0:l)
-                    yli(ix,0:l) = pi(0:l)+yli(ix,0:l)
-                end do
-            end do
-            ! Compute Q_l per atom
-            !   
-            if (ncount >= nnbnd .and. nlimit > 0) then
-                ylr(:,:) = ylr(:,:)/real(nlimit, myprec)
-                yli(:,:) = yli(:,:)/real(nlimit, myprec)
-                do ix = 1, norder
-                    l = orderp_d(ix)
-                    !
-                    ! Compute Q_l per atom adding contributions from m = 0 to l
-                    !
-                    suma = ylr(ix,0)*ylr(ix,0)
-                    do m=1, l
-                        suma = suma + 2.0_myprec*(ylr(ix,m)*ylr(ix,m) + yli(ix,m)*yli(ix,m))
-                    end do 
-                    cte = 4*pi_constant/(2*l+1)
-                    atomic_ql_d(i, ix) = sqrt(real(suma,myprec)*cte)
-                end do
-
-            endif
-        end if
-    end subroutine gpu_comp_order3D_nc
-
-
+ 
     subroutine cl_comp_order2D(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
         integer, intent(IN) :: Nmol, dim, norder, nnbnd
         real(myprec), value :: rcl2
