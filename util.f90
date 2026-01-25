@@ -113,7 +113,7 @@ contains
       implicit none
       logical, intent(in) :: use_cell,run_clusters,run_dyn, confined
       integer, intent(in) :: nmol
-      if (use_cell) call cells_init_pre_nc_read(nmol)
+      if (use_cell.or.run_order) call cells_init_pre_nc_read(nmol)
       if (run_clusters) call clusters_init(nmol)
       if (run_dyn) call dyn_init()
       if (confined) call prof_init()

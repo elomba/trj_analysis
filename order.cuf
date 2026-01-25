@@ -6,7 +6,7 @@ module mod_order
     use mod_common, only: r_d, r, sidel_d, cellxd, cellyd, cellzd, maxjd, maxkd, nnd, headd, listad, neighd, gptime, startEvent, stopEvent, tord, side2, ndrclus, drclus, neighbors
     use mod_input, only: norder, orderp, nnbond, nthread, run_clusters, rclcl, deltar, minclsize, use_cell, ndim 
     use mod_clusters, only: cluster, avcluster_order, avcluster_order_cos, avcluster_order_sin, &
-    cluster_order_cos, cluster_order_sin, maxcln, rclxyz, nbigcl
+    cluster_order_cos, cluster_order_sin, maxcln, rclxyz, nbigcl, neighbor_search
     use cudafor
     implicit none
     type neighbor
@@ -130,8 +130,14 @@ contains
                 write(*,'("*** Error: neighbor list not allocated before order parameter calculation !")')
                 stop
             end if
+            ! Determine maximum number of neighbors
             maxneigh = maxval(neighbors(:))
-            write(*,"(/'-- Maximum number of neighbors found: ',i0)") maxneigh
+            if (maxneigh == 0) then
+                ! if no neighbors found yet, build neighbor list
+                call neighbor_search()
+                maxneigh = maxval(neighbors(:))
+            end if
+            ! Check that nmbmax is large enough
             if (maxneigh > nmbmax) then
                 write (*,'("*** Error: increase nmbmax parameter in gpu_comp_order3D to at least ", i5)') maxneigh
                 stop

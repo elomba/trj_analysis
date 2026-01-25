@@ -411,16 +411,16 @@ contains
       if (run_thermo .and. iconf ==1 ) call thermo_init_cluster(natms, ndim, sidel, side2, maxcln, cluster)
    end subroutine cluster_analysis
 
-   subroutine cluster_search()
+   subroutine neighbor_search()
       !
-      ! Main cluster search call
+      ! Main neighbor search call
       !
       use mod_common
       use mod_thrust
       use mod_input
       use mod_cells
       implicit none
-      integer :: cluster_id, i, j, istat
+      integer :: istat
       real :: time_gpu
       Character :: error_msg*64
       !
@@ -442,6 +442,43 @@ contains
       time_gpu = gptime(stopEvent, startEvent)
       tthrus = tthrus + time_gpu
       offset(:) = goffset(:)
+   end subroutine neighbor_search
+
+   subroutine cluster_search()
+      !
+      ! Main cluster search call
+      !
+      use mod_common
+      use mod_thrust
+      use mod_input
+      use mod_cells
+      implicit none
+      integer :: cluster_id, i, j, istat
+      real :: time_gpu
+      Character :: error_msg*64
+      !
+      ! Search for neighbors and build graph
+      !
+      call neighbor_search()
+      ! !
+      ! ! Build neighbor tables for graph constructtion
+      ! !
+      ! istat = cudaEventRecord(startEvent, 0)
+      ! if (use_cell) then
+      !    call gpu_graph_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, jmin)
+      ! else
+      !    call gpu_graf<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, jmin)
+      ! end if
+      ! time_gpu = gptime(stopEvent, startEvent)
+      ! tgraph = tgraph + time_gpu
+      ! goffset(:) = gneighbors(:)
+      ! neighbors(:) = gneighbors(:)
+      ! core(:) = gcore(:)
+      ! istat = cudaEventRecord(startEvent, 0)
+      ! call thrustscan(goffset, Nmol, 1)
+      ! time_gpu = gptime(stopEvent, startEvent)
+      ! tthrus = tthrus + time_gpu
+      ! offset(:) = goffset(:)
 !       !
 !       ! Determine adjacency between nodes
 !       !
