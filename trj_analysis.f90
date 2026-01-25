@@ -70,9 +70,9 @@ program trj_analysis
     !     Orientational order parameters  to be computed
     !    (def. .true.), print average per particle order parameters 
     !    (def. .false.), distance between clusters, for neighbor search
-    !    in order parameter calculation  (def. rcl), if nnbond=0
+    !    in order parameter calculation  (def. rcl), if nnbond=0 (default)
     !    all NN are used up to the cutoff to compute, otherwise the number of 
-    !    neighbors must be the same as the order of the parameter (default)
+    !    neighbors must be the same as the order of the parameter 
     !
     ! namelist /INPUT_CONF/ idir, pwall, pwallp
     !          Direction of confinement (1,2,3->x,y,z), position of left wall, position of right wall

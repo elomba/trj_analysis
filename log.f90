@@ -427,10 +427,18 @@ contains
             & avcluster_order(i)/real(nconf)
          end do
       else
-         write (onunit, "('#   order   psi_m   ')")
-         do i = 1, norder
-            write (onunit, '(i3,3f12.5)') orderp(i), avorder(i)/real(nconf)
-         end do
+         if (ndim==2) then
+            write (onunit, "('#   order   Real(psi_m)   Im(psi_m)   |psi_m|   ')")
+            do i = 1, norder
+               write (onunit, '(i3,3f12.5,f12.5)') orderp(i), avorder_cos(i)/real(nconf), &
+               & avorder_sin(i)/real(nconf), avorder(i)/real(nconf)
+            end do
+         else
+            write (onunit, "('# order   Q_l(order)   ')")
+            do i = 1, norder
+               write (onunit, '(2x,i3,f12.5)') orderp(i), avorder(i)/real(nconf)
+            end do
+         end if
       end if 
       close (100)
       if (print_orderp) then
@@ -441,9 +449,9 @@ contains
                write (onunit, '(i5,15f12.5)') i, r(1:ndim,i), (atomic_order_cos(i,j), atomic_order_sin(i,j), j=1, norder)
             end do
          else
-            write (onunit, "('# mol        x       y       z   ',15('Q_l)  ',i3,8x:))") (orderp(i), i=1, norder)
+            write (onunit, "('# mol        x          y          z   ',7x,15('Q_l(',i2,')'5x:))") (orderp(i), i=1, norder)
             do i = 1, nmol
-               write (onunit, '(i4,15f12.5)') i, r(1:ndim,i), atomic_ql(i,1:norder)
+               write (onunit, '(i5,15f12.5)') i, r(1:ndim,i), atomic_ql(i,1:norder)
             end do
          end if
  

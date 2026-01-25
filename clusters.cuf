@@ -311,7 +311,7 @@ contains
          rmcl = maxval(cluster(1:cluster_id)%radio)  
          drclus = 2*rmcl/ndrclus
          if (2*maxval(cluster(1:cluster_id)%clsize) > nmaxcl) then
-            print *, ' *** Warning: increasing nmaxcl=',nmaxcl,' to ', 2*maxval(cluster(1:cluster_id)%clsize)
+            write(*,'(" *** Warning !!: increasing nmaxcl=",i4," to ",i4)') nmaxcl, 2*maxval(cluster(1:cluster_id)%clsize)
             nmaxcl = 2*maxval(cluster(1:cluster_id)%clsize)
             deallocate (dratio, dsph, countcl)
             allocate(dratio(1:nmaxcl), dsph(1:nmaxcl), countcl(1:nmaxcl))

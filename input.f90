@@ -8,7 +8,7 @@ module mod_input
    integer, dimension(3) :: ncfs_from_to
    character(len=4), allocatable, dimension(:) :: sp_labels
    integer :: nthread, ndim, jmin=3, minclsize, idir=0, nsp, nbuffer=2, potnbins=100, nqw=0, &
-            & jump=1, norder=1, nnbond=6
+            & jump=1, norder=1, nnbond=0
    logical :: use_cell = .true., run_order = .false., print_orderp=.false.
    logical, dimension(7) :: rdf_sq_cl_dyn_sqw_conf_ord
    real(myprec) :: deltar, rcl=-1.0, dcl, qmin, qmax, rcrdf, rclcl=0.0, &
