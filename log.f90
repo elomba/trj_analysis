@@ -428,9 +428,9 @@ contains
          end do
       else
          if (ndim==2) then
-            write (onunit, "('#   order   Real(psi_m)   Im(psi_m)   |psi_m|   ')")
+            write (onunit, "('#   order  Real(psi_m)  Im(psi_m)     |psi_m|  ')")
             do i = 1, norder
-               write (onunit, '(i3,3f12.5,f12.5)') orderp(i), avorder_cos(i)/real(nconf), &
+               write (onunit, '(5x,i3,3f12.5,f12.5)') orderp(i), avorder_cos(i)/real(nconf), &
                & avorder_sin(i)/real(nconf), avorder(i)/real(nconf)
             end do
          else
@@ -444,9 +444,9 @@ contains
       if (print_orderp) then
          open (newunit=onunit, file='order_per_mol.dat')
          if (ndim==2) then
-            write (onunit, "('# mol        x       y     ',15('Real(psi_m)     Im(psi_m)   ',i3,8x:))") (orderp(i), i=1, norder)
+            write (onunit, "('# mol        x           y     ',5x,15('Real(psi_m) Im(psi_m)(',i0,')',1x:))") (orderp(i), i=1, norder)
             do i = 1, nmol
-               write (onunit, '(i6,15f12.5)') i, r(1:ndim,i), (atomic_order_cos(i,j), atomic_order_sin(i,j), j=1, norder)
+               write (onunit, '(i6,15f13.5)') i, r(1:ndim,i), (atomic_order_cos(i,j), atomic_order_sin(i,j), j=1, norder)
             end do
          else
             write (onunit, "('# mol        x          y           z   ',7x,15('Q_l(',i2,')'5x:))") (orderp(i), i=1, norder)
