@@ -205,88 +205,6 @@ contains
         end if
     end subroutine compute_order
 
-    attributes(global) subroutine gpu_comp_order2D(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
-        integer, value, intent(IN) :: Nmol, dim, norder, nnbnd
-        real(myprec), value :: rcl2
-        real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
-        real(myprec)  :: rv(3), rr2, s0, s1, s2, c0, c1, c2, cx, sy, cz, d
-        real(myprec) :: cosd(norder), sind(norder)
-        integer :: i, j, counter, ncount, ix, jy, kz, cell, icell
-        i = (blockidx%x - 1)*blockdim%x + threadidx%x
-        if (i <= Nmol) then
-            cosd(:) = 0.0
-            sind(:) = 0.0
-            ncount = 0
-            !
-            ! Locate cell
-            !
-            ix = int((r(1, i))/cellxd)
-            jy = int((r(2, i))/cellyd)
-            cell = (ix*maxjd + jy)
-            !
-            ! Loop over neighbouring cells
-            !
-            do icell = 1, nnd
-                j = headd(neighd(cell, icell))
-                do while (j .ne. 0)
-                    if (j .ne. i) then
-                        rv(1:dim) = r(1:dim, i) - r(1:dim, j)
-                        rv = rv - sidel*nint(rv/sidel)
-                        rr2 = Dot_product(rv, rv)
-                        if (rr2 < rcl2) then
-                            ncount = ncount + 1
-                        ! count neighbors within cutoff and
-                        ! compute per atom order parameter
-                            d = __fsqrt_rn(rr2)
-                            cx = rv(1)/d
-                            sy = rv(2)/d
-                            if (dim == 3) then  
-                                cz = rv(3)/d
-                            end if
-                            c0 = 1.0
-                            c1 = cx
-                            s0 = 0.0
-                            s1 = sy
-                            counter = 1
-                            do ix = 2, orderp_d(norder)
-                                ! iterate to comnute sin(m*theta) and cos(m*theta)  
-                                c2 = c1*cx-s1*sy
-                                s2 = s1*cx+c1*sy
-                                s0 = s1
-                                s1 = s2
-                                c0 = c1
-                                c1 = c2
-                                ! add contribution to order parameter
-                                if (ix == orderp_d(counter)) then
-                                    cosd(counter) = cosd(counter) + c2
-                                    sind(counter) = sind(counter) + s2
-                                    counter = counter + 1
-                                end if
-                            end do
-                        end if
-                    end if
-                    j = listad(j)
-                end do
-            end do
-            if (ncount > 0) then
-                if (nnbnd ==0) then
-                    atomic_order_cos_d(i, 1:norder) = cosd(1:norder)/real(ncount, myprec)
-                    atomic_order_sin_d(i, 1:norder) = sind(1:norder)/real(ncount, myprec)
-                else
-                    ! Only compute order parameter if number of neighbors 
-                    ! equals the order of the parameter
-                    do j=1, norder
-                        if (orderp_d(j) == ncount) then
-                            atomic_order_cos_d(i, j) = cosd(j)/real(ncount, myprec)
-                            atomic_order_sin_d(i, j) = sind(j)/real(ncount, myprec)
-                        end if
-                    end do
-                end if
-            end if
-        end if
-    end subroutine gpu_comp_order2D
-
-   
 
     subroutine prefactors(lmax,pref)
     implicit none
@@ -303,7 +221,158 @@ contains
     enddo
     end subroutine prefactors
 
-    
+    attributes(device)  subroutine ylm(x,y,z,l,pr,pi)
+        implicit none
+        real(myprec), intent(IN) :: x, y, z
+        integer, intent(IN) :: l
+        real(myprec), dimension(0:l) :: pr, pi
+        integer :: mmax, m, i
+        real(myprec) :: pmm, pmmp1, pll
+        real(myprec) :: cx, sy, c0, s0, c1, s1, c2, s2, temp, signo
+        signo = sign(1.0_myprec,z)
+        !
+        ! Compute associated Legendre polynomial P_l^m(x) and cos(m*phi), sin(m*phi) using recursion
+        ! to get Y_lm
+        !
+        cx = y
+        sy = z
+        c0 = 1.0
+        c1 = cx
+        s0 = 0.0
+        s1 = sy
+        pi(0) = 1
+        pi(1) = c1
+        do m = 0, l
+            if (m>1) then
+                c2 = c1*cx-s1*sy
+                s2 = s1*cx+c1*sy
+                s0 = s1
+                s1 = s2
+                c0 = c1
+                c1 = c2
+                ! store cos(m*phi)
+                pi(m) = c2
+            endif
+            pmm = 1.0
+            do i = 1, m
+              pmm = pmm * (-sqrt(1.0 - x*x)) * (2*i - 1)
+            end do
+            if (m==l) pr(m) = pmm
+            pmmp1 = x * (2*m + 1) * pmm
+            if (m+1==l) pr(m) = pmmp1
+            do i = m + 2, l
+                pll = ((2*i - 1)*x*pmmp1 - (i + m - 1)*pmm)/(i - m)
+                pmm = pmmp1
+                pmmp1 = pll
+                if (i==l) pr(m) = pll
+            end do
+        end do
+        do m=0, l
+            temp = prefd(l,m)*pr(m)
+            pr(m) = temp*pi(m)
+            ! compute sin(m*phi) using sin^2+cos^2=1 and preserve sign
+            pi(m) = temp*sqrt(max(0.0,1-pi(m)**2))*signo
+        enddo
+    end subroutine ylm
+
+
+    attributes(global) subroutine gpu_comp_order2D(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
+        ! Compute 2D order parameter Q_m using precomputed neighbor list
+        type(neighbor) :: vecinos(nmbmax)
+        integer, value, intent(IN) :: Nmol, dim, norder, nnbnd
+        real(myprec), value :: rcl2
+        real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
+        real(myprec)  :: rv(3), rr2, s0, s1, s2, c0, c1, c2, cx, sy, cz, d
+        real(myprec) :: cosd(norder), sind(norder)
+        integer :: i, j, ncount, m, l, k, nlimit, idx, n, counter, ix
+        i = (blockidx%x - 1)*blockdim%x + threadidx%x
+        if (i <= Nmol) then
+            cosd(:) = 0.0
+            sind(:) = 0.0
+            ncount = gneighbors(i)
+            if (nnbnd ==0) then
+                nlimit = ncount
+            else
+                !choose only up to nnbnd nearest neighbors 
+                nlimit = nnbnd
+            end if
+            idx = 0
+            do j = goffset(i), goffset(i) + ncount - 1
+                idx = idx + 1
+                k = gadjacency(j)
+                rv(1:dim) = r(1:dim, i) - r(1:dim, k)
+                rv = rv - sidel*nint(rv/sidel)
+                rr2 = Dot_product(rv, rv)
+                ! store neighbor distance and id in sorted order
+                vecinos(idx)%dist2 = rr2
+                vecinos(idx)%id = k
+                do n=1,idx-1
+                    if (vecinos(n)%dist2 > rr2) then
+                        ! insert rr2 at position n
+                        do m=idx, n+1, -1
+                            vecinos(m)%dist2 = vecinos(m-1)%dist2
+                            vecinos(m)%id = vecinos(m-1)%id
+                        end do
+                        vecinos(n)%dist2 = rr2
+                        vecinos(n)%id = k   
+                        exit
+                    end if
+                end do  
+            end do
+            if (ncount==0) nlimit = 0
+            ! Loop over neighbors
+            !
+            do k = 1, nlimit
+                ! count neighbors within cutoff and
+                ! compute per atom order parameter
+                j = vecinos(k)%id
+                rv(1:dim) = r(1:dim, i) - r(1:dim, j)
+                rv = rv - sidel*nint(rv/sidel)
+                rr2 = vecinos(k)%dist2
+                d = __fsqrt_rn(rr2)
+                cx = rv(1)/d
+                sy = rv(2)/d
+                !
+                ! Average cos(m*phi) and sin(m*phi) over neighbors
+                !
+                c0 = 1.0
+                c1 = cx
+                s0 = 0.0
+                s1 = sy
+                counter = 1
+                do ix = 2, orderp_d(norder)
+                    ! iterate to compute sin(m*theta) and cos(m*theta)  
+                    c2 = c1*cx-s1*sy
+                    s2 = s1*cx+c1*sy
+                    s0 = s1
+                    s1 = s2
+                    c0 = c1
+                    c1 = c2
+                    ! add contribution to order parameter
+                    if (ix == orderp_d(counter)) then
+                        cosd(counter) = cosd(counter) + c2
+                        sind(counter) = sind(counter) + s2
+                        counter = counter + 1
+                    end if
+                end do
+            end do
+            if (ncount > 0) then
+                if (nnbnd ==0) then
+                    atomic_order_cos_d(i, 1:norder) = cosd(1:norder)/real(ncount, myprec)
+                    atomic_order_sin_d(i, 1:norder) = sind(1:norder)/real(ncount, myprec)
+                else
+                    ! Only compute order parameter if number of neighbors 
+                    ! equals the order of the parameter
+                    if (nnbnd <= ncount) then
+                        atomic_order_cos_d(i, 1:norder) = cosd(1:norder)/real(nlimit, myprec)
+                        atomic_order_sin_d(i, 1:norder) = sind(1:norder)/real(nlimit, myprec)
+                    end if
+                end if
+            end if
+        end if
+    end subroutine gpu_comp_order2D
+
+
     attributes(global) subroutine gpu_comp_order3D(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
     ! Compute 3D order parameter Q_l
     ! Based on  Ylm calculation from https://developer.nvidia.com/blog/cuda-pro-tip-implementing-spherical-harmonics-in-cuda-c/ 
@@ -324,7 +393,6 @@ contains
             lmax = orderp_d(norder)
             ylr(:,:) = 0.0
             yli(:,:) = 0.0
- 
             ncount = gneighbors(i)
             if (nnbnd ==0) then
                 nlimit = ncount
@@ -409,130 +477,6 @@ contains
   
     end subroutine gpu_comp_order3D
 
-    
-    attributes(global) subroutine gpu_comp_order2D_nc(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
-        integer, value, intent(IN) :: Nmol, dim, norder, nnbnd
-        real(myprec), value :: rcl2
-        real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
-        real(myprec)  :: rv(3), rr2, s0, s1, s2, c0, c1, c2, cx, sy, cz, d
-        real(myprec) :: cosd(norder), sind(norder)
-        integer :: i, j, counter, ncount, lmax, ix
-        i = (blockidx%x - 1)*blockdim%x + threadidx%x
-        if (i <= Nmol) then
-            lmax = orderp_d(norder)
-            cosd(:) = 0.0
-            sind(:) = 0.0
-            ncount = 0
-            do j = 1, Nmol 
-                    if (j .ne. i) then
-                        rv(1:dim) = r(1:dim, i) - r(1:dim, j)
-                        rv = rv - sidel*nint(rv/sidel)
-                        rr2 = Dot_product(rv, rv)
-                        if (rr2 < rcl2) then
-                            ncount = ncount + 1
-                        ! count neighbors within cutoff and
-                        ! compute per atom order parameter
-                            d = __fsqrt_rn(rr2)
-                            cx = rv(1)/d
-                            sy = rv(2)/d
-                            if (dim == 3) then  
-                                cz = rv(3)/d
-                            end if
-                            c0 = 1.0
-                            c1 = cx
-                            s0 = 0.0
-                            s1 = sy
-                            counter = 1
-                            do ix = 2, lmax
-                                ! iterate to compute sin(m*theta) and cos(m*theta)  
-                                c2 = c1*cx-s1*sy
-                                s2 = s1*cx+c1*sy
-                                s0 = s1
-                                s1 = s2
-                                c0 = c1
-                                c1 = c2
-                                ! add contribution to order parameter
-                                if (ix == orderp_d(counter)) then
-                                    cosd(counter) = cosd(counter) + c2
-                                    sind(counter) = sind(counter) + s2
-                                    counter = counter + 1
-                                end if
-                            end do
-                        end if
-                    endif
-            end do
-            if (ncount > 0) then
-                if (nnbnd ==0) then
-                    atomic_order_cos_d(i, 1:norder) = cosd(1:norder)/real(ncount, myprec)
-                    atomic_order_sin_d(i, 1:norder) = sind(1:norder)/real(ncount, myprec)
-                else
-                    ! Only compute order parameter if number of neighbors 
-                    ! equals the order of the parameter
-                    do j=1, norder
-                        if (orderp_d(j) == ncount) then
-                            atomic_order_cos_d(i, j) = cosd(j)/real(ncount, myprec)
-                            atomic_order_sin_d(i, j) = sind(j)/real(ncount, myprec)
-                        end if
-                    end do
-                end if
-            end if
-        end if
-    end subroutine gpu_comp_order2D_nc
-
-    attributes(device)  subroutine ylm(x,y,z,l,pr,pi)
-        implicit none
-        real(myprec), intent(IN) :: x, y, z
-        integer, intent(IN) :: l
-        real(myprec), dimension(0:l) :: pr, pi
-        integer :: mmax, m, i
-        real(myprec) :: pmm, pmmp1, pll
-        real(myprec) :: cx, sy, c0, s0, c1, s1, c2, s2, temp, signo
-        signo = sign(1.0_myprec,z)
-        !
-        ! Compute associated Legendre polynomial P_l^m(x) using recursion
-        !
-        cx = y
-        sy = z
-        c0 = 1.0
-        c1 = cx
-        s0 = 0.0
-        s1 = sy
-        pi(0) = 1
-        pi(1) = c1
-        do m = 0, l
-           if (m>1) then
-              c2 = c1*cx-s1*sy
-              s2 = s1*cx+c1*sy
-              s0 = s1
-              s1 = s2
-              c0 = c1
-              c1 = c2
-              pi(m) = c2
-           endif
-           pmm = 1.0
-           do i = 1, m
-              pmm = pmm * (-sqrt(1.0 - x*x)) * (2*i - 1)
-           end do
-           if (m==l) pr(m) = pmm
-           pmmp1 = x * (2*m + 1) * pmm
-           if (m+1==l) pr(m) = pmmp1
-           do i = m + 2, l
-              pll = ((2*i - 1)*x*pmmp1 - (i + m - 1)*pmm)/(i - m)
-              pmm = pmmp1
-              pmmp1 = pll
-              if (i==l) pr(m) = pll
-           end do
-        end do
-        do m=0, l
-           temp = prefd(l,m)*pr(m)
-           pr(m) = temp*pi(m)
-           pi(m) = temp*sqrt(max(0.0,1-pi(m)**2))*signo
-        enddo
-      end subroutine ylm
-
-
-
- 
     subroutine cl_comp_order2D(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
         integer, intent(IN) :: Nmol, dim, norder, nnbnd
         real(myprec), value :: rcl2
