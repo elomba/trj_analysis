@@ -151,13 +151,7 @@ contains
             atomic_order_cos_d(:,:) = 0.0
             atomic_order_sin_d(:,:) = 0.0
             if (dim == 2) then
-                if (use_cell) then
-                    call gpu_comp_order2D<<<Nmol/nthread+1, nthread,8*norder+1>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
-                else
-                    ! If not using cell list, use a different kernel without cell list
-                    print *, '** Warning: calculating order parameter without cell list'
-                    call gpu_comp_order2D_nc<<<Nmol/nthread+1, nthread,8*norder+1>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
-                end if
+                call gpu_comp_order2D<<<Nmol/nthread+1, nthread,8*norder+1>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
                 if (run_clusters) Then
                     cluster_order_cos(:,:) = 0.0
                     cluster_order_sin(:,:) = 0.0
