@@ -14,7 +14,7 @@ module mod_clusters
    character(len=12) :: clusevol_filename = 'clusevol.dat'
    character(len=10) :: fshape_filename = 'fshape.dat'
    Real(myprec), allocatable :: clmfracav(:), dsph(:), dratio(:), countcl(:)
-   Real(myprec), allocatable :: cluster_order_cos(:,:), cluster_order_sin(:,:), &
+   Real(myprec), allocatable :: cluster_order_cos(:,:), cluster_order_sin(:,:), cluster_ql(:,:), &
      avcluster_order_cos(:), avcluster_order_sin(:), avcluster_order(:)
    interface
       function minj(dim, members, nm, center, sidel, side2)
@@ -71,6 +71,7 @@ contains
          if (run_order) then
             deallocate(cluster_order_cos)
             deallocate(cluster_order_sin)
+            deallocate(cluster_ql)
          end if
          if (run_thermo) then
             deallocate(bigcl_d)
@@ -100,8 +101,10 @@ contains
       if (run_order) then
          allocate(cluster_order_cos(maxcln, norder))
          allocate(cluster_order_sin(maxcln, norder))
+         allocate(cluster_ql(maxcln, norder))
          cluster_order_cos(:,:) = 0.0
          cluster_order_sin(:,:) = 0.0
+         cluster_ql(:,:) = 0.0
       end if
       Cluster_id = maxcln
       contador(:) = 0

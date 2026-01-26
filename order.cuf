@@ -6,7 +6,7 @@ module mod_order
     use mod_common, only: r_d, r, sidel_d, cellxd, cellyd, cellzd, maxjd, maxkd, nnd, headd, listad, neighd, gptime, startEvent, stopEvent, tord, side2, ndrclus, drclus, neighbors
     use mod_input, only: norder, orderp, nnbond, nthread, run_clusters, rclcl, deltar, minclsize, use_cell, ndim 
     use mod_clusters, only: cluster, avcluster_order, avcluster_order_cos, avcluster_order_sin, &
-    cluster_order_cos, cluster_order_sin, maxcln, rclxyz, nbigcl, neighbor_search, goffset, gneighbors, gadjacency
+    cluster_order_cos, cluster_order_sin, maxcln, rclxyz, nbigcl, neighbor_search, goffset, gneighbors, gadjacency, cluster_ql
     use cudafor
     implicit none
     type neighbor
@@ -23,6 +23,7 @@ module mod_order
     real(myprec), device, dimension(:,:), allocatable :: yll,  prefd
     real(myprec), device, dimension(:), allocatable :: cosmphi, sinmphi
     integer, parameter :: nmax_order = 6, llmax = 12, nmbmax = 35
+    real(myprec), parameter :: pi_constant=3.141592653589793
     integer, constant :: orderp_d(nmax_order)
 contains
     function fact(x) result(res)
@@ -151,8 +152,10 @@ contains
             atomic_order_cos_d(:,:) = 0.0
             atomic_order_sin_d(:,:) = 0.0
             if (dim == 2) then
+                ! Compute 2D order parameters  phi_m
                 call gpu_comp_order2D<<<Nmol/nthread+1, nthread,8*norder+1>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
-                if (run_clusters) Then
+                if (run_clusters.and.nbigcl>10) Then
+                    ! Compute cluster 2D order parameters if enough clusters
                     cluster_order_cos(:,:) = 0.0
                     cluster_order_sin(:,:) = 0.0
                     if (rclcl > 0.0) then
@@ -161,12 +164,22 @@ contains
                     end if
                 end if
             else
+                ! Compute 3D order parameters Q_l
                 call prefactors(lmax,pref)
                 prefd(:,:) = pref(:,:)
                 call gpu_comp_order3D<<<Nmol/nthread+1, nthread,8*norder+1>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
+                if (run_clusters.and.nbigcl>10) Then
+                    ! Compute cluster 3D order parameters if enough clusters
+                    cluster_ql(:,:) = 0.0 
+                    if (rclcl > 0.0) then
+                        rclcl2 = rclcl*rclcl
+                        call cl_comp_order3D(rclxyz(1:dim, 1:maxcln), nbigcl, dim, norder, nnbond, rclcl2, sidel)
+                    end if
+                end if
             end if
             time_gpu = gptime(stopEvent, startEvent)
             tord = tord + time_gpu
+            ! Copy results back to host and compute averages
             if (ndim==2) then  
                 atomic_order_cos(:,:) = atomic_order_cos_d(:,:)
                 atomic_order_sin(:,:) = atomic_order_sin_d(:,:)
@@ -182,19 +195,19 @@ contains
                     avcluster_order_cos(1:norder) = sum(cluster_order_cos(1:nbigcl,1:norder), dim=1)/nbigcl
                     avcluster_order_sin(1:norder) = sum(cluster_order_sin(1:nbigcl,1:norder), dim=1)/nbigcl
                     avcluster_order(1:norder)=avcluster_order(1:norder)+sqrt(avcluster_order_cos(:)**2+avcluster_order_sin(:)**2)
-                    rhoorder(:,:) = 0.0
-                    do i = 1, maxcln
-                        if (cluster(i)%clsize >= minclsize) then
-                            call clorderprof(r, dim, nbigcl, cluster(i)%members(:),&
-                            cluster(i)%clsize, sidel, rhoorder, ordercum, ndrclus, drclus, &
-                            &  cluster(i)%center(1:dim))
-                        endif
-                    enddo
-                    rhoorderav(:,:) = rhoorderav(:,:)+rhoorder(:,:)/real(nbigcl, myprec)
-                    ordercumav(:,:) = ordercumav(:,:)+ordercum(:,:)/real(nbigcl, myprec)
                 else
-                    ! 3D cluster order parameter calculation can be added here
+                    avcluster_order(1:norder) = avcluster_order(1:norder) + sum(cluster_ql(1:nbigcl,1:norder), dim=1)/nbigcl    
                 end if
+                rhoorder(:,:) = 0.0
+                do i = 1, maxcln
+                    if (cluster(i)%clsize >= minclsize) then
+                        call clorderprof(r, dim, nbigcl, cluster(i)%members(:),&
+                        cluster(i)%clsize, sidel, rhoorder, ordercum, ndrclus, drclus, &
+                            &  cluster(i)%center(1:dim))
+                    endif
+                enddo
+                rhoorderav(:,:) = rhoorderav(:,:)+rhoorder(:,:)/real(nbigcl, myprec)
+                ordercumav(:,:) = ordercumav(:,:)+ordercum(:,:)/real(nbigcl, myprec)
             end if  
         end if
     end subroutine compute_order
@@ -215,7 +228,7 @@ contains
     enddo
     end subroutine prefactors
 
-    attributes(device)  subroutine ylm(x,y,z,l,pr,pi)
+    attributes(host,device)  subroutine ylm(x,y,z,l,pr,pi)
         implicit none
         real(myprec), intent(IN) :: x, y, z
         integer, intent(IN) :: l
@@ -375,7 +388,6 @@ contains
     !
         integer, value, intent(IN) :: Nmol, dim, norder, nnbnd
         type(neighbor) :: vecinos(nmbmax)
-        real(myprec), parameter :: pi_constant=3.141592653589793
         real(myprec), value :: rcl2
         real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
         real(myprec)  :: rv(3), rr2, cx, sy, cy, d, d2, cte
@@ -537,6 +549,105 @@ contains
         end do
 
     end subroutine cl_comp_order2D
+    
+    subroutine cl_comp_order3D(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
+        type(neighbor) :: vecinos(nmbmax)
+        integer, intent(IN) :: Nmol, dim, norder, nnbnd
+        real(myprec), value :: rcl2
+        real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
+        real(myprec)  :: rv(3), rr2, s0, s1, s2, c0, c1, c2, cx, cy, sy, cz, cte, d2, d
+        real(myprec) :: pr(0:llmax), pi(0:llmax)
+        real(kind=8) :: ylr(nmax_order,0:llmax), yli(nmax_order,0:llmax), suma
+        integer :: i, j, counter, ncount, m, n, nlimit, ix, k, l 
+        do i = 1, Nmol
+            ylr(:,:) = 0.0
+            yli(:,:) = 0.0  
+            ncount = 0
+            do j = 1, Nmol
+                if (j.ne.i) then
+                    rv(1:dim) = r(1:dim, i) - r(1:dim, j)
+                    rv = rv - sidel*nint(rv/sidel)
+                    rr2 = Dot_product(rv, rv)
+                    if (rr2 < rcl2) then
+                        ncount = ncount + 1
+                        ! count neighbors within cutoff and
+                        ! compute per atom order parameter
+                        vecinos(ncount)%dist2 = rr2
+                        vecinos(ncount)%id = j
+                        do n=1,ncount-1
+                            if (vecinos(n)%dist2 > rr2) then
+                                ! insert rr2 at position n
+                                do m=ncount, n+1, -1
+                                    vecinos(m)%dist2 = vecinos(m-1)%dist2
+                                    vecinos(m)%id = vecinos(m-1)%id
+                                end do
+                                vecinos(n)%dist2 = rr2
+                                vecinos(n)%id = j   
+                                exit
+                            end if
+                        end do  
+                    end if
+                endif 
+            enddo
+            if (ncount==0) nlimit = 0
+            if (nnbnd ==0) then
+                nlimit = ncount
+            else
+                !choose only up to nnbnd nearest neighbors 
+                nlimit = nnbnd
+            end if
+            ! Loop over neighbors
+            !
+            do k = 1, nlimit
+                ! count neighbors within cutoff and
+                ! compute per atom order parameter
+                ix = vecinos(k)%id
+                rv(1:dim) = r(1:dim, i) - r(1:dim, ix)
+                rv = rv - sidel*nint(rv/sidel)
+                rr2 = vecinos(k)%dist2
+                ! Average Ylm over neighbors
+                !
+                d = sqrt(rr2)
+                cx = rv(3)/d
+                d2 = sqrt(rv(1)*rv(1) + rv(2)*rv(2))
+                if (d2 < 1.0e-12_myprec) then
+                    sy = 0.0_myprec
+                    cy = 1.0_myprec
+                    else    
+                    sy = rv(2)/d2
+                    cy = rv(1)/d2
+                endif
+                !
+                ! Average Ylm over neighbors
+                !
+                do ix=1, norder
+                    l = orderp_d(ix)
+                    call ylm(cx, cy, sy, l, pr, pi)
+                    ! compute Y_lm contributions
+                    ylr(ix,0:l) = pr(0:l)+ylr(ix,0:l)
+                    yli(ix,0:l) = pi(0:l)+yli(ix,0:l)
+                end do
+            end do
+            ! Compute Q_l per atom
+            !   
+            if (ncount >= nnbnd .and. nlimit > 0) then
+                ylr(:,:) = ylr(:,:)/real(nlimit, myprec)
+                yli(:,:) = yli(:,:)/real(nlimit, myprec)
+                do ix = 1, norder
+                    !
+                    ! Compute Q_l per atom adding contributions from m = 0 to l
+                    !
+                    suma = ylr(ix,0)*ylr(ix,0)
+                    do m=1, l
+                        suma = suma + 2.0_myprec*(ylr(ix,m)*ylr(ix,m) + yli(ix,m)*yli(ix,m))
+                    end do 
+                    cte = 4*pi_constant/(2*l+1)
+                    cluster_ql(i, ix) = sqrt(real(suma,myprec)*cte)
+                end do
+            endif
+        end do
+    end subroutine cl_comp_order3D
+
 
     subroutine clorderprof(r,dim, nmol, members, nm, sidel, rhoorder, ordercum, lsmax, deltar, center)
       integer, intent(IN) :: nm, lsmax, dim, nmol
@@ -564,7 +675,11 @@ contains
          if (ind <= lsmax) then
             count(ind) = count(ind) + 1
              do j = 1, norder
-                rhoorder(ind,j) = rhoorder(ind,j) + sqrt(atomic_order_cos(i,j)**2 + atomic_order_sin(i,j)**2)
+                if (ndim == 2) then
+                    rhoorder(ind,j) = rhoorder(ind,j) + sqrt(atomic_order_cos(i,j)**2 + atomic_order_sin(i,j)**2)
+                else
+                    rhoorder(ind,j) = rhoorder(ind,j) + atomic_ql(i,j)
+                end if
              end do
          end If
       end do
