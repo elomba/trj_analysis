@@ -39,17 +39,16 @@ Trajectory analysis
     - Only orthogonal simulation cells
     - The number of particles MUST be constant (NpT simulations are allowed, 
       but structure factors will be affected by minor errors due to changes in \Delta Q = 2\pi/L)
-    - Molecules are analyzed in terms of their atoms, so far no internal
-      degrees of freedom 
-      taken into account
+    - Molecules are analyzed in terms of their atoms, so far no internal degrees of freedom taken into account
     - LAMMPS units must be "real" or "lj" (unit conversion soon to be implemented)
-    - The mimimum dump information to process is 
+    - The mimimum dump information to process is: 
       `dump trj1 all netcdf ${Ndump} run.nc  id type x y z`   
 
 ## Usage   
         trj_analysis.exe input.nml (input file with sequence of namelists)
-## Input 
-!
+## Input file 
+
+    !
     ! namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, norder,nthread, &
     !       ncfs_from_to, rcl, rdf_sq_cl_dyn_sqw_conf_ord, nqw, ener_name, press_name, 
     !       potnbins, potengmargin, periodic(ndim)
@@ -125,7 +124,7 @@ Trajectory analysis
     !      - clusevol.dat , conf no., no. of clusters, % of particles in clusters
     !      - fshape.dat, cluster shape (deviation from sphere and cylnder)
     !                    (0,0) perfect sphere, (>0,0) perfect cylindero
-   !      - ordprof_clust.dat Steinhardt order parameter density profiles (within clusters): averaged over all clusters across slices
+    !      - ordprof_clust.dat Steinhardt order parameter density profiles (within clusters): averaged over all clusters across slices
     !      - ordprof_clcum.dat Steinhardt order parameter density profiles (cummulative)
     !      - order_per_cl.dat Average Steinhardt order parameters per cluster <Q_l> (l=1,norder)
     !      - centers.lammpstrj trajectory of clusters centers of mass (to be visualized with Ovito)
