@@ -5,8 +5,9 @@
   nsp=1
   nqw=1
   norder=4
-  nthread=256
-  ncfs_from_to=10 1 10
+  nthread=64
+  ncfs_from_to=1 1 1
+  rcl=5.25
   rdf_sq_cl_dyn_sqw_conf_ord=T T T F F  F T
   ener_name="ener"
   press_name="stress"
@@ -18,17 +19,14 @@
 /
 &INPUT_RDF
   deltar=0.5
-  rcrdf=2200.0 ! Cutoff in rdf
-  nrandom=200
+  rcrdf=500.0 ! Cutoff in rdf
 /
 &INPUT_SQ
   qmax=8.0
   qmin=0.2
 /
 &INPUT_CL
-  rcl=5.25
   dcl=6.0
-  cl_thresh=50 ! Minimum size to plot cluster trajectory & density
   ndrclus=200
 /
 &INPUT_DYN
@@ -40,8 +38,9 @@ qw=0.18
 /
 &INPUT_ORDER
 orderp=5 6 10 20
+nnbond=0
 print_orderp=.true.
-rclcl=225.0
+rclcl=275.0
 /
 &INPUT_CONF
   idir=0
