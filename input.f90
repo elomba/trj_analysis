@@ -7,8 +7,8 @@ module mod_input
    integer, allocatable, dimension(:) :: sp_types_selected, nw
    integer, dimension(3) :: ncfs_from_to
    character(len=4), allocatable, dimension(:) :: sp_labels
-   integer :: nthread, ndim, jmin=3, minclsize, idir=0, nsp, nbuffer=2, potnbins=100, nqw=0, &
-            & jump=1, norder=1, nnbond=0
+   integer :: nthread, ndim, kmin=5,  idir=0, nsp, nbuffer=2, potnbins=100, nqw=0, &
+            & jump=1, norder=1, nnbond=0, cl_thresh=10
    logical :: use_cell = .true., run_order = .false., print_orderp=.false.
    logical, dimension(7) :: rdf_sq_cl_dyn_sqw_conf_ord
    real(myprec) :: deltar, rcl=-1.0, dcl, qmin, qmax, rcrdf, rclcl=0.0, &
@@ -24,7 +24,7 @@ module mod_input
    namelist /INPUT_SP/ sp_types_selected, sp_labels, mat
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
    namelist /INPUT_SQ/ qmax, qmin, bsc
-   namelist /INPUT_CL/ dcl, jmin, minclsize, ndrclus
+   namelist /INPUT_CL/ dcl, kmin, ndrclus, cl_thresh
    namelist /INPUT_CONF/ idir
    namelist /INPUT_DYN/ nbuffer, tmax, tmaxp, tlimit, jump
    namelist /INPUT_SQW/ qw, tmqw
@@ -61,18 +61,10 @@ contains
       if (rdf_sq_cl_dyn_sqw_conf_ord(2) == .true. &
       & .or. rdf_sq_cl_dyn_sqw_conf_ord(3) == .true. .or. rdf_sq_cl_dyn_sqw_conf_ord(5) == .true.  ) read (unit=io_input_file, nml=INPUT_SQ)
       if (rdf_sq_cl_dyn_sqw_conf_ord(3) == .true.) then
-         minclsize = jmin
          read (unit=io_input_file, nml=INPUT_CL)
          if (rcl <= 0.0) then
             write(*,'("*** Error: rcl (cluster distance) must be positive to compute clusters !")')
             stop
-         endif
-         if (jmin > 5) then
-            write(*,'("*** Warning: jmin (minimum cluster size) reset to 5 !")')
-            jmin = 5
-         endif
-         if (minclsize < jmin) then
-            write(*,'("*** Warning : minclsize reset to ",I3," !")') jmin
          endif
       endif
       if (rdf_sq_cl_dyn_sqw_conf_ord(4) == .true. &
@@ -109,6 +101,10 @@ contains
             stop
          endif
          call quicksort_nri(orderp)
+         if (orderp(norder) > llmax.and.ndim==3) then
+            write(*,'("*** Error: order parameter index in orderp exceeds llmax = ",I3,": redimension in order.cuf !")') llmax
+            stop
+         endif
       endif
       close (io_input_file)
 

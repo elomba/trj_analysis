@@ -57,36 +57,22 @@ contains
       If (Mod(Iconf - 1, nprint) .Eq. 0) Then
          call cpu_time(cpu1)
          if (tunits == 'lj') then
-            if (minclsize>0) then
                Write (*, "(/' ** Working on MD step no. ',i10,' time* =',f12.3,&
                & ' cpu time per conf.=',f7.2,' s:'/&
                & ' ** Clusters >= ',i3,' particles being analyzed '/)") nstep, nstep*tstep, &
-                (cpu1 - cpu0)/nprint, minclsize
-            else
-               Write (*, "(/' ** Working on MD step no. ',i10,' time* =',f12.3,&
-               & ' cpu time per conf.=',f7.2,' s:'/&
-               & /)") nstep, nstep*tstep, &
-                (cpu1 - cpu0)/nprint
-            endif
+               (cpu1 - cpu0)/nprint, kmin
          else
-            if (minclsize>0) then
                Write (*, "(/' ** Working on MD step no. ',i10,' time =',f10.5,&
                & ' ns, cpu time per conf.=',f7.2,' s:'/&
                & ' ** Clusters >= ',i3,' particles being analyzed '/)") nstep, nstep*tstep/1000.0, &
-                (cpu1 - cpu0)/nprint, minclsize
-            else
-               Write (*, "(/' ** Working on MD step no. ',i10,' time =',f10.5,&
-               & ' ns, cpu time per conf.=',f7.2,' s:'/&
-               & /)") nstep, nstep*tstep/1000.0, &
-               (cpu1 - cpu0)/nprint
-            endif
+               (cpu1 - cpu0)/nprint, kmin
          endif
          cpu0 = cpu1
          if (run_thermo) then
             if (tunits == 'lj') then
                write (*, "(' ** Potential energy/epsilon=',f15.4,' Per atom=',f15.4)") epot, epotperatom
                write (*, "(' ** Average potential energy/epsilon=',f15.4, ' Per atom=',f15.4)") epotav/Iconf, epotav/(Iconf*nmol)
-             else
+            else
                write (*, "(' ** Potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epot, epotperatom
                write (*, "(' ** Average potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epotav/Iconf, epotav/(Iconf*nmol)
             endif
@@ -131,23 +117,23 @@ contains
                   &/mol')") kelvintokcal*ekincls*(aunit/tunit)**2/Rgas,&
                   & kelvintokcal*ekinclsav*(aunit/tunit)**2/Rgas/Iconf
                endif
-               if (Nu_clus>1) then
-                  Tfcl = (Nu_clus-1)*ndim
+               if (maxcln>1) then
+                  Tfcl = (maxcln-1)*ndim
                else
-                  Tfcl = Nu_clus*ndim
+                  Tfcl = maxcln*ndim
                endif
                if (tunits == 'lj') then
-                    Write (*, "(' ** Average cluster k_b*temperature/epsilon =',f10.4&
+                    Write (*, "(' ** Average cluster k_b*temperature/epsilon =',f10.2&
                   &)") 2*ekclaver/(Tfcl*Iconf)
                else
-                  Write (*, "(' ** Average cluster temperature =',f10.4&
+                  Write (*, "(' ** Average cluster temperature =',f10.2&
                   &,' K')") 2*ekclaver*(aunit/tunit)**2/(Tfcl*Rgas*Iconf)
                endif
             end if
             if (tunits == 'lj') then
-               write (*, "(' ** Average k_b*temperature/epsilon =',f10.4)") 2*ecaver/(Tfact*Iconf)
+               write (*, "(' ** Average k_b*temperature/epsilon =',f10.2)") 2*ecaver/(Tfact*Iconf)
             else
-               write (*, "(' ** Average temperature =',f10.4&
+               write (*, "(' ** Average temperature =',f10.2&
                &,' K')") 2*ecaver*(aunit/tunit)**2/(Tfact*Rgas*Iconf)
             endif
          endif
@@ -158,14 +144,14 @@ contains
          end if
          ! Cluster information
          if (run_clusters) then
-            if (iconf>1) then
+            if (iconf>1.and.maxcln>cl_thresh) then
                write (*, "(' ** Average cluster radius',f8.3,' average &
-              &cluster density ',f10.7)") avradio/iconf, averdens/iconf
-            endif
-            write (*, "(' ** Average cluster gyration radius',f8.3)") avrg/iconf
-            write (*, "(' ** Internal cluster density  ',f10.7)")&
-            & sum(densav(:))/Nu_clus
-            write (*, "(' ** No. of clusters for this configuration :',i5)") Nu_clus
+                  &cluster density ',f10.7)") avradio/iconf, averdens/iconf
+               write (*, "(' ** Average cluster gyration radius',f8.3)") avrg/iconf
+               write (*, "(' ** Internal cluster density  ',f10.7)")&
+                  & sum(densav(:))/maxcln
+            end if
+            write (*, "(' ** No. of clusters for this configuration :',i5)") maxcln
             print *, " ··Time for graph construction", tgraph/iconf
             print *, " ··Thrust time ", tthrus/iconf
             print *, " ··Time adjacency list construction =", tadj/iconf
@@ -281,13 +267,13 @@ contains
          enddo
       endif
       if (nrandom>0) Open (199, file="s2n.dat")
-      if (run_clusters) then
-         write (99, "('#       r',16x,'g_cl(r)        g_cl-cl(r)        ',5x,16('g_',2i1,'(r)',8x:))")&
+      if (run_clusters.and.maxcln>cl_thresh) then
+         write (99, "('#       r',16x,'g_cl(r)        g_cl-cl(r)    ',5x,16('g_',2i1,'(r)',8x:))")&
          & (((j, k), k=j, nsp), j=1, nsp)
          if (nrandom>0)  write (199, "('#       r',16x,'s2n(cl)       s2n')")
       else
          if (nsp<=6) then
-            write (99, "('#       r        ',16x,16('g_',2i1,'(r)',9x:))") (((j, k), k=j, nsp), j=1, nsp)
+            write (99, "('#       r        ',9x,16('g_',2i1,'(r)',9x:))") (((j, k), k=j, nsp), j=1, nsp)
          else
             do k=1, nsp
                write (887+k, "('#       r        ',9x,16('g_',2i1,'(r)',9x:))") ((k, j), j=1, nsp)
@@ -327,7 +313,7 @@ contains
                endif
             endif
          endif
-         if (run_clusters) then
+         if (run_clusters.and.maxcln>cl_thresh) then
             Write (99, '(28f16.5)') i*deltar,&
             & gclustav(i)/(deltaV*Nconf), 2*gclcl(i)/(deltaV*Nconf),(gmix(j, j:nsp), j=1, nsp)
          else
@@ -357,7 +343,7 @@ contains
       real(myprec) :: avcldens, deltaV, ri, suma, norm
       Write (*, "(' ** Average total number of particles in clusters ', f10.2)") NTclus/nconf
       Write (*, "(' ** Average total number of clusters ', I5,' larger than ',i3)") &
-      nint(sum(sizedist(:))/real(nconf)), minclsize
+      nint(sum(sizedist(:))/real(nconf)), kmin
       avcldens = sum(sizedist(:)/real(nconf))/volumen
       Write (*, "(' ** Average cluster density ', f15.9)") avcldens
       open (125, file='dens.dat')
@@ -375,7 +361,7 @@ contains
       write (126, "('#      r                  RG_cl(r)')")
       write (999, "('#      r                  rho_cl(r)')")
       ! Average cluster density profile
-     if (ndim==3) then
+      if (ndim==3) then
          write (999, '(2f15.6)') 0.0, rhoclusav(0)/(4*pi*((drclus/2)**3)/3.0*Nconf)
       else
          write (999, '(2f15.6)') 0.0, rhoclusav(0)/(pi*((drclus/2)**2)*Nconf)
@@ -420,7 +406,7 @@ contains
       integer :: i, j, onunit
       real(myprec) :: dV
       open (newunit=onunit, file='order.dat')
-      if ( run_clusters) then
+      if ( run_clusters.and.maxcln>cl_thresh) then
          write (onunit, "('#   order   psi_m   psi_m_clust   ')")
          do i = 1, norder
             write (onunit, '(i3,4f12.5)') orderp(i), avorder(i)/real(nconf), &
@@ -456,27 +442,30 @@ contains
          end if
  
          close (onunit)
-         if (run_clusters) then
-            open (newunit=onunit, file='order_per_mol_clust.dat')
+         if (run_clusters.and.maxcln>cl_thresh) then
+            open (newunit=onunit, file='order_per_clust.dat')
             if (ndim==2) then
-               write (onunit, "('# Cluster    x       y     ',15('Real(psi_m)     Im(psi_m)   ',i3,8x:))") (orderp(i), i=1, norder)
+               write (onunit, "('# Cluster    x           y    ',5x,15('Real(psi_m) Im(psi_m)(',i0,')',1x:))")(orderp(i),i=1,norder)
+               do i = 1, maxcln
+                  write (onunit, '(i5,15f13.5)') i, cluster(i)%center(1:ndim), (cluster_order_cos(i,j), cluster_order_sin(i,j), j=1, norder)
+               end do
             else
-               write (onunit, "('# Cluster    x       y       z   ',15('Real(psi_m)     Im(psi_m)   ',i3,8x:))") (orderp(i), i=1, norder)
+               write (onunit, "('# Cluster    x          y           z   ',7x,15('Q_l(',i2,')'5x:))") (orderp(i), i=1, norder)
+               do i = 1, maxcln
+                  write (onunit, '(i5,15f12.5)') i, cluster(i)%center(1:ndim), (cluster_ql(i,j), j=1, norder)
+               end do
             end if
-            do i = 1, nbigcl
-               write (onunit, '(i5,15f12.5)') i, r(1:ndim,i), (cluster_order_cos(i,j), cluster_order_sin(i,j), j=1, norder)
-            end do
             close (onunit)
             open (newunit=onunit, file='ordprof_clust.dat')
-             write (onunit, "('#      r     ',15('   rho_psi',i2,'(r)':))")(orderp(i), i=1, norder)
-              write (onunit, '(f10.5, 15f12.5)') 0.0, rhoorderav(0,1:norder)/(Nconf)
+            write (onunit, "('#      r     ',15('   rho_psi',i2,'(r)':))")(orderp(i), i=1, norder)
+            write (onunit, '(f10.5, 15f12.5)') 0.0, rhoorderav(0,1:norder)/(Nconf)
             do i = 1, ndrclus
                write (onunit, '(f10.5, 15f12.5)') i*drclus, rhoorderav(i,1:norder)/(Nconf)
             end do
             close(onunit)
-           open (newunit=onunit, file='ordprof_clcum.dat')
-             write (onunit, "('#      r     ',15('   psi_cum',i2,'(r)':))")(orderp(i), i=1, norder)
-              write (onunit, '(f10.5, 15f12.5)') 0.0, ordercumav(0,1:norder)/(Nconf)
+            open (newunit=onunit, file='ordprof_clcum.dat')
+            write (onunit, "('#      r     ',15('   psi_cum',i2,'(r)':))")(orderp(i), i=1, norder)
+            write (onunit, '(f10.5, 15f12.5)') 0.0, ordercumav(0,1:norder)/(Nconf)
             do i = 1, ndrclus
                write (onunit, '(f10.5, 15f12.5)') i*drclus, ordercumav(i,1:norder)/(Nconf)
             end do

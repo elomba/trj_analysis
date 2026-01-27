@@ -25,9 +25,7 @@
 &INPUT_CL
   rcl=4.25
   dcl=20.0
-  jmin=5
-  minclsize=100
-  sigma=4.0
+  kmin=5
 /
 &INPUT_DYN
 nbuffer=200

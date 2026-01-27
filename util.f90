@@ -2,7 +2,7 @@ module mod_util
    use mod_common, only : shmsize, maxthread,  run_thermo, ex_stress, &
       printDevPropShort, common_clear, nit, ener_name, press_name, &
       run_sq, run_sqw, run_rdf, run_clusters, run_dyn, &
-      printcudaerror, ex_qc, nconf, qcharge, lsmax
+      printcudaerror, ex_qc, nconf, qcharge, lsmax, maxcln
    use mod_densprof, only : prof_init, prof_clear
    use mod_sq, only : sq_init, printsq, sq_clear, sq_transfer_gpu_cpu
    use mod_rdf, only : rdf_init, printrdf, rdf_clear
@@ -40,9 +40,9 @@ contains
       write(*,"(/80('*')/'*',78(' '),'*')")
       write(*,"('*    Program trj_analysis: analyzing LAMMPS trajectory in NETCDF format',t80,'*')")
       write(*,"('*',t80,'*')")
-      write(*,"('*    Using GPU with CUDA nvfortran/nvcc >= 11.6',t80,'*')")
+      write(*,"('*    Using GPU with CUDA nvfortran/nvcc >= 25.9/13.0',t80,'*')")
       write(*,"('*',t80,'*')")
-      write(*,"('*    Version 0.2.30 October 2024',,t80,'*')")
+      write(*,"('*    Version 1.0 January 2026',,t80,'*')")
       write(*,"('*',78(' '),'*'/80('*')/)")
       call printDevPropShort(gpu_properties, 0)
       ! Check that maximum number of threads is not surpassed
@@ -205,7 +205,7 @@ contains
 
    subroutine print_results(run_sq,  run_rdf, run_dyn, run_clusters, run_thermo, ntype, nsp, lsmax, nmol, nqmin, rcl)
       use mod_precision
-      use mod_input, only : mat, charge, sp_labels
+      use mod_input, only : mat, charge, sp_labels, cl_thresh
       implicit none
       real(myprec) :: rcl
       integer, intent(in) :: nsp, lsmax, nmol, nqmin
@@ -240,7 +240,8 @@ contains
          call print_rtcor()
       endif
       if (run_clusters) then
-         call print_clusinfo(nqmin, Nmol)
+         ! Print cluster information only if number of big clusters > threshold
+         if (maxcln>cl_thresh) call print_clusinfo(nqmin, Nmol)
          ! Print last cluster configuration
          call print_last_clustconf()
          if (run_thermo) then
@@ -257,16 +258,13 @@ contains
       ! Print last cluster configuration in LAMMPS format
       ! Atom type is set to original type + cluster size
       !
-      use mod_common, only : cluster, itype, r, Nu_clus,  sidel, nstep, ex_vel, Nconf
-      use mod_input,only : ndim, minclsize
+      use mod_common, only : cluster, itype, r, sidel, nstep, ex_vel, Nconf
+      use mod_input,only : ndim
       use mod_nc_conf, only : org
       implicit none
       ! maxcolor is set to 32, so cluster size distinguished by color in VMD
       integer :: i, j, k, icl, id, io_lastclconf, natcl, maxcolor=32
-      natcl = 0
-      do i = 1, Nu_clus
-         if (cluster(i)%clsize >= minclsize) natcl = natcl + cluster(i)%clsize
-      end do
+      natcl = sum(cluster(1:maxcln)%clsize)
       open(newunit=io_lastclconf, file='last_clconf.lammpstrj', status='replace')
       write (io_lastclconf, "('ITEM: TIMESTEP'/I12/'ITEM: NUMBER OF ATOMS'/I12/'ITEM: BOX BOUNDS pp pp pp')") nstep, natcl
       write (io_lastclconf, "(2f15.7)") (org(i,1), org(i,1)+sidel(i), i=1, ndim)
@@ -277,10 +275,9 @@ contains
          write (io_lastclconf, "('ITEM: ATOMS id type x y z')")
       end if
       icl = 0
-      do i = 1, Nu_clus
+      do i = 1, maxcln
          j = cluster(i)%clsize
-         if (j >= minclsize) then
-            do k = 1, j
+         do k = 1, j
                icl = icl + 1
                id = cluster(i)%members(k)
                if (ndim == 3) then
@@ -290,8 +287,7 @@ contains
                   write (io_lastclconf, "(I8,I4,2F15.7,3F15.7)") &
                      & icl, mod(j,maxcolor), r(1:ndim,id)+org(1:ndim,1), 0.0
                end if
-            end do
-         end if
+         end do
       end do
       close(io_lastclconf)
    end subroutine print_last_clustconf

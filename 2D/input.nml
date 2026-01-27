@@ -28,7 +28,7 @@
 &INPUT_CL
   rcl=5.25
   dcl=6.0
-  minclsize=50 ! Minimum size to plot cluster trajectory & density
+  cl_thresh=50 ! Minimum size to plot cluster trajectory & density
   ndrclus=200
 /
 &INPUT_DYN

@@ -4,9 +4,10 @@ module mod_order
     ! Added 3D order parameter calculation
     use mod_precision
     use mod_common, only: r_d, r, sidel_d, cellxd, cellyd, cellzd, maxjd, maxkd, nnd, headd, listad, neighd, gptime, startEvent, stopEvent, tord, side2, ndrclus, drclus, neighbors
-    use mod_input, only: norder, orderp, nnbond, nthread, run_clusters, rclcl, deltar, minclsize, use_cell, ndim 
+    use mod_input, only: norder, orderp, nnbond, nthread, run_clusters, rclcl, deltar,  use_cell, ndim 
     use mod_clusters, only: cluster, avcluster_order, avcluster_order_cos, avcluster_order_sin, &
-    cluster_order_cos, cluster_order_sin, maxcln, rclxyz, nbigcl, neighbor_search, goffset, gneighbors, gadjacency, cluster_ql
+    cluster_order_cos, cluster_order_sin, maxcln, rclxyz, neighbor_search, goffset, gneighbors, gadjacency, cluster_ql, llmax
+    use mod_input, only: cl_thresh
     use cudafor
     implicit none
     type neighbor
@@ -22,7 +23,7 @@ module mod_order
     real(myprec), dimension(:,:), allocatable :: pref
     real(myprec), device, dimension(:,:), allocatable :: yll,  prefd
     real(myprec), device, dimension(:), allocatable :: cosmphi, sinmphi
-    integer, parameter :: nmax_order = 6, llmax = 12, nmbmax = 35
+    integer, parameter :: nmax_order = 6,  nmbmax = 35
     real(myprec), parameter :: pi_constant=3.141592653589793
     integer, constant :: orderp_d(nmax_order)
 contains
@@ -154,13 +155,13 @@ contains
             if (dim == 2) then
                 ! Compute 2D order parameters  phi_m
                 call gpu_comp_order2D<<<Nmol/nthread+1, nthread,8*norder+1>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
-                if (run_clusters.and.nbigcl>10) Then
+                if (run_clusters.and.maxcln>cl_thresh) Then
                     ! Compute cluster 2D order parameters if enough clusters
                     cluster_order_cos(:,:) = 0.0
                     cluster_order_sin(:,:) = 0.0
                     if (rclcl > 0.0) then
                         rclcl2 = rclcl*rclcl
-                        call cl_comp_order2D(rclxyz(1:dim, 1:maxcln), nbigcl, dim, norder, nnbond, rclcl2, sidel)
+                        call cl_comp_order2D(rclxyz(1:dim, 1:maxcln), maxcln, dim, norder, nnbond, rclcl2, sidel)
                     end if
                 end if
             else
@@ -168,12 +169,12 @@ contains
                 call prefactors(lmax,pref)
                 prefd(:,:) = pref(:,:)
                 call gpu_comp_order3D<<<Nmol/nthread+1, nthread,8*norder+1>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
-                if (run_clusters.and.nbigcl>10) Then
+                if (run_clusters.and.maxcln>cl_thresh) Then
                     ! Compute cluster 3D order parameters if enough clusters
                     cluster_ql(:,:) = 0.0 
                     if (rclcl > 0.0) then
                         rclcl2 = rclcl*rclcl
-                        call cl_comp_order3D(rclxyz(1:dim, 1:maxcln), nbigcl, dim, norder, nnbond, rclcl2, sidel)
+                        call cl_comp_order3D(rclxyz(1:dim, 1:maxcln), maxcln, dim, norder, nnbond, rclcl2, sidel)
                     end if
                 end if
             end if
@@ -190,24 +191,22 @@ contains
                 atomic_ql(:,:) = atomic_ql_d(:,:)
                 avorder(1:norder) = avorder(1:norder) + sum(atomic_ql(1:Nmol,1:norder), dim=1)/Nmol
             end if  
-            if (run_clusters) then
+            if (run_clusters.and.maxcln>cl_thresh) then
                 if (ndim==2) then  
-                    avcluster_order_cos(1:norder) = sum(cluster_order_cos(1:nbigcl,1:norder), dim=1)/nbigcl
-                    avcluster_order_sin(1:norder) = sum(cluster_order_sin(1:nbigcl,1:norder), dim=1)/nbigcl
+                    avcluster_order_cos(1:norder) = sum(cluster_order_cos(1:maxcln,1:norder), dim=1)/maxcln
+                    avcluster_order_sin(1:norder) = sum(cluster_order_sin(1:maxcln,1:norder), dim=1)/maxcln
                     avcluster_order(1:norder)=avcluster_order(1:norder)+sqrt(avcluster_order_cos(:)**2+avcluster_order_sin(:)**2)
                 else
-                    avcluster_order(1:norder) = avcluster_order(1:norder) + sum(cluster_ql(1:nbigcl,1:norder), dim=1)/nbigcl    
+                    avcluster_order(1:norder) = avcluster_order(1:norder) + sum(cluster_ql(1:maxcln,1:norder), dim=1)/maxcln    
                 end if
                 rhoorder(:,:) = 0.0
                 do i = 1, maxcln
-                    if (cluster(i)%clsize >= minclsize) then
-                        call clorderprof(r, dim, nbigcl, cluster(i)%members(:),&
+                        call clorderprof(r, dim, maxcln, cluster(i)%members(:),&
                         cluster(i)%clsize, sidel, rhoorder, ordercum, ndrclus, drclus, &
                             &  cluster(i)%center(1:dim))
-                    endif
                 enddo
-                rhoorderav(:,:) = rhoorderav(:,:)+rhoorder(:,:)/real(nbigcl, myprec)
-                ordercumav(:,:) = ordercumav(:,:)+ordercum(:,:)/real(nbigcl, myprec)
+                rhoorderav(:,:) = rhoorderav(:,:)+rhoorder(:,:)/real(maxcln, myprec)
+                ordercumav(:,:) = ordercumav(:,:)+ordercum(:,:)/real(maxcln, myprec)
             end if  
         end if
     end subroutine compute_order
@@ -228,9 +227,9 @@ contains
     enddo
     end subroutine prefactors
 
-    attributes(host,device)  subroutine ylm(x,y,z,l,pr,pi)
+    attributes(host,device)  subroutine ylm(x,y,z,l,pr,pi,prf)
         implicit none
-        real(myprec), intent(IN) :: x, y, z
+        real(myprec), intent(IN) :: x, y, z, prf(0:l)
         integer, intent(IN) :: l
         real(myprec), dimension(0:l) :: pr, pi
         integer :: mmax, m, i
@@ -275,7 +274,7 @@ contains
             end do
         end do
         do m=0, l
-            temp = prefd(l,m)*pr(m)
+            temp = prf(m)*pr(m)
             pr(m) = temp*pi(m)
             ! compute sin(m*phi) using sin^2+cos^2=1 and preserve sign
             pi(m) = temp*sqrt(max(0.0,1-pi(m)**2))*signo
@@ -391,7 +390,7 @@ contains
         real(myprec), value :: rcl2
         real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
         real(myprec)  :: rv(3), rr2, cx, sy, cy, d, d2, cte
-        real(myprec) :: pr(0:llmax), pi(0:llmax)
+        real(myprec) :: pr(0:llmax), pi(0:llmax), pp(0:llmax)
         real(kind=8) :: ylr(nmax_order,0:llmax), yli(nmax_order,0:llmax), suma
         integer :: i, j, ncount, ix, jy, kz, cell, icell, lmax, m, l, k, nlimit, idx, n
         i = (blockidx%x - 1)*blockdim%x + threadidx%x
@@ -454,7 +453,8 @@ contains
                 !
                 do ix=1, norder
                     l = orderp_d(ix)
-                    call ylm(cx, cy, sy, l, pr, pi)
+                    pp(0:l) = prefd(l,0:l)
+                    call ylm(cx, cy, sy, l, pr, pi, pp)
                     ! compute Y_lm contributions
                     ylr(ix,0:l) = pr(0:l)+ylr(ix,0:l)
                     yli(ix,0:l) = pi(0:l)+yli(ix,0:l)
@@ -484,6 +484,7 @@ contains
     end subroutine gpu_comp_order3D
 
     subroutine cl_comp_order2D(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
+        ! Compute 2D order parameter psi_m for clusters
         integer, intent(IN) :: Nmol, dim, norder, nnbnd
         real(myprec), value :: rcl2
         real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
@@ -544,19 +545,20 @@ contains
                             cluster_order_sin(i, j) = sind(j)/real(ncount, myprec)
                         end if
                     end do
-                 end if
+                end if
             end if
         end do
 
     end subroutine cl_comp_order2D
     
     subroutine cl_comp_order3D(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
+        ! Compute 3D order parameter Q_l for clusters
         type(neighbor) :: vecinos(nmbmax)
         integer, intent(IN) :: Nmol, dim, norder, nnbnd
         real(myprec), value :: rcl2
         real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
         real(myprec)  :: rv(3), rr2, s0, s1, s2, c0, c1, c2, cx, cy, sy, cz, cte, d2, d
-        real(myprec) :: pr(0:llmax), pi(0:llmax)
+        real(myprec) :: pr(0:llmax), pi(0:llmax), pp(0:llmax)
         real(kind=8) :: ylr(nmax_order,0:llmax), yli(nmax_order,0:llmax), suma
         integer :: i, j, counter, ncount, m, n, nlimit, ix, k, l 
         do i = 1, Nmol
@@ -570,6 +572,11 @@ contains
                     rr2 = Dot_product(rv, rv)
                     if (rr2 < rcl2) then
                         ncount = ncount + 1
+                        if (ncount > nmbmax) then
+                            write(*,'("*** Error: increase nmbmax parameter in cl_comp_order3D to at least ", i5)') ncount+10
+                            write(*,'("***        or reduce r_clcl (check g_clcl) <  = ", f10.2)') sqrt(rcl2)
+                            stop
+                        end if
                         ! count neighbors within cutoff and
                         ! compute per atom order parameter
                         vecinos(ncount)%dist2 = rr2
@@ -601,6 +608,7 @@ contains
             do k = 1, nlimit
                 ! count neighbors within cutoff and
                 ! compute per atom order parameter
+
                 ix = vecinos(k)%id
                 rv(1:dim) = r(1:dim, i) - r(1:dim, ix)
                 rv = rv - sidel*nint(rv/sidel)
@@ -622,7 +630,8 @@ contains
                 !
                 do ix=1, norder
                     l = orderp_d(ix)
-                    call ylm(cx, cy, sy, l, pr, pi)
+                    pp(0:l) = pref(l,0:l)
+                    call ylm(cx, cy, sy, l, pr, pi, pp)
                     ! compute Y_lm contributions
                     ylr(ix,0:l) = pr(0:l)+ylr(ix,0:l)
                     yli(ix,0:l) = pi(0:l)+yli(ix,0:l)

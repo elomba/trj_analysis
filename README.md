@@ -69,8 +69,9 @@ Trajectory analysis
     ! namelist /INPUT_SQ/ qmax, qmin, bsc
     !          Max value of Q for S(Q), max value for full calculations (all Qs for 0<Q<=qmin), 
     !          scattering lengths 
-    ! namelist /INPUT_CL/ dcl, jmin, minclsize, ndrclus
-    !          Geometric clustering distance, grid for cluster distribution, minimum cluster size for analysis, no. of bins for cluster profiles
+    ! namelist /INPUT_CL/ dcl, kmin, ndrclus, cl_thresh
+    !          Grid for cluster distribution, minimum cluster size for analysis, no. of bins for cluster profiles,
+    !          minimum number of clusters to evaluate cluster correlations
     ! namelist /INPUT_ORD/ orderp, print_orderp, rclcl, nnbond
     !     Orientational order parameters  to be computed
     !    (def. .true.), print average per particle order parameters 
@@ -134,13 +135,13 @@ Trajectory analysis
 ## Installation
 A Makefile is included (-mno-avx512f can be removed from compilation options if AVX512 instruction set present in the CPU)
 
-Requires NVIDIA CUDA SDK >= 11.6, netcdf v 4.9, FFTW3.
+Requires NVIDIA CUDA SDK >= 13.0, netcdf v 4.9, FFTW3.
 
 ## Authors and acknowledgment
- A. Diaz-Pozuelo & E. Lomba, CSIC-Madrid/USC Santiago de Compostela, August 2025 
+ A. Diaz-Pozuelo & E. Lomba, CSIC-Madrid/USC Santiago de Compostela, January 2026 
 
 ## License
 Creative Commons Non commercial CC BY-NC 4.0 (https://creativecommons.org/licenses/by-nc/4.0/)
 ## Project status
-Version 0.6 ready. Awaiting for publication
+Version 1.0 ready. 
 

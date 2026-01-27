@@ -24,9 +24,7 @@
 &INPUT_CL
   rcl=5.25
   dcl=6.0
-  jmin=5  ! Minimum size to define cluster
-  minclsize=10 ! Minimum size to plot cluster trajectory & density
-  sigma=4.0    ! size of particle cores in Å
+  kmin=5  ! Minimum size to define cluster
 /
 &INPUT_DYN
 nbuffer=6 ! No.of time origins to compute dynamics

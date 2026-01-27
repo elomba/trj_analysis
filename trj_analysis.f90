@@ -62,10 +62,9 @@ program trj_analysis
     ! namelist /INPUT_SQ/ qmax, qmin, bsc
     !          Max value of Q for S(Q), max value for full calculations (all Qs for 0<Q<=qmin), 
     !          scattering lengths 
-    ! namelist /INPUT_CL/ rcl, dcl, jmin, minclsize, ndrclus
-    !          Geometric clustering distance (defines NN as well), grid for
-    !         cluster distribution, minimum cluster size for analysis, no. of bins 
-    !         for cluster profiles
+    ! namelist /INPUT_CL/ dcl, kmin, ndrclus, cl_thresh
+    !         Grid cluster distribution minimum cluster size for analysis, no. of bins 
+    !         for cluster profilesi, minimum cluster size threshold to compute correlations
     ! namelist /INPUT_ORD/ orderp, print_orderp, rclcl, nnbond
     !     Orientational order parameters  to be computed
     !    (def. .true.), print average per particle order parameters 
@@ -124,10 +123,10 @@ program trj_analysis
     !                          Particle no. not constant along the trajectory !!
     !
            
-    !   OUTPUT Units: LAMMPS "real" units, except time (ps)
+    !   OUTPUT Units: LAMMPS "real" units, except time (ps) and lj units (reduced)
     !   Programmed in NVIDIA CUDA Fortran
     !
-    !   A. Diaz-Pozuelo & E. Lomba, Madrid/Santiago de Compostela, summer 2025 
+    !   A. Diaz-Pozuelo & E. Lomba, Madrid/Santiago de Compostela, January 2026 
     !
    
     use mod_precision

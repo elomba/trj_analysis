@@ -5,7 +5,7 @@ module mod_common
 
    Integer, Parameter :: npmx = 8192, nmblock = 500, nmgrid = 50000, &
       nspmax = 10, nmolmax = 220000, nmesmax = 10000, nkmax = 200, ksmax = 6
-   Integer, Parameter :: nitmax = nspmax*(nspmax + 1)/2
+   Integer, Parameter :: nitmax = nspmax*(nspmax + 1)/2, llmax = 12
    real(myprec), parameter :: pi = 3.1415926535898D0, fconv = 4.135, &
       rgas = 8.3144d7, aunit = 1.0d-8, tunit = 1.0d-12, &
       kelvintokcal = 0.00198717, c_nktv=1.380649d2, &
@@ -92,7 +92,7 @@ module mod_common
    & tsq = 0, tdyn=0, trdf = 0, tpoteng = 0
    real(myprec) :: avradio = 0, avrg=0, averdens = 0, tconf0 = 0, tconf1 = 0, tord=0, drho
    integer, allocatable ::   radii(:), densclus(:), contador(:)
-   integer :: Nu_clus, ndrho=200
+   integer :: ndrho=200
    real(myprec) :: NTclus = 0
 
    integer, allocatable, dimension(:) :: offset, neighbors, adjacency

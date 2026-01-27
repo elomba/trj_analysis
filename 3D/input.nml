@@ -24,7 +24,6 @@
 &INPUT_CL
   rcl=5.25
   dcl=6.0
-  minclsize=100
 /
 &INPUT_DYN
 nbuffer=10
