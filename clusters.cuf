@@ -57,9 +57,10 @@ contains
       integer :: i, j, k, cluster_id, icl, ip, ind, indr, maxcl,&
       & imaxcl, clsz, clussize, cmin, NP_lconf, icount, im, countlarge
       Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
-      Real(myprec) :: denscl, rmcl, cdmax=0
+      Real(myprec) :: denscl, rmcl, cdmax=0, factorv
       Real(myprec), allocatable, save :: molfrac(:), clmfrac(:)
-      Real(kind=8) ::  mcl, ekcls, suma, rclus, rcluster, rgsum, averg, volcl, factorv=1.0
+      Real(kind=8) ::  mcl, ekcls, suma, rclus, rcluster, rgsum, averg, volcl
+      if (iconf==1) call clusters_init(nmol)
       if (conf(4)%units == 'femtosecond' ) factorv = 0.001
       if (maxcln < 1) maxcln = 1 
       if (Iconf > 1) then
@@ -80,6 +81,9 @@ contains
          clmfracav(1:nsp) = 0.0
          clmfrac(:) = 0.0
          molfrac(:) = 0.0
+         nmaxcl = 1000
+         allocate(dratio(1:nmaxcl), dsph(1:nmaxcl), countcl(1:nmaxcl))
+         densclus(0:ndrho) = 0.0
          if (run_order) then
             allocate(avcluster_order_cos(norder))
             allocate(avcluster_order_sin(norder))
@@ -87,6 +91,7 @@ contains
             avcluster_order_cos(:) = 0.0
             avcluster_order_sin(:) = 0.0
             avcluster_order(:) = 0.0
+
          end if 
       end if
       allocate (cluster(maxcln), contador(maxcln))
@@ -106,7 +111,6 @@ contains
       contador(:) = 0
       maxcl = 0
       do i = 1, cluster_id
-
          clsz = count(done == i)
          if (clsz > maxcl) then
             maxcl = clsz
@@ -134,17 +138,11 @@ contains
       end do
       clusid_d(1:nmol) = clusid(1:nmol)
       !
-      ! Write trajectory file with centers of mass of clusters 
+      ! Write trajectory file with centers of mass of clusters if sufficient clusters found 
       !
-      write (io_centers_file, "('ITEM: TIMESTEP'/I12/'ITEM: NUMBER OF ATOMS'/I12/'ITE&
-      &M: BOX BOUNDS pp pp pp')") nstep, maxcln
-      write (io_centers_file, "(2f15.7)") (0.0, sidel(i), i=1, ndim)
-      if (ndim == 2) write (io_centers_file, "('-0.5 0.5')")
-      if (ex_vel) then
-         write (io_centers_file, "('ITEM: ATOMS id type x y z vx vy vz')")
-      else
-         write (io_centers_file, "('ITEM: ATOMS id type x y z')")
-      end if
+      if (maxcln > cl_thresh) then
+         call centers_header(io_centers_file, nstep, maxcln, ex_vel)
+      endif
       icl = 0
       cluster(:)%rg = 0
       if (Iconf == Nconf) NP_lconf = 0
@@ -189,19 +187,9 @@ contains
                &- cluster(i)%vl(:), vel(:, ip) - cluster(i)%vl(:))
          end do
          cluster(i)%ekin = ekcls
-         if (ex_vel) then
-               if (ndim == 3) then
-                  write (io_centers_file, '(2i10,6f15.7)') i, 1, cluster(i)%center(1:ndim), factorv*cluster(i)%vl(1:ndim)
-               else
-                  write (io_centers_file, '(2i10,6f15.7)') i, 1, cluster(i)%center(1:ndim), 0.0,factorv*cluster(i)%vl(1:ndim),0.0
-               end if
-         else
-               if (ndim == 3) then
-                  write (io_centers_file, '(2i10,6f15.7)') i, 1, cluster(i)%center(1:ndim)
-               else
-                  write (io_centers_file, '(2i10,6f15.7)') i, 1, cluster(i)%center(1:ndim), 0.0
-               end if
-            endif
+         if (maxcln > cl_thresh) then
+            call centers_print(io_centers_file, i, ex_vel, factorv)
+         endif
          if (Iconf == Nconf) NP_lconf = NP_lconf + j
       end do
       clmfrac(1:nsp) = 0.0
@@ -221,21 +209,26 @@ contains
          clmfrac(:) = clmfrac(:) + molfrac(:)/j
       enddo
       clmfracav(:) = clmfracav(:)+clmfrac(:)/maxcln
-      ! Write particle id, type, charge and position for last configuration
-      if (Iconf == Nconf) then
-         ! Write shape file
-         do i = 1, nmaxcl
-            if (countcl(i) > 0) then
-               dsph(i) = dsph(i)/countcl(i)
-               dratio(i) = dratio(i)/countcl(i)
-            else
-               dsph(i) = 0.0
-               dratio(i) = 0.0
-            end if
-            write(io_shape_file, '(i5,f15.7,f15.7)') i, dsph(i), dratio(i)
-         end do
-         close(io_shape_file)
-      end if
+      if (maxcln > cl_thresh) then
+         ! Write cluster shape file only for last frame 
+         print *, Iconf, Nconf
+         if (Iconf == Nconf) then
+            print *, Iconf, nmaxcl
+            do i = 1, nmaxcl
+               print *, i, dsph(i), dratio(i), countcl(i)
+               if (countcl(i) > 0) then
+                  dsph(i) = dsph(i)/countcl(i)
+                  dratio(i) = dratio(i)/countcl(i)
+               else
+                  dsph(i) = 0.0
+                  dratio(i) = 0.0
+               end if
+               write(io_shape_file, '(i5,f15.7,f15.7)') i, dsph(i), dratio(i)
+               write(*, '(i5,f15.7,f15.7)') i, dsph(i), dratio(i)
+            end do
+            close(io_shape_file)
+         end if
+      endif
       ekincl = 0
       ekincls = 0
       suma = 0
@@ -262,11 +255,7 @@ contains
       if (.not.allocated(densclus)) then
          allocate(densclus(0:ndrho))
       end if
-      if (iconf == 1) then
-         nmaxcl = 1000
-         allocate(dratio(1:nmaxcl), dsph(1:nmaxcl), countcl(1:nmaxcl))
-         densclus(0:ndrho) = 0.0
-      end if
+ 
       rclxyz(:,:) = 0.0
       rclxyzd(:,:) = 0.0
       gcluster(:) = 0
@@ -298,93 +287,138 @@ contains
             deallocate (dratio, dsph, countcl)
             allocate(dratio(1:nmaxcl), dsph(1:nmaxcl), countcl(1:nmaxcl))
          end if
-!         nmaxcl = 2*maxval(cluster(1:cluster_id)%clsize)
       endif
-      averg = 0
-      im = 0
-      do i = 1, cluster_id
-         clussize = cluster(i)%clsize
-         clcent(:) = cluster(i)%center(1:ndim)
-         rclxyz(1:ndim, i) = clcent(1:ndim)
-         ! Radius of gyration
-         cluster(i)%rg = radiusrg(cluster(i)%members(:), clussize, &
-            & clcent, sidel,cluster(i)%mass)
-         averg = averg+cluster(i)%rg
-         if (ndim == 3) then
-               volcl = (4*pi*rcluster**3/3.0)
-         else
-               volcl = pi*rcluster**2
+      if (maxcln > cl_thresh)then
+         ! Compute cluster properties (internal density, s(Q), g(r) ...) only if enough clusters found
+         averg = 0
+         im = 0
+         do i = 1, cluster_id
+            clussize = cluster(i)%clsize
+            clcent(:) = cluster(i)%center(1:ndim)
+            rclxyz(1:ndim, i) = clcent(1:ndim)
+            ! Radius of gyration
+            cluster(i)%rg = radiusrg(cluster(i)%members(:), clussize, &
+               & clcent, sidel,cluster(i)%mass)
+            averg = averg+cluster(i)%rg
+            if (ndim == 3) then
+                  volcl = (4*pi*rcluster**3/3.0)
+            else
+                  volcl = pi*rcluster**2
+            end if
+            cluster(i)%cldens = real(clussize)/volcl
+            indr = nint(cluster(i)%rg/drclus)
+            if (indr <= ndr) radii(indr) = radii(indr) + 1
+            denscl = denscl + cluster(i)%cldens
+            rclus = rclus + rcluster
+            ! Determine maximum cluster density
+            if (cluster(i)%cldens > cdmax) then
+                  cdmax = cluster(i)%cldens
+            endif
+         end do
+         avrg = avrg +averg/maxcl
+         rclxyzd(:, :) = rclxyz(:, :)
+         if (iconf == 1) then
+            drho = 2*cdmax/ndrho
          end if
-         cluster(i)%cldens = real(clussize)/volcl
-         indr = nint(cluster(i)%rg/drclus)
-         if (indr <= ndr) radii(indr) = radii(indr) + 1
-         denscl = denscl + cluster(i)%cldens
-         rclus = rclus + rcluster
-         ! Determine maximum cluster density
-         if (cluster(i)%cldens > cdmax) then
-               cdmax = cluster(i)%cldens
-         endif
-      end do
-      avrg = avrg +averg/maxcl
-      rclxyzd(:, :) = rclxyz(:, :)
-      if (iconf == 1) then
-         drho = 2*cdmax/ndrho
-      end if
-      ! Cluster density distribution
-      do i = 1, cluster_id
-         clussize = cluster(i)%clsize
-         ind = nint(cluster(i)%cldens/drho)
-         if (ind <= ndrho) densclus(ind) = densclus(ind) + 1
-      end do
+         ! Cluster density distribution
+         do i = 1, cluster_id
+            clussize = cluster(i)%clsize
+            ind = nint(cluster(i)%cldens/drho)
+            if (ind <= ndrho) densclus(ind) = densclus(ind) + 1
+         end do
 
-      !
-      ! Compute cluster-cluster structure factor
-      !
-      if (run_sq) then
-         call sqfnDcl<<<tBlock, grid>>>(rclxyzd, cluster_id, maxcl, ndim, fk_d, sqfcl_d, nqmax, qmin2, dq)
-      endif
-      averdens = averdens + denscl/maxcln
-      avradio = avradio + rclus/maxcln
-      ! Determine average cluster density, cluster g(r) and density profiles, cluster shape
-      countlarge = 0
-      do i = 1, cluster_id
-         j = cluster(i)%clsize
-         densav(i) = cldens(ndim, cluster(i)%members(:), j, sidel&
-            &, side2, cluster(i)%center(1:ndim), 0.8*cluster(i)%radio)
-         cmin = minj(ndim, cluster(i)%members, j &
-            &, cluster(i)%center, sidel, side2)
-         ! Cluster shape (ratio=0 for cylinders, ratio=1 for spheres)
-         call cshape(ndim, cluster(i)%members(:), j, &
-            & cluster(i)%center(1:ndim), sidel, side2,&
-            & cluster(i)%ratio, cluster(i)%devsphere)
-         if (j <= nmaxcl) then
+         !
+         ! Compute cluster-cluster structure factor
+         !
+         if (run_sq) then
+            call sqfnDcl<<<tBlock, grid>>>(rclxyzd, cluster_id, maxcl, ndim, fk_d, sqfcl_d, nqmax, qmin2, dq)
+         endif
+         averdens = averdens + denscl/maxcln
+         avradio = avradio + rclus/maxcln
+         ! Determine average cluster density, cluster g(r) and density profiles, cluster shape
+         countlarge = 0
+         do i = 1, cluster_id
+            j = cluster(i)%clsize
+            densav(i) = cldens(ndim, cluster(i)%members(:), j, sidel&
+               &, side2, cluster(i)%center(1:ndim), 0.8*cluster(i)%radio)
+            cmin = minj(ndim, cluster(i)%members, j &
+               &, cluster(i)%center, sidel, side2)
+            ! Cluster shape (ratio=0 for cylinders, ratio=1 for spheres)
+            call cshape(ndim, cluster(i)%members(:), j, &
+               & cluster(i)%center(1:ndim), sidel, side2,&
+               & cluster(i)%ratio, cluster(i)%devsphere)
+            if (j <= nmaxcl) then
                dsph(j) = dsph(j) + cluster(i)%devsphere
                dratio(j) = dratio(j) + cluster(i)%ratio
                countcl(j) = countcl(j) + 1
-         end if
-         if (densav(i) > 1.0e-6) then
+            end if
+            if (densav(i) > 1.0e-6) then
                countlarge = countlarge+1
                ! Internal cluster g(r) is only calculared inside clusters with average density 
                ! > 0
-            call rdfcl(ndim, cluster(i)%members(:), j, sidel&
-               &, side2, gcluster, lsmax, deltar, densav(i), cmin)
+               call rdfcl(ndim, cluster(i)%members(:), j, sidel&
+                  &, side2, gcluster, lsmax, deltar, densav(i), cmin)
+            endif
+            call denspcl(ndim, cluster(i)%members(:), j, sidel, side2&
+               &, rhoclus(0:ndrclus), ndrclus, drclus, cluster(i)%center(1:ndim))
+         end do
+         if (countlarge>0) then
+            gclustav(:) = gclustav(:) + gcluster(:)/maxcln
          endif
-         call denspcl(ndim, cluster(i)%members(:), j, sidel, side2&
-            &, rhoclus(0:ndrclus), ndrclus, drclus, cluster(i)%center(1:ndim))
-      end do
-      if (countlarge>0) then
-         gclustav(:) = gclustav(:) + gcluster(:)/maxcln
+         rhoclusav(0:ndrclus) = rhoclusav(0:ndrclus) + rhoclus(0:ndrclus)/maxcln
+         !
+         ! Cluster-cluster pdf
+         !
+         call rdfclcl2(ndim, rclxyz(1:ndim, 1:cluster_id), cluster_id, maxcln, sidel&
+         &, nrandom, side2, gclcl, gclr, gclr2, lsmax, deltar, volumen)
       endif
-      rhoclusav(0:ndrclus) = rhoclusav(0:ndrclus) + rhoclus(0:ndrclus)/maxcln
-      !
-      ! Cluster-cluster pdf
-      !
-      call rdfclcl2(ndim, rclxyz(1:ndim, 1:cluster_id), cluster_id, maxcln, sidel&
-      &, nrandom, side2, gclcl, gclr, gclr2, lsmax, deltar, volumen)
       NTclus = suma + NTclus
       ! Potential Energy
       if (run_thermo .and. iconf ==1 ) call thermo_init_cluster(natms, ndim, sidel, side2, maxcln, cluster)
    end subroutine cluster_analysis
+
+   subroutine centers_header(io_centers_file, nstep, maxcln, ex_vel)
+      !
+      ! Write header of cluster centers trajectory file
+      !
+      implicit none
+      integer, intent(IN) :: io_centers_file, nstep, maxcln
+      logical, intent(IN) :: ex_vel
+      integer :: i
+      write (io_centers_file, "('ITEM: TIMESTEP'/I12/'ITEM: NUMBER OF ATOMS'/I12/'ITE& 
+      &M: BOX BOUNDS pp pp pp')") nstep, maxcln
+      write (io_centers_file, "(2f15.7)") (0.0, sidel(i), i=1, ndim)
+      if (ndim == 2) write (io_centers_file, "('-0.5 0.5')")
+      if (ex_vel) then
+         write (io_centers_file, "('ITEM: ATOMS id type x y z vx vy vz')")
+      else
+         write (io_centers_file, "('ITEM: ATOMS id type x y z')")
+      end if
+   end subroutine centers_header
+
+   subroutine centers_print(io_centers_file, i, ex_vel, factorv)
+      !
+      ! Print cluster centers to trajectory file
+      !
+      implicit none
+      integer, intent(IN) :: io_centers_file
+      logical, intent(IN) :: ex_vel
+      integer :: i
+      real(myprec), intent(IN) :: factorv
+      if (ex_vel) then
+         if (ndim == 3) then
+               write (io_centers_file, '(2i10,6f15.7)') i, 1, cluster(i)%center(1:ndim), factorv*cluster(i)%vl(1:ndim)
+         else
+               write (io_centers_file, '(2i10,6f15.7)') i, 1, cluster(i)%center(1:ndim), 0.0,factorv*cluster(i)%vl(1:ndim),0.0
+         end if
+      else
+         if (ndim == 3) then
+               write (io_centers_file, '(2i10,6f15.7)') i, 1, cluster(i)%center(1:ndim)
+         else
+               write (io_centers_file, '(2i10,6f15.7)') i, 1, cluster(i)%center(1:ndim), 0.0
+         end if
+      endif
+   end subroutine centers_print
 
    subroutine neighbor_search()
       !
@@ -515,9 +549,11 @@ contains
       write(*,"(//' *** Clusters module initializing: G-DBSCAN starts from ',&
       i0'-particle clusters (recomended kmin>= 2*dim+1=',i0,')'/)") kmin,2*ndim+1
       ! Open output files
-      open (newunit=io_centers_file, file=centers_filename)
+      if (maxcln > cl_thresh) then
+         open (newunit=io_centers_file, file=centers_filename)
+         open (newunit=io_shape_file, file=fshape_filename)
+      end if
       open (newunit=io_clusevol_file, file=clusevol_filename)
-      open (newunit=io_shape_file, file=fshape_filename)
       write (io_clusevol_file,"('# conf no. clusters % particles in cluster ', &
       & 8('x_av(',i1,')':))")nsp-1
       write (io_shape_file, '("# cluster size, average deviation spherical shape, &
