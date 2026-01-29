@@ -7,7 +7,10 @@ module mod_input
    integer, allocatable, dimension(:) :: sp_types_selected, nw
    integer, dimension(3) :: ncfs_from_to
    character(len=4), allocatable, dimension(:) :: sp_labels
-   integer :: nthread, ndim, kmin=5,  idir=0, nsp, nbuffer=2, potnbins=100, nqw=0, &
+   !
+   ! nthread : number of threads for CUDA kernels is preset to 64 by default, beware of larger values for big systems
+   !
+   integer :: nthread=128, ndim, kmin=5,  idir=0, nsp, nbuffer=2, potnbins=100, nqw=0, &
             & jump=1, norder=1, nnbond=0, cl_thresh=10
    logical :: use_cell = .true., run_order = .false., print_orderp=.false.
    logical, dimension(7) :: rdf_sq_cl_dyn_sqw_conf_ord

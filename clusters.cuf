@@ -13,7 +13,8 @@ module mod_clusters
    character(len=17) :: centers_filename = 'centers.lammpstrj'
    character(len=12) :: clusevol_filename = 'clusevol.dat'
    character(len=10) :: fshape_filename = 'fshape.dat'
-   Real(myprec), allocatable :: clmfracav(:), dsph(:), dratio(:), countcl(:)
+   integer, allocatable :: countcl(:)
+   Real(myprec), allocatable :: clmfracav(:), dsph(:), dratio(:)
    Real(myprec), allocatable :: cluster_order_cos(:,:), cluster_order_sin(:,:), cluster_ql(:,:), &
       avcluster_order_cos(:), avcluster_order_sin(:), avcluster_order(:)
    interface
@@ -83,7 +84,6 @@ contains
          molfrac(:) = 0.0
          nmaxcl = 1000
          allocate(dratio(1:nmaxcl), dsph(1:nmaxcl), countcl(1:nmaxcl))
-         densclus(0:ndrho) = 0.0
          if (run_order) then
             allocate(avcluster_order_cos(norder))
             allocate(avcluster_order_sin(norder))
@@ -209,26 +209,7 @@ contains
          clmfrac(:) = clmfrac(:) + molfrac(:)/j
       enddo
       clmfracav(:) = clmfracav(:)+clmfrac(:)/maxcln
-      if (maxcln > cl_thresh) then
-         ! Write cluster shape file only for last frame 
-         print *, Iconf, Nconf
-         if (Iconf == Nconf) then
-            print *, Iconf, nmaxcl
-            do i = 1, nmaxcl
-               print *, i, dsph(i), dratio(i), countcl(i)
-               if (countcl(i) > 0) then
-                  dsph(i) = dsph(i)/countcl(i)
-                  dratio(i) = dratio(i)/countcl(i)
-               else
-                  dsph(i) = 0.0
-                  dratio(i) = 0.0
-               end if
-               write(io_shape_file, '(i5,f15.7,f15.7)') i, dsph(i), dratio(i)
-               write(*, '(i5,f15.7,f15.7)') i, dsph(i), dratio(i)
-            end do
-            close(io_shape_file)
-         end if
-      endif
+ 
       ekincl = 0
       ekincls = 0
       suma = 0
@@ -254,6 +235,7 @@ contains
       allocate (rclxyzd(ndim, cluster_id))
       if (.not.allocated(densclus)) then
          allocate(densclus(0:ndrho))
+         densclus(0:ndrho) = 0.0
       end if
  
       rclxyz(:,:) = 0.0
@@ -287,6 +269,9 @@ contains
             deallocate (dratio, dsph, countcl)
             allocate(dratio(1:nmaxcl), dsph(1:nmaxcl), countcl(1:nmaxcl))
          end if
+         dratio(:) = 0.0
+         dsph(:) = 0.0
+         countcl(:) = 0
       endif
       if (maxcln > cl_thresh)then
          ! Compute cluster properties (internal density, s(Q), g(r) ...) only if enough clusters found
@@ -373,6 +358,22 @@ contains
          &, nrandom, side2, gclcl, gclr, gclr2, lsmax, deltar, volumen)
       endif
       NTclus = suma + NTclus
+      if (maxcln > cl_thresh) then
+         ! Write cluster shape file only for last frame 
+         if (Iconf == Nconf) then
+            do i = 1, nmaxcl
+               if (countcl(i) > 0) then
+                  dsph(i) = dsph(i)/countcl(i)
+                  dratio(i) = dratio(i)/countcl(i)
+               else
+                  dsph(i) = 0.0
+                  dratio(i) = 0.0
+               end if
+               write(io_shape_file, '(i5,f15.7,f15.7)') i, dsph(i), dratio(i)
+            end do
+            close(io_shape_file)
+         end if
+      endif
       ! Potential Energy
       if (run_thermo .and. iconf ==1 ) call thermo_init_cluster(natms, ndim, sidel, side2, maxcln, cluster)
    end subroutine cluster_analysis

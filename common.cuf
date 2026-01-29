@@ -133,13 +133,20 @@ module mod_common
 
 contains
 
-   subroutine printcudaerror(routine)
+   subroutine printcudaerror(routine,retcode)
       use cudafor
       character(*) :: routine
       integer :: ierrsync
+      integer, intent(out), optional :: retcode
       ierrSync = cudaGetLastError()
-      if (ierrSync /= cudaSuccess) write(*,*) &
-         trim(routine)," kernel error:", cudaGetErrorString(ierrSync)
+      if (ierrSync /= cudaSuccess) then 
+         write(*,*) &
+         trim(routine),' with CUDA error: ', trim(cudaGetErrorString(ierrSync))
+         if (present(retcode)) retcode = ierrSync
+         retcode = ierrSync
+      else
+         if (present(retcode))retcode = 0
+      end if
    end subroutine printcudaerror
 
    subroutine printDeviceProperties(prop, num)

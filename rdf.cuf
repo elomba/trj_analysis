@@ -1,460 +1,463 @@
 module mod_rdf
-    use mod_precision
-    use mod_common
-    use mod_input
-    use cudafor
-    implicit none
+   use mod_precision
+   use mod_common
+   use mod_input
+   use cudafor
+   implicit none
 
 contains
-    subroutine RDF_init(nsp)
-        implicit none
-        integer, intent(in) :: nsp
-        if (rcrdf > 0.0) then
-            lsmax = nint(rcrdf/deltar) + 1
-        else
-            lsmax = nint(minval(sidel(1:ndim))/2.0/deltar) + 1
-        end if
-        if (lsmax*nit*4>shmsize) then
-            print *, " Error g(r) grid requires ",4*lsmax*nit," bytes, larger that shared memory,",shmsize
-            print *, " Increase grid size, dr, or reduce g(r) cutoff, rcdrf"
-            stop
-        endif
-        ndr = lsmax
-        Allocate (histomix(lsmax, nsp, nsp), histomixi(nbcuda*lsmax, nit))
-        Allocate (histomix_d(nbcuda*lsmax, nit))
-        if (nrandom>0) then
-            Allocate(gii_d(0:lsmax),g2ii_d(0:lsmax))
-            Allocate( gii(0:lsmax),g2ii(0:lsmax),gi(0:lsmax),g2i(0:lsmax))
-        endif
-        if (run_clusters) then
-            Allocate(gcluster(lsmax), gclustav(lsmax), gclcl(lsmax), rhoclus(0:ndrclus),&
-            & rhoclusav(0:ndrclus))
-            Allocate(gclr(0:lsmax),gclr2(0:lsmax))
-          gclustav(:) = 0.0
-          rhoclus(:) = 0.0
-          rhoclusav(:) = 0.0
-          gclcl(:) = 0
-          gclr(:) = 0
-          gclr2(:) = 0
-        endif
-        histomix(:, :, :) = 0
-        histomix_d(:, :) = 0
-        if (nrandom>0) then
-            g2i(:) = 0
-            gi(:) = 0
-        end if
-    end subroutine  RDF_init
+   subroutine RDF_init(nsp)
+      implicit none
+      integer, intent(in) :: nsp
+      if (rcrdf > 0.0) then
+         lsmax = nint(rcrdf/deltar) + 1
+      else
+         lsmax = nint(minval(sidel(1:ndim))/2.0/deltar) + 1
+      end if
+      if (lsmax*nit*4>shmsize) then
+         print *, " Error g(r) grid requires ",4*lsmax*nit," bytes, larger that shared memory,",shmsize
+         print *, " Increase grid size, dr, or reduce g(r) cutoff, rcdrf"
+         stop
+      endif
+      ndr = lsmax
+      Allocate (histomix(lsmax, nsp, nsp), histomixi(nbcuda*lsmax, nit))
+      Allocate (histomix_d(nbcuda*lsmax, nit))
+      if (nrandom>0) then
+         Allocate(gii_d(0:lsmax),g2ii_d(0:lsmax))
+         Allocate( gii(0:lsmax),g2ii(0:lsmax),gi(0:lsmax),g2i(0:lsmax))
+      endif
+      if (run_clusters) then
+         Allocate(gcluster(lsmax), gclustav(lsmax), gclcl(lsmax), rhoclus(0:ndrclus),&
+         & rhoclusav(0:ndrclus))
+         Allocate(gclr(0:lsmax),gclr2(0:lsmax))
+         gclustav(:) = 0.0
+         rhoclus(:) = 0.0
+         rhoclusav(:) = 0.0
+         gclcl(:) = 0
+         gclr(:) = 0
+         gclr2(:) = 0
+      endif
+      histomix(:, :, :) = 0
+      histomix_d(:, :) = 0
+      if (nrandom>0) then
+         g2i(:) = 0
+         gi(:) = 0
+      end if
+   end subroutine  RDF_init
 
-    subroutine rdf_clear()
-        implicit none
+   subroutine rdf_clear()
+      implicit none
 
-        ! Clean house
-        deallocate (histomix)
-        deallocate (histomixi)
-        deallocate (histomix_d)
-        if (nrandom>0) then
-            deallocate (gii,gi,g2i,g2ii)
-            deallocate (gii_d,g2ii_d)
-        endif 
-        if (run_clusters) then
+      ! Clean house
+      deallocate (histomix)
+      deallocate (histomixi)
+      deallocate (histomix_d)
+      if (nrandom>0) then
+         deallocate (gii,gi,g2i,g2ii)
+         deallocate (gii_d,g2ii_d)
+      endif
+      if (run_clusters) then
 
-            deallocate (gcluster)
-            deallocate (gclustav)
-            deallocate (gclcl)
-            deallocate (rhoclus)
-            deallocate (rhoclusav)
-            deallocate (gclr)
-            deallocate (gclr2)
-        endif
+         deallocate (gcluster)
+         deallocate (gclustav)
+         deallocate (gclcl)
+         deallocate (rhoclus)
+         deallocate (rhoclusav)
+         deallocate (gclr)
+         deallocate (gclr2)
+      endif
 
-    end subroutine rdf_clear
+   end subroutine rdf_clear
 
-    subroutine RDFcomp(Nmol, Iconf, nbcuda, nthread)
-        !
-        ! Main call to compute pdfs and move data back and forth from device
-        !
-        implicit none
-        integer, intent(IN) :: Nmol, Iconf, nbcuda, nthread
-        integer :: istart, i, ind, k, j, l, istat=0, ierrSync, rdfb, rdfth
-        real :: time_gpu, suma
-        histomix_d(:, :) = 0
-        if (nrandom>0) then
-            gii_d(:) = 0
-            g2ii_d(:) = 0
-        endif
-        !
-        ! Note the increase in the number of threads to optimize the use of shared atomics
-        ! Important : the third parameter in the kernel call is the size of dynamically allocated shared
-        !             memory (assumed sized arrays for the shared histogram)
-        !
-        istat = cudaEventRecord(startEvent, 0)
-        if (nthread*6 <= 1024) then
-            rdfth = 6*nthread
-            rdfb = nbcuda/6 + 1
-        else
-            rdfth = nthread*4
-            rdfb = nbcuda/4 + 1
-        end if
-        if (ndim == 3) then
-            call rdf_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, nit&
-                 &, nsp, nbcuda*lsmax, lsmax, side2, sidel_d, deltar)
-            call printcudaerror(" **! 3d-rdf_sh GPU kernel exit")
-            if (nrandom>0) call s2D3_sh<<<nrandom,nthread,(lsmax+1)*4>>>(r_d, Nmol, ndim, gii_d, g2ii_d, lsmax &
-            &, side2, sidel_d, deltar )
-        
-        else
-            call rdf2_sh<<<rdfb, rdfth, lsmax*nit*4>>>(r_d, Nmol, ndim, histomix_d, nit&
-                 &, nsp, nbcuda*lsmax, lsmax, itype_d, side2, sidel_d, deltar)
-            call printcudaerror(" **! 2d-rdf_sh GPU kernel exit")
-            if (nrandom>0) call s2D2_sh<<<nrandom,nthread,(lsmax+1)*4>>>(r_d, Nmol, ndim, gii_d, g2ii_d, lsmax &
-            &, side2, sidel_d, deltar )
-        end if
-        time_gpu = gptime(stopEvent, startEvent)
+   subroutine RDFcomp(Nmol, Iconf, nbcuda, nthread)
+      !
+      ! Main call to compute pdfs and move data back and forth from device
+      !
+      implicit none
+      integer, intent(IN) :: Nmol, Iconf, nbcuda, nthread
+      integer :: istart, i, ind, k, j, l, istat=0, ierrSync, rdfb, rdfth
+      real :: time_gpu, suma
+      histomix_d(:, :) = 0
+      if (nrandom>0) then
+         gii_d(:) = 0
+         g2ii_d(:) = 0
+      endif
+      !
+      ! Note the increase in the number of threads to optimize the use of shared atomics. This limits the value of nthread
+      ! to 128 for 3D and 256 for 2D calculations (max 1024 threads per block)
+      ! Important : the third parameter in the kernel call is the size of dynamically allocated shared
+      !             memory (assumed sized arrays for the shared histogram)
+      !
+      istat = cudaEventRecord(startEvent, 0)
+      if (nthread*6 <= 1024) then
+         rdfth = 6*nthread
+         rdfb = nbcuda/6 + 1
+      else
+         rdfth = nthread*4
+         rdfb = nbcuda/4 + 1
+      end if
+      if (ndim == 3) then
+         call rdf_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, nit&
+         &, nsp, nbcuda*lsmax, lsmax, side2, sidel_d, deltar)
+         call printcudaerror(" *** Warning: 3D rdf_sh GPU kernel exit with errors: reduce nthread",istat)
+         if (istat /= 0) stop(" *** Fatal error in rdf_sh kernel!!")
+         if (nrandom>0) call s2D3_sh<<<nrandom,nthread,(lsmax+1)*4>>>(r_d, Nmol, ndim, gii_d, g2ii_d, lsmax &
+         &, side2, sidel_d, deltar )
 
-        trdf = trdf + time_gpu
+      else
+         call rdf2_sh<<<rdfb, rdfth, lsmax*nit*4>>>(r_d, Nmol, ndim, histomix_d, nit&
+         &, nsp, nbcuda*lsmax, lsmax, itype_d, side2, sidel_d, deltar)
+         call printcudaerror(" *** Warning: 2D rdf2_sh GPU kernel exit with errors: reduce nthread", istat)
+         if (istat /= 0) stop(" *** Fatal error in rdf2_sh kernel!!")
+         if (nrandom>0) call s2D2_sh<<<nrandom,nthread,(lsmax+1)*4>>>(r_d, Nmol, ndim, gii_d, g2ii_d, lsmax &
+         &, side2, sidel_d, deltar )
+      end if
+      time_gpu = gptime(stopEvent, startEvent)
 
-        ! Block histograms back from device to host
-        histomixi(:, :) = histomix_d(:, :)
-        if (nrandom>0) then
-            gii(:) = gii_d(:)
-            g2ii(:) = g2ii_d(:)
-            gi(:) = gi(:)+gii(:)
-            g2i(:) = g2i(:)+g2ii(:)
-        endif
-        
+      trdf = trdf + time_gpu
+
+      ! Block histograms back from device to host
+      histomixi(:, :) = histomix_d(:, :)
+      if (nrandom>0) then
+         gii(:) = gii_d(:)
+         g2ii(:) = g2ii_d(:)
+         gi(:) = gi(:)+gii(:)
+         g2i(:) = g2i(:)+g2ii(:)
+      endif
+
 !        Gather histograms from each block
-        
-        do i = 0, nbcuda - 1
-            istart = i*lsmax
-            ind = 1
-            do k = 1, nsp
-                do l = k, nsp
-                    histomix(1:lsmax, k, l) = histomix(1:lsmax, k, l) + real(histomixi(istart + 1:istart + lsmax, ind))
-                    ind = ind + 1
-                end do
+
+      do i = 0, nbcuda - 1
+         istart = i*lsmax
+         ind = 1
+         do k = 1, nsp
+            do l = k, nsp
+               histomix(1:lsmax, k, l) = histomix(1:lsmax, k, l) + real(histomixi(istart + 1:istart + lsmax, ind))
+               ind = ind + 1
             end do
-        end do
-    end subroutine RDFcomp
+         end do
+      end do
+   end subroutine RDFcomp
 
-    subroutine rdfcl(dim, members, nm, sidel, side2, g, lsmax, deltar, dens, kmin)
-        integer, intent(IN) :: nm, lsmax, kmin, dim
-        integer, intent(IN) :: members(nm)
-        real, intent(IN) :: sidel(3), side2, deltar, dens
-        real, intent(INOUT) :: g(lsmax)
-        real :: rv(3), rr2, rr, fact
-        integer :: k, l, i, j, ind
-        ! g(r) is normalized for each configuration, since particle number may change
-        fact = 1.0/dens
-        do k = 1, nm
-            i = members(k)
-            if (k .ne. kmin) then
-                j = members(kmin)
-                rv(1:dim) = r(1:dim, i) - r(1:dim, j)
-                ! PBC (unwrap if necessary)
-                rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
-                rr2 = Dot_product(rv(1:dim), rv(1:dim))
-                If (rr2 .Lt. side2) Then
-                    rr = sqrt(rr2)
-                    ind = Nint(rr/deltar)
-                    if (ind>0 .and.ind<=lsmax)g(ind) = g(ind) + fact
-                end If
-            end if
-        end do
-    end subroutine rdfcl
+   subroutine rdfcl(dim, members, nm, sidel, side2, g, lsmax, deltar, dens, kmin)
+      integer, intent(IN) :: nm, lsmax, kmin, dim
+      integer, intent(IN) :: members(nm)
+      real, intent(IN) :: sidel(3), side2, deltar, dens
+      real, intent(INOUT) :: g(lsmax)
+      real :: rv(3), rr2, rr, fact
+      integer :: k, l, i, j, ind
+      ! g(r) is normalized for each configuration, since particle number may change
+      fact = 1.0/dens
+      do k = 1, nm
+         i = members(k)
+         if (k .ne. kmin) then
+            j = members(kmin)
+            rv(1:dim) = r(1:dim, i) - r(1:dim, j)
+            ! PBC (unwrap if necessary)
+            rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+            rr2 = Dot_product(rv(1:dim), rv(1:dim))
+            If (rr2 .Lt. side2) Then
+               rr = sqrt(rr2)
+               ind = Nint(rr/deltar)
+               if (ind>0 .and.ind<=lsmax)g(ind) = g(ind) + fact
+            end If
+         end if
+      end do
+   end subroutine rdfcl
 
 
-    subroutine rdfclcl2(dim, centers, nm, nbcl, sidel, nrandom, side2, g, ng, ng2, lsmax, deltar, vol)
-        integer, intent(IN) :: nm, lsmax, dim, nrandom, nbcl
-        real, intent(IN) :: centers(dim, nm), sidel(dim), side2, deltar, vol
-        real, intent(INOUT) :: g(lsmax)
-        real(kind=8), intent(INOUT) :: ng(lsmax), ng2(lsmax)
-        real :: rv(3), xrand(3), rr2, rr, fact, ncluster
-        real(kind=8) :: gi(0:lsmax)
-        integer :: k, l, i, j, ind
-        ! g(r) is normalized for each configuration, since particle number may change
-        ncluster= nbcl
-        fact = vol/real(nbcl*nbcl)
-        do i = 1, nbcl
-            do j = i + 1, nbcl
-                rv(1:dim) = centers(1:dim, i) - centers(1:dim, j)
-                ! PBC (unwrap if necessary)
-                rv(1:dim) = rv(1:dim) - sidel*nint(rv(1:dim)/sidel(1:dim))
-                rr2 = Dot_product(rv(1:dim), rv(1:dim))
-                If (rr2 .Lt. side2) Then
-                    rr = sqrt(rr2)
-                    ind = Nint(rr/deltar)
-                    if (ind>0.and.ind<=lsmax) g(ind) = g(ind) + fact
-                end If
-            end do
-            
-        end do
-        do i = 1, nrandom
-            call random_number(xrand(1:ndim))
-            gi(:) = 0
+   subroutine rdfclcl2(dim, centers, nm, nbcl, sidel, nrandom, side2, g, ng, ng2, lsmax, deltar, vol)
+      integer, intent(IN) :: nm, lsmax, dim, nrandom, nbcl
+      real, intent(IN) :: centers(dim, nm), sidel(dim), side2, deltar, vol
+      real, intent(INOUT) :: g(lsmax)
+      real(kind=8), intent(INOUT) :: ng(lsmax), ng2(lsmax)
+      real :: rv(3), xrand(3), rr2, rr, fact, ncluster
+      real(kind=8) :: gi(0:lsmax)
+      integer :: k, l, i, j, ind
+      ! g(r) is normalized for each configuration, since particle number may change
+      ncluster= nbcl
+      fact = vol/real(nbcl*nbcl)
+      do i = 1, nbcl
+         do j = i + 1, nbcl
+            rv(1:dim) = centers(1:dim, i) - centers(1:dim, j)
+            ! PBC (unwrap if necessary)
+            rv(1:dim) = rv(1:dim) - sidel*nint(rv(1:dim)/sidel(1:dim))
+            rr2 = Dot_product(rv(1:dim), rv(1:dim))
+            If (rr2 .Lt. side2) Then
+               rr = sqrt(rr2)
+               ind = Nint(rr/deltar)
+               if (ind>0.and.ind<=lsmax) g(ind) = g(ind) + fact
+            end If
+         end do
+
+      end do
+      do i = 1, nrandom
+         call random_number(xrand(1:ndim))
+         gi(:) = 0
 !            print *, sidel
 !            print *, sidel*xrand
-            do j = 1, nbcl
-                rv(1:dim) = centers(1:dim, j) - sidel*xrand(1:ndim)
-                ! PBC (unwrap if necessary)
-                rv(1:dim) = rv(1:dim) - sidel*nint(rv(1:dim)/sidel(1:dim))
-                rr2 = Dot_product(rv(1:dim), rv(1:dim))
-                If (rr2 .Lt. side2) Then
-                    rr = sqrt(rr2)
-                    ind = Nint(rr/deltar)
-                    if (ind>0.and.ind<=lsmax) gi(ind:lsmax) = gi(ind:lsmax) + 1
-                end If
-            end do
-            ng(:) = ng(:) + gi(:)
-            ng2(:) = ng2(:) + gi(:)**2
-        end do
-    end subroutine rdfclcl2
+         do j = 1, nbcl
+            rv(1:dim) = centers(1:dim, j) - sidel*xrand(1:ndim)
+            ! PBC (unwrap if necessary)
+            rv(1:dim) = rv(1:dim) - sidel*nint(rv(1:dim)/sidel(1:dim))
+            rr2 = Dot_product(rv(1:dim), rv(1:dim))
+            If (rr2 .Lt. side2) Then
+               rr = sqrt(rr2)
+               ind = Nint(rr/deltar)
+               if (ind>0.and.ind<=lsmax) gi(ind:lsmax) = gi(ind:lsmax) + 1
+            end If
+         end do
+         ng(:) = ng(:) + gi(:)
+         ng2(:) = ng2(:) + gi(:)**2
+      end do
+   end subroutine rdfclcl2
 
-    attributes(global) subroutine rdf_sh(Nmol, dim, nit, nsp, hdim, lsmax, &
-    &  side2, sidel, deltar )
-       use curand_device
-        !
-        ! Mossively parallel rdf calculation using shared memory
-        !
-        integer, value, intent(IN) :: Nmol, dim, nit, lsmax, hdim, nsp
-        integer i, j, ind, ia, fact, iti, itj, istart, ij, ix
-        real ::  rr2, rr, xi, yi, zi, xd, yd, zd, xrd1, xrd2, xrd3
-        real, dimension(3) :: rv
-        real, value, intent(IN) :: side2, deltar
-        real, intent(IN) :: sidel(3)
-        ! Assumed size histogram (memory size must be assigned in the kernel call)
-        integer, shared :: histomix_s(lsmax, nit)
-        i = (blockidx%x - 1)*blockdim%x + threadidx%x
-        histomix_s(:, :) = 0
-      
-        if (i <= Nmol) then
-            iti = itype_d(i)
-            xi = r_d(1, i)
-            yi = r_d(2, i)
-            zi = r_d(3, i)
-            Do j = i + 1, Nmol
-                xd = r_d(1, j) - xi
-                yd = r_d(2, j) - yi
-                zd = r_d(3, j) - zi
-                xd = xd - sidel(1)*nint(xd/sidel(1))
-                yd = yd - sidel(2)*nint(yd/sidel(2))
-                zd = zd - sidel(3)*nint(zd/sidel(3))
-                rr2 = xd*xd + yd*yd + zd*zd
-                If (rr2 .Lt. side2) Then
-                    itj = itype_d(j)
-                    rr = __fsqrt_rn(rr2)
-                    ind = Nint(rr/deltar)
-                    !
-                    ! Use shared memory histogram to speed calculations
-                    !
-                    ij = ind_ij(iti, itj, nsp)
-                    ia = atomicadd(histomix_s(ind, ij), 1)
-                end if
-            End do
-            call syncthreads()
-            if (threadidx%x == 1) then
-                istart = (blockidx%x - 1)*lsmax
-                !
-                ! Store each block's shared memory histogram on different positions
-                ! in global memory
-                !
-                histomix_d(istart + 1:istart + lsmax, :) = histomix_s(1:lsmax, :) + histomix_d(istart + 1:istart + lsmax, :)
-            end if
-        end if
+   attributes(global) subroutine rdf_sh(Nmol, dim, nit, nsp, hdim, lsmax, &
+   &  side2, sidel, deltar )
+   use curand_device
+   !
+   ! Mossively parallel rdf calculation using shared memory
+   !
+   integer, value, intent(IN) :: Nmol, dim, nit, lsmax, hdim, nsp
+   integer i, j, ind, ia, fact, iti, itj, istart, ij, ix
+   real ::  rr2, rr, xi, yi, zi, xd, yd, zd, xrd1, xrd2, xrd3
+   real, dimension(3) :: rv
+   real, value, intent(IN) :: side2, deltar
+   real, intent(IN) :: sidel(3)
+   ! Assumed size histogram (memory size must be assigned in the kernel call)
+   integer, shared :: histomix_s(lsmax, nit)
+   i = (blockidx%x - 1)*blockdim%x + threadidx%x
+   histomix_s(:, :) = 0
 
-    end subroutine rdf_sh
+   if (i <= Nmol) then
+      iti = itype_d(i)
+      xi = r_d(1, i)
+      yi = r_d(2, i)
+      zi = r_d(3, i)
+      Do j = i + 1, Nmol
+         xd = r_d(1, j) - xi
+         yd = r_d(2, j) - yi
+         zd = r_d(3, j) - zi
+         xd = xd - sidel(1)*nint(xd/sidel(1))
+         yd = yd - sidel(2)*nint(yd/sidel(2))
+         zd = zd - sidel(3)*nint(zd/sidel(3))
+         rr2 = xd*xd + yd*yd + zd*zd
+         If (rr2 .Lt. side2) Then
+            itj = itype_d(j)
+            rr = __fsqrt_rn(rr2)
+            ind = Nint(rr/deltar)
+            !
+            ! Use shared memory histogram to speed calculations
+            !
+            ij = ind_ij(iti, itj, nsp)
+            ia = atomicadd(histomix_s(ind, ij), 1)
+         end if
+      End do
+      call syncthreads()
+      if (threadidx%x == 1) then
+         istart = (blockidx%x - 1)*lsmax
+         !
+         ! Store each block's shared memory histogram on different positions
+         ! in global memory
+         !
+         histomix_d(istart + 1:istart + lsmax, :) = histomix_s(1:lsmax, :) + histomix_d(istart + 1:istart + lsmax, :)
+      end if
+   end if
 
-    attributes(global) subroutine s2D3_sh(r, Nmol, dim, gii, g2ii, lsmax &
-    &, side2, sidel, deltar )
-       use curand_device
-        !
-        ! Mossively parallel density fluctuation calculation using shared memory
-        !
-        integer, value, intent(IN) :: Nmol, dim, lsmax 
-        integer i, j, k, ind, nrand, ia
-        real ::  rr2, rr, xi, yi, zi, xd, yd, zd, xrd1, xrd2, xrd3, value
-        real, dimension(3) :: rv, xr
-        real, value, intent(IN) :: side2, deltar
-        real, intent(IN) :: sidel(3) 
-        real, dimension(dim, Nmol), intent(IN) :: r
-        real, intent(INOUT) :: gii(0:lsmax), g2ii(0:lsmax) 
-        integer(8) :: seed, seq, offset
-        type(curandStateXORWOW) :: h
-        ! Assumed size histogram (memory size must be assigned in the kernel call)
-        real, shared :: gi_s(0:lsmax)
-        nrand = gridDim%x
-        seed = blockidx%x + 12345
-        seq = 0
-        offset = 0
-        ! Initialize random seed
-        call curand_init(seed, seq, offset, h)
-        !
-        ! Sample point within simulation box
-        !
-          xrd1 = sidel(1)*curand_uniform(h)
-          xrd2 = sidel(2)*curand_uniform(h)
-          xrd3 = sidel(3)*curand_uniform(h)
-         gi_s(:) = 0
-         ! loop over number of threads to scan all particles
-         do k = 0, Nmol/blockDim%x + 1
-            i = k*blockDim%x +threadidx%x
-            if (i<=Nmol) then
-                xi = r(1, i)
-                yi = r(2, i)
-                zi = r(3, i)
-                xd = xrd1 - xi
-                yd = xrd2 - yi
-                zd = xrd3 - zi
-                xd = xd - sidel(1)*nint(xd/sidel(1))
-                yd = yd - sidel(2)*nint(yd/sidel(2))
-                zd = zd - sidel(3)*nint(zd/sidel(3))
-                rr2 = xd*xd + yd*yd + zd*zd
-                if (rr2 < side2) then
-                    rr = __fsqrt_rn(rr2)
-                    ind = Nint(rr/deltar)
-                    do j= ind, lsmax
-                        ia=atomicadd(gi_s(j),1.0)
-                    enddo
-                endif
-            endif
-        enddo 
-        call syncthreads()
-        if (threadidx%x == 1) then
-            do k=0, lsmax
-                value = gi_s(k) 
-                ia = atomicadd(gii(k),value)
-                ia = atomicadd(g2ii(k),value**2)
-            enddo
-        !   
-        end if
+end subroutine rdf_sh
 
-    end subroutine s2D3_sh
+attributes(global) subroutine s2D3_sh(r, Nmol, dim, gii, g2ii, lsmax &
+&, side2, sidel, deltar )
+use curand_device
+ !
+ ! Mossively parallel density fluctuation calculation using shared memory
+ !
+integer, value, intent(IN) :: Nmol, dim, lsmax
+integer i, j, k, ind, nrand, ia
+real ::  rr2, rr, xi, yi, zi, xd, yd, zd, xrd1, xrd2, xrd3, value
+real, dimension(3) :: rv, xr
+real, value, intent(IN) :: side2, deltar
+real, intent(IN) :: sidel(3)
+real, dimension(dim, Nmol), intent(IN) :: r
+real, intent(INOUT) :: gii(0:lsmax), g2ii(0:lsmax)
+integer(8) :: seed, seq, offset
+type(curandStateXORWOW) :: h
+ ! Assumed size histogram (memory size must be assigned in the kernel call)
+real, shared :: gi_s(0:lsmax)
+nrand = gridDim%x
+seed = blockidx%x + 12345
+seq = 0
+offset = 0
+ ! Initialize random seed
+call curand_init(seed, seq, offset, h)
+ !
+ ! Sample point within simulation box
+ !
+xrd1 = sidel(1)*curand_uniform(h)
+xrd2 = sidel(2)*curand_uniform(h)
+xrd3 = sidel(3)*curand_uniform(h)
+gi_s(:) = 0
+ ! loop over number of threads to scan all particles
+do k = 0, Nmol/blockDim%x + 1
+   i = k*blockDim%x +threadidx%x
+   if (i<=Nmol) then
+      xi = r(1, i)
+      yi = r(2, i)
+      zi = r(3, i)
+      xd = xrd1 - xi
+      yd = xrd2 - yi
+      zd = xrd3 - zi
+      xd = xd - sidel(1)*nint(xd/sidel(1))
+      yd = yd - sidel(2)*nint(yd/sidel(2))
+      zd = zd - sidel(3)*nint(zd/sidel(3))
+      rr2 = xd*xd + yd*yd + zd*zd
+      if (rr2 < side2) then
+         rr = __fsqrt_rn(rr2)
+         ind = Nint(rr/deltar)
+         do j= ind, lsmax
+            ia=atomicadd(gi_s(j),1.0)
+         enddo
+      endif
+   endif
+enddo
+call syncthreads()
+if (threadidx%x == 1) then
+   do k=0, lsmax
+      value = gi_s(k)
+      ia = atomicadd(gii(k),value)
+      ia = atomicadd(g2ii(k),value**2)
+   enddo
+   !
+end if
 
-     attributes(global) subroutine s2D2_sh(r, Nmol, dim, gii, g2ii, lsmax &
-    &, side2, sidel, deltar )
-       use curand_device
-        !
-        ! Mossively parallel density fluctuation calculation using shared memory
-        !
-        integer, value, intent(IN) :: Nmol, dim, lsmax 
-        integer i, j, k, ind, nrand, ia
-        real ::  rr2, rr, xi, yi, zi, xd, yd, zd, xrd1, xrd2, xrd3, value
-        real, dimension(3) :: rv, xr
-        real, value, intent(IN) :: side2, deltar
-        real, intent(IN) :: sidel(3) 
-        real, dimension(dim, Nmol), intent(IN) :: r
-        real, intent(INOUT) :: gii(0:lsmax), g2ii(0:lsmax) 
-        integer(8) :: seed, seq, offset
-        type(curandStateXORWOW) :: h
-        ! Assumed size histogram (memory size must be assigned in the kernel call)
-        real, shared :: gi_s(0:lsmax)
-        nrand = gridDim%x
-        seed = blockidx%x + 12345
-        seq = 0
-        offset = 0
-        ! Initialize random seed
-        call curand_init(seed, seq, offset, h)
-        !
-        ! Sample point within simulation box
-        !
-          xrd1 = sidel(1)*curand_uniform(h)
-          xrd2 = sidel(2)*curand_uniform(h)
-         gi_s(:) = 0
-         ! loop over number of threads to scan all particles
-         do k = 0, Nmol/blockDim%x + 1
-            i = k*blockDim%x +threadidx%x
-            if (i<=Nmol) then
-                xi = r(1, i)
-                yi = r(2, i)
-                xd = xrd1 - xi
-                yd = xrd2 - yi
-                xd = xd - sidel(1)*nint(xd/sidel(1))
-                yd = yd - sidel(2)*nint(yd/sidel(2))
-                rr2 = xd*xd + yd*yd 
-                if (rr2 < side2) then
-                   rr = __fsqrt_rn(rr2)
-                    ind = Nint(rr/deltar)
-                    do j= ind, lsmax
-                        ia=atomicadd(gi_s(j),1.0)
-                    enddo
-                endif
-            endif
-        enddo 
-        call syncthreads()
-        if (threadidx%x == 1) then
-            do k=0, lsmax
-                value = gi_s(k) 
-                ia = atomicadd(gii(k),value)
-                ia = atomicadd(g2ii(k),value**2)
-            enddo
-        !   
-        end if
+end subroutine s2D3_sh
 
-    end subroutine s2D2_sh
+attributes(global) subroutine s2D2_sh(r, Nmol, dim, gii, g2ii, lsmax &
+&, side2, sidel, deltar )
+use curand_device
+ !
+ ! Mossively parallel density fluctuation calculation using shared memory
+ !
+integer, value, intent(IN) :: Nmol, dim, lsmax
+integer i, j, k, ind, nrand, ia
+real ::  rr2, rr, xi, yi, zi, xd, yd, zd, xrd1, xrd2, xrd3, value
+real, dimension(3) :: rv, xr
+real, value, intent(IN) :: side2, deltar
+real, intent(IN) :: sidel(3)
+real, dimension(dim, Nmol), intent(IN) :: r
+real, intent(INOUT) :: gii(0:lsmax), g2ii(0:lsmax)
+integer(8) :: seed, seq, offset
+type(curandStateXORWOW) :: h
+ ! Assumed size histogram (memory size must be assigned in the kernel call)
+real, shared :: gi_s(0:lsmax)
+nrand = gridDim%x
+seed = blockidx%x + 12345
+seq = 0
+offset = 0
+ ! Initialize random seed
+call curand_init(seed, seq, offset, h)
+ !
+ ! Sample point within simulation box
+ !
+xrd1 = sidel(1)*curand_uniform(h)
+xrd2 = sidel(2)*curand_uniform(h)
+gi_s(:) = 0
+ ! loop over number of threads to scan all particles
+do k = 0, Nmol/blockDim%x + 1
+   i = k*blockDim%x +threadidx%x
+   if (i<=Nmol) then
+      xi = r(1, i)
+      yi = r(2, i)
+      xd = xrd1 - xi
+      yd = xrd2 - yi
+      xd = xd - sidel(1)*nint(xd/sidel(1))
+      yd = yd - sidel(2)*nint(yd/sidel(2))
+      rr2 = xd*xd + yd*yd
+      if (rr2 < side2) then
+         rr = __fsqrt_rn(rr2)
+         ind = Nint(rr/deltar)
+         do j= ind, lsmax
+            ia=atomicadd(gi_s(j),1.0)
+         enddo
+      endif
+   endif
+enddo
+call syncthreads()
+if (threadidx%x == 1) then
+   do k=0, lsmax
+      value = gi_s(k)
+      ia = atomicadd(gii(k),value)
+      ia = atomicadd(g2ii(k),value**2)
+   enddo
+   !
+end if
 
-    attributes(global) subroutine rdf2_sh(r, Nmol, dim, histomix, nit, nsp, hdim, lsmax, itype&
-    &, side2, sidel, deltar)
+end subroutine s2D2_sh
+
+attributes(global) subroutine rdf2_sh(r, Nmol, dim, histomix, nit, nsp, hdim, lsmax, itype&
+&, side2, sidel, deltar)
 !
 ! Masively parallel rdf calculation using shared memory (2D)
 !
-        integer, value, intent(IN) :: Nmol, dim, nit, lsmax, hdim, nsp
-        integer, intent(IN) :: itype(Nmol)
-        integer i, j, ind, ia, fact, iti, itj, istart, ij
-        real ::  rr2, rr, xi, yi, zi, xd, yd, zd
-        real, dimension(3) :: rv
-        real, value, intent(IN) :: side2, deltar
-        real, intent(IN) :: sidel(3)
-        real, dimension(dim, Nmol), intent(IN) :: r
-        integer, intent(INOUT) :: histomix(hdim, nit)
+integer, value, intent(IN) :: Nmol, dim, nit, lsmax, hdim, nsp
+integer, intent(IN) :: itype(Nmol)
+integer i, j, ind, ia, fact, iti, itj, istart, ij
+real ::  rr2, rr, xi, yi, zi, xd, yd, zd
+real, dimension(3) :: rv
+real, value, intent(IN) :: side2, deltar
+real, intent(IN) :: sidel(3)
+real, dimension(dim, Nmol), intent(IN) :: r
+integer, intent(INOUT) :: histomix(hdim, nit)
 ! Assumed size histogram (memory size must be assigned in the kernel call)
-        integer, shared :: histomix_s(lsmax, nit)
-        histomix_s(:, :) = 0
-        i = (blockidx%x - 1)*blockdim%x + threadidx%x
-        if (i <= Nmol - 1) then
-            iti = itype(i)
-            xi = r(1, i)
-            yi = r(2, i)
-            Do j = i + 1, Nmol
-                xd = r(1, j) - xi
-                yd = r(2, j) - yi
-                xd = xd - sidel(1)*nint(xd/sidel(1))
-                yd = yd - sidel(2)*nint(yd/sidel(2))
-                rr2 = xd*xd + yd*yd
-                If (rr2 .Lt. side2) Then
-                    itj = itype(j)
-                    rr = __fsqrt_rn(rr2)
-                    ind = Nint(rr/deltar)
-                    ij = ind_ij(iti, itj, nsp)
-                    !
-                    ! Use atomics over shared memory to minimize collisions
-                    !
-                    ia = atomicadd(histomix_s(ind, ij), 1)
-                    !   if (iti /= itj) ia = atomicadd(histomix_s(ind,ij),1)
-                end if
-            End do
-            call syncthreads()
-            if (threadidx%x == 1) then
-                istart = (blockidx%x - 1)*lsmax
-                !
-                ! Store each block's shared memory histogram on different positions
-                ! in global memory
-                !
-                histomix(istart + 1:istart + lsmax, :) = histomix_s(1:lsmax, :) + histomix(istart + 1:istart + lsmax, :)
-            end if
-        end if
-    end subroutine rdf2_sh
+integer, shared :: histomix_s(lsmax, nit)
+histomix_s(:, :) = 0
+i = (blockidx%x - 1)*blockdim%x + threadidx%x
+if (i <= Nmol - 1) then
+   iti = itype(i)
+   xi = r(1, i)
+   yi = r(2, i)
+   Do j = i + 1, Nmol
+      xd = r(1, j) - xi
+      yd = r(2, j) - yi
+      xd = xd - sidel(1)*nint(xd/sidel(1))
+      yd = yd - sidel(2)*nint(yd/sidel(2))
+      rr2 = xd*xd + yd*yd
+      If (rr2 .Lt. side2) Then
+         itj = itype(j)
+         rr = __fsqrt_rn(rr2)
+         ind = Nint(rr/deltar)
+         ij = ind_ij(iti, itj, nsp)
+         !
+         ! Use atomics over shared memory to minimize collisions
+         !
+         ia = atomicadd(histomix_s(ind, ij), 1)
+         !   if (iti /= itj) ia = atomicadd(histomix_s(ind,ij),1)
+      end if
+   End do
+   call syncthreads()
+   if (threadidx%x == 1) then
+      istart = (blockidx%x - 1)*lsmax
+      !
+      ! Store each block's shared memory histogram on different positions
+      ! in global memory
+      !
+      histomix(istart + 1:istart + lsmax, :) = histomix_s(1:lsmax, :) + histomix(istart + 1:istart + lsmax, :)
+   end if
+end if
+end subroutine rdf2_sh
 
-    attributes(device) integer function ind_ij(i, j, nsp)
-        implicit none
-        integer, value :: i, j, nsp
-        !
-        ! this function maps the indices (i,j) of a symmetric matrix A(i,j) onto the single index k
-        ! of a vector
-        !
-        if (i <= j) then
-            ind_ij = (i - 1)*(nsp - 1) - (i - 1)*(i - 2)/2 + j
-        else
-            ind_ij = (j - 1)*(nsp - 1) - (j - 1)*(j - 2)/2 + i
-        end if
-    end function ind_ij
+attributes(device) integer function ind_ij(i, j, nsp)
+implicit none
+integer, value :: i, j, nsp
+ !
+ ! this function maps the indices (i,j) of a symmetric matrix A(i,j) onto the single index k
+ ! of a vector
+ !
+if (i <= j) then
+   ind_ij = (i - 1)*(nsp - 1) - (i - 1)*(i - 2)/2 + j
+else
+   ind_ij = (j - 1)*(nsp - 1) - (j - 1)*(j - 2)/2 + i
+end if
+end function ind_ij
 
 end module mod_rdf
