@@ -4,7 +4,7 @@ module mod_rdf
    use mod_input
    use cudafor
    implicit none
-
+   integer, device :: dim_hist
 contains
    subroutine RDF_init(nsp)
       implicit none
@@ -22,6 +22,7 @@ contains
       ndr = lsmax
       Allocate (histomix(lsmax, nsp, nsp), histomixi(nbcuda*lsmax, nit))
       Allocate (histomix_d(nbcuda*lsmax, nit))
+      dim_hist = nbcuda*lsmax
       if (nrandom>0) then
          Allocate(gii_d(0:lsmax),g2ii_d(0:lsmax))
          Allocate( gii(0:lsmax),g2ii(0:lsmax),gi(0:lsmax),g2i(0:lsmax))
@@ -194,8 +195,6 @@ contains
       do i = 1, nrandom
          call random_number(xrand(1:ndim))
          gi(:) = 0
-!            print *, sidel
-!            print *, sidel*xrand
          do j = 1, nbcl
             rv(1:dim) = centers(1:dim, j) - sidel*xrand(1:ndim)
             ! PBC (unwrap if necessary)
@@ -246,11 +245,16 @@ contains
             itj = itype_d(j)
             rr = __fsqrt_rn(rr2)
             ind = Nint(rr/deltar)
+            if (ind <= lsmax .and. ind > 0) then
             !
             ! Use shared memory histogram to speed calculations
             !
             ij = ind_ij(iti, itj, nsp)
+            if (ij > nit) Then
+               print *, " Error: wrong index in rdf_sh kernel ", ij, nit, iti, itj
+            end if
             ia = atomicadd(histomix_s(ind, ij), 1)
+         endif
          end if
       End do
       call syncthreads()
@@ -260,6 +264,9 @@ contains
          ! Store each block's shared memory histogram on different positions
          ! in global memory
          !
+         if (istart + lsmax > dim_hist) then
+            print *, " Error: wrong index in rdf_sh kernel storing histograms ", istart, lsmax, hdim
+         end if
          histomix_d(istart + 1:istart + lsmax, :) = histomix_s(1:lsmax, :) + histomix_d(istart + 1:istart + lsmax, :)
       end if
    end if

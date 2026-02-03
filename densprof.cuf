@@ -73,7 +73,7 @@ contains
       !
       ! One dimensional rho(x) normalized such that rho_i(L/2) approximates the bulk average rho_i
       !
-      write (222, '("#       r ",7x,8(8x,"rho(",i1,")":))') ((i), i=1, nsp)
+      write (222, '("#       r ",3x,15(9x,"rho(",i0,")":))') ((i), i=1, nsp)
       if (ex_qc) then
          open (223, file='qdens.dat')
          !
@@ -108,7 +108,7 @@ contains
       densprofi(:, :) = densprof_d(:, :)
       densprof(:, :) = densprof(:, :) + real(densprofi(:, :))
       if (ex_qc) then
-         call qdprof(r, Nmol, ndim, qdensprof, dqplus, dqminus, width, idir, qcharge,&
+         call qdprof(r, Nmol, ndim, qdensprof(0:width), dqplus(0:width), dqminus(0:width), width, idir, qcharge,&
          & pwall, deltar)
       endif
    end subroutine profile_comp
@@ -120,7 +120,7 @@ contains
       integer i, ind, ia
       real, value, intent(IN) :: deltar, pwall
       real, dimension(dim, Nmol), intent(IN) :: r
-      real(double), intent(INOUT) :: qdensprof(width), dqplus(width), dqminus(width)
+      real(double), intent(INOUT) :: qdensprof(0:width), dqplus(0:width), dqminus(0:width)
       real :: qc
       do i = 1, Nmol
          qc = qcharge(i)
@@ -128,7 +128,7 @@ contains
          ! Warning: density profile must be computed along a confined direction or using wrapped coordinates
          !
          ind = int((r(idir, i) - pwall)/(2*deltar))
-         if (ind > 0 .or. ind < width) then
+         if (ind >= 0 .and. ind <= width) then
             qdensprof(ind) = qdensprof(ind) +qc
             if (qc<0) then
                dqminus(ind) = dqminus(ind) +qc

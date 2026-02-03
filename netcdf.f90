@@ -222,6 +222,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          start(3) = ncstart
          count(2) = natoms
          call check(nf90_get_var(ncid, i, r, start, count), ioerr)
+         ! LAMMPS uses 3D arrays even for 2D systems, so we need to check
          do k = 1, 3
             !
             ! Simulation box origin set to zero, except along confinement 
@@ -230,7 +231,6 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
             if (k.ne. idir) then
                r(k, 1:natoms, 1) = r(k, 1:natoms, 1) - org(k, 1)
             end if
-   
             if (cell(k, 1) == 0) then
                periodic(k) = .false.
                ! LAMMPS sets cell length to zero if not periodic
@@ -239,8 +239,8 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
                &, 1:natoms, 1))) + 5.0
                if (first) then
                   if (k == idir) then
-                     pwall = minval(r(k,1:natoms,1))-5.0
-                     pwallp = pwall + cell(k,1)+5.0
+                     pwall = minval(r(k,1:natoms,1)) - 2.5
+                     pwallp = pwall + cell(k,1)
                   endif
                endif
             end if

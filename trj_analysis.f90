@@ -253,14 +253,11 @@ program trj_analysis
         ! For next iteration then ...
         first_configuration = .false.
     end do
-
     ! Normalize density profiles computed along the non-periodic dimension
     if (confined) call normdenspr(nconf)
-        
     ! Programme printouts
     call print_results(run_sq,  run_rdf, run_dyn, run_clusters, run_thermo, &
                         ntype, nsp, lsmax, nmol, nqmin, rcl)
-
     ! Cleaning house
     write(*, '(/" **** Cleaning memory ...")')
     call clean_memory(run_sq,run_rdf,run_clusters,run_thermo,use_cell,run_dyn,run_order,confined)
