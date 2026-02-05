@@ -9,7 +9,7 @@ module mod_clusters
    use cudafor
    use mod_nc_conf, only : conf, wtypes, natoms, imol
    implicit none
-   integer :: io_centers_file, io_clusevol_file, io_shape_file, nmaxcl
+   integer :: io_centers_file=110, io_clusevol_file=111, io_shape_file=112, nmaxcl
    character(len=17) :: centers_filename = 'centers.lammpstrj'
    character(len=12) :: clusevol_filename = 'clusevol.dat'
    character(len=10) :: fshape_filename = 'fshape.dat'
@@ -64,7 +64,8 @@ contains
       if (iconf==1) call clusters_init(nmol)
       if (conf(4)%units == 'femtosecond' ) factorv = 0.001
       if (maxcln < 1) maxcln = 1 
-      if (Iconf > 1) then
+      if (allocated(cluster)) then
+
          deallocate (cluster, contador)
          if (run_order) then
             deallocate(cluster_order_cos)
@@ -539,7 +540,6 @@ contains
    subroutine clusters_init(nmol)
       implicit none
       integer, intent(in) :: nmol
-
       ! Allocate CPU memory
       allocate (sizedist(nmol))
 
@@ -551,10 +551,10 @@ contains
       i0'-particle clusters (recomended kmin>= 2*dim+1=',i0,')'/)") kmin,2*ndim+1
       ! Open output files
       if (maxcln > cl_thresh) then
-         open (newunit=io_centers_file, file=centers_filename)
-         open (newunit=io_shape_file, file=fshape_filename)
+         open (io_centers_file, file=centers_filename)
+         open (io_shape_file, file=fshape_filename)
       end if
-      open (newunit=io_clusevol_file, file=clusevol_filename)
+      open (io_clusevol_file, file=clusevol_filename)
       write (io_clusevol_file,"('# conf no. clusters % particles in cluster ', &
       & 8('x_av(',i1,')':))")nsp-1
       write (io_shape_file, '("# cluster size, average deviation spherical shape, &

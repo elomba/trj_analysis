@@ -405,6 +405,10 @@ subroutine select_ncdfinput()
    if (.not.allocated(nct)) allocate(nct(nsp))
    if (.not.allocated(counter)) allocate(counter(nsp))
    nstep = nstep_in(1)
+   if (nstep == 0) then
+      write(*,"(' !!*** Warning: initial configuration for step 0, skipping ...  ')")
+      write(*,"(' !!*** Change ncfs_from_to to n 2 m in input file to avoid this message'/)") 
+   end if
    ! quick and dirty fix to avoid problems with non-periodic directions
    ! cell_in(:, 1) = 1.5*cell_in(:, 1)
    sidel(:) = cell_in(:, 1)

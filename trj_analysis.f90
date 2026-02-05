@@ -148,7 +148,7 @@ program trj_analysis
 
     integer :: io = 0, ioerr, istat, ncid_in
     integer :: argc, ncstart, i
-    logical :: first_configuration=.true. 
+    logical :: first_configuration=.true., nstepi0 = .false. 
     real :: t0 = 0, t1 = 0
     ! Command line arguments control
     argc = command_argument_count()
@@ -184,10 +184,13 @@ program trj_analysis
 
     ! Set number of species from netcdf file or from selected species from namelist
     call select_species(nsp, ntypes, nmol, natoms)
-
+    if (nstep == 0) then
+        write(*,"(' !!*** Warning: initial configuration for step 0, skipping ...  ')")
+        write(*,"(' !!*** Change ncfs_from_to to n 2 m in input file to avoid this message'/)") 
+        nstepi0 = .true.
+    end if
     ! Reset configurations to read: if first arg=0 all confs in file are read
     call reset_confs(nconf_i,nconf)
-
     ! Modules to run: check for dependencies 
     !
     call form_dependencies()
@@ -200,18 +203,27 @@ program trj_analysis
         ! Read i-th configuration from netcdf input file
         call cpu_time(t0)
         ! Jumps configurations to be read: ncstart controls starting conf in netcdf file
-        ncstart = ncfs_from_to(2) + (i - 1)*(ncfs_from_to(3) - ncfs_from_to(2))/ncfs_from_to(1)
+        if (nstepi0 .and. ncfs_from_to(2)==1) then
+            ncstart = ncfs_from_to(2) + (i - 1)*(ncfs_from_to(3) - ncfs_from_to(2))/ncfs_from_to(1)+1
+        else
+            ncstart = ncfs_from_to(2) + (i - 1)*(ncfs_from_to(3) - ncfs_from_to(2))/ncfs_from_to(1)
+        endif
         ! Read-in a full configuration
         call read_nc_cfg(ncid_in, ncstart, io, io_log_file)
         ! Pre configuration analysis data transformations, corrections and format
         call reformat_input_conf(io,ncfs_from_to(1),i,ntypes,nsp)
         ! Exit the loop when EOF reached 
         if (io<0) exit
-        call cpu_time(t1)
-        ! Accumulate i/o time
-        tread = tread + t1 - t0
         ! Over each configuration run selected modules (first initialize)
+        ! Accumulate i/o time
+        call cpu_time(t1)
         if (first_configuration) call init_modules(use_cell, run_rdf, run_sq, run_clusters, run_order, nsp, nmol, nbcuda)
+        ! For next iteration then ...
+        first_configuration = .false.
+        if (nstep == 0) then
+            cycle
+        endif
+        tread = tread + t1 - t0
         ! Linked cells for cluster analysis
         if (use_cell) then
             call cells_build()
@@ -250,8 +262,6 @@ program trj_analysis
         if (run_order) call compute_order(nmol, ndim, rcl, sidel)
         ! Print periodic output
         call print_output(i)
-        ! For next iteration then ...
-        first_configuration = .false.
     end do
     ! Normalize density profiles computed along the non-periodic dimension
     if (confined) call normdenspr(nconf)

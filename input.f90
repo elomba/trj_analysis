@@ -40,7 +40,7 @@ contains
       rdf_sq_cl_dyn_sqw_conf_ord(:) = .false.
       open (newunit=io_input_file, file=input_filename, action='read')
       read (unit=io_input_file, nml=INPUT)
-      if (rcl>0.0) then
+      if (run_clusters) then
          write(*,"(' *** Note: rcl (NN and/or connectivity distance) set to ',f8.4,' Å')") rcl
       endif
       allocate(sp_types_selected(nsp))
