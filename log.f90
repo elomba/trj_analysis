@@ -59,13 +59,13 @@ contains
          if (tunits == 'lj') then
                Write (*, "(/' ** Working on MD step no. ',i10,' time* =',f12.3,&
                & ' cpu time per conf.=',f7.2,' s:'/&
-               & ' ** Clusters >= ',i3,' particles being analyzed '/)") nstep, nstep*tstep, &
-               (cpu1 - cpu0)/nprint, kmin
+               & )") nstep, nstep*tstep, (cpu1 - cpu0)/nprint
          else
                Write (*, "(/' ** Working on MD step no. ',i10,' time =',f10.5,&
-               & ' ns, cpu time per conf.=',f7.2,' s:'/&
-               & ' ** Clusters >= ',i3,' particles being analyzed '/)") nstep, nstep*tstep/1000.0, &
-               (cpu1 - cpu0)/nprint, kmin
+               & ' ns, cpu time per conf.=',f7.2,' s:'/)") nstep, nstep*tstep/1000.0, (cpu1 - cpu0)/nprint
+         endif
+         if (run_clusters) then
+            Write (*, "( ' ** Clusters >= ',i3,' particles being analyzed '/)") kmin
          endif
          cpu0 = cpu1
          if (run_thermo) then
