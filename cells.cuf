@@ -127,13 +127,11 @@ contains
         ! Allocate CPU memory
         allocate (offset(nmol))
         allocate (neighbors(nmol))
-        allocate (visited(nmol))
         allocate (core(nmol))
         allocate (border(nmol))
         allocate (adjacency(20*nmol))
 
         ! Init variables
-        visited(:) = .false.
         core(:) = .false.
         border(:) = .false.
         neighbors(:) = 0
@@ -141,13 +139,11 @@ contains
         ! Allocate GPU memory
         allocate (goffset(nmol))
         allocate (gneighbors(nmol))
-        allocate (gvisited(nmol))
         allocate (gcore(nmol))
         allocate (gborder(nmol))
         allocate (gadjacency(20*nmol))
 
         ! Init variables
-        gvisited(:) = .false.
         gcore(:) = .false.
         gborder(:) = .false.
         gneighbors(:) = 0
@@ -160,7 +156,6 @@ contains
         ! Clean house
         deallocate (offset)
         deallocate (neighbors)
-        deallocate (visited)
         deallocate (core)
         deallocate (border)
         deallocate (adjacency)
@@ -170,7 +165,6 @@ contains
 
         deallocate (goffset)
         deallocate (gneighbors)
-        deallocate (gvisited)
         deallocate (gcore)
         deallocate (gborder)
         deallocate (gadjacency)
@@ -182,11 +176,9 @@ contains
 
     subroutine cells_reset_struct()
         implicit none
-        gvisited(:) = .false.
         gcore(:) = .false.
         gborder(:) = .false.
         gneighbors(:) = 0
-        visited(:) = .false.
         core(:) = .false.
         border(:) = .false.
         neighbors(:) = 0

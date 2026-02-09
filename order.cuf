@@ -23,7 +23,7 @@ module mod_order
     real(myprec), dimension(:,:), allocatable :: pref
     real(myprec), device, dimension(:,:), allocatable :: yll,  prefd
     real(myprec), device, dimension(:), allocatable :: cosmphi, sinmphi
-    integer, parameter :: nmax_order = 6,  nmbmax = 30
+    integer, parameter :: nmax_order = 6,  nmbmax = 50
     real(myprec), parameter :: pi_constant=3.141592653589793
     integer, constant :: orderp_d(nmax_order)
 contains

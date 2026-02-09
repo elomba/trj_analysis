@@ -486,7 +486,6 @@ contains
       gdone(:) = 0
       done(:) = 0
       cluster_id = 0
-      visited(:) = .false.
       ! Recursive BFS search of connected clusters
       istat = cudaEventRecord(startEvent, 0)
       ! 
@@ -494,10 +493,7 @@ contains
       do i = 1, nmol
          ! If i is a core particle and not yet assigned to a cluster, start a new cluster and expand it with BFS
          if (core(i) .and. done(i) == 0) then
-            gvisited(:) = .false.
             cluster_id = cluster_id + 1
-!            call breadfirst(i, nbcuda, nthread, Nmol, kmin, cluster_id, border, visited, done)
-            border(i) = .true.
             gborder(i) = .true.
             ! active is a flag to check if BFS expansion is still active, i.e. if new border nodes are being
             ! found. When no more border nodes are found, BFS is finished and we move to the next cluster.
@@ -505,12 +501,13 @@ contains
             ! Expand cluster with GPU BFS, starting from border nodes and 
             ! expanding until no more border nodes found.
             do while (active)
-               active_d = 0
-               call gbfs<<<nbcuda, nthread>>>(Nmol, gvisited, gborder, gcore, gdone, cluster_id, kmin, active_d)
+               active_d = .false.
+               call gbfs<<<nbcuda, nthread>>>(Nmol, gborder, gcore, gdone, cluster_id, kmin, active_d)
+               istat = cudaDeviceSynchronize()
                active = active_d
             end do
-            border(:) = gborder(:)
-            visited(:) = gvisited(:)
+            ! After BFS is finished, cluster_id is assigned to all particles in the cluster (done(:))
+            ! and we move to the next unvisited core particle
             done(:) = gdone(:)
          end if
       end do
@@ -524,33 +521,32 @@ contains
       maxcln = cluster_id
    end subroutine cluster_search
 
-   attributes(global) subroutine gbfs(Nmol, visited, border, core, done, cluster_id, kmin, active)
+   attributes(global) subroutine gbfs(Nmol, border, core, done, cluster_id, kmin, active)
       ! GPU BFS routine, uses neighbor lists to run through adjacent nodes, marks visited nodes and border nodes. 
       ! Starts from border nodes and border is being expanded. Completely parallel implementation.
       integer, value, intent(IN) :: Nmol, cluster_id, kmin
       logical, intent(INOUT) :: active
-      logical(kind=1), intent(INOUT) :: visited(Nmol), border(Nmol), core(Nmol)
+      logical(kind=1), intent(INOUT) ::  border(Nmol), core(Nmol)
       integer, intent(INOUT) ::  done(Nmol)
       integer :: i, j, k
       j = (blockidx%x - 1)*blockdim%x + threadidx%x
       if (j <= Nmol) then
-         if (border(j)) then
-            ! Mark j as visited and not border anymore
-            visited(j) = .true.
-            border(j) = .false.
-            ! Mark cluster id for j
+         if (border(j).and.done(j) == 0) then
+            ! Mark cluster id for j, which is a border node, and if it is a core node, 
+            ! mark its neighbors as border for the next iteration
+            ! done(j) marks node as visited and assigns cluster id to it, 
+            ! so that it is not visited again in the next BFS iterations
             done(j) = cluster_id
-!            if (core(j)) then
-            ! Set flag to continue BFS expansion
-            active = .true.
-            ! Active cluster expansion: mark neighbors of j as border if not visited
-            do i = goffset(j), goffset(j) + gneighbors(j) - 1
-               k = gadjacency(i)
-               if (.not. visited(k)) then
-                  border(k) = .true.
-               end if
-            end do
-!                end if
+            if (core(j)) then
+               ! Set flag to continue BFS expansion
+               active = .true.
+               ! Active cluster expansion: mark neighbors of j as border if not visited
+               border(gadjacency(goffset(j):goffset(j)+gneighbors(j)-1)) = .true.
+               ! do i = goffset(j), goffset(j) + gneighbors(j) - 1
+               !    k = gadjacency(i)
+               !    border(k) = .true.
+               ! end do
+         end if
          end if
       end if
    end subroutine gbfs

@@ -97,8 +97,8 @@ module mod_common
 
    integer, allocatable, dimension(:) :: offset, neighbors, adjacency
    integer, device, allocatable, dimension(:) :: goffset, gneighbors, gadjacency
-   logical(kind=1), allocatable, dimension(:) :: visited, core, border
-   logical(kind=1), device, allocatable, dimension(:) :: gvisited, gcore, gborder
+   logical(kind=1), allocatable, dimension(:) :: core, border
+   logical(kind=1), device, allocatable, dimension(:) :: gcore, gborder
 
    Real(double) :: cellx, celly, cellz
    Integer, Dimension(:), Allocatable :: head, lista
