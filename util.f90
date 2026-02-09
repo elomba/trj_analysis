@@ -15,20 +15,20 @@ module mod_util
    use mod_nc_conf, only : wtypes, nmconf, orgty, wtypes
    use mod_order, only : order_init, order_clear, compute_order, norder
 contains
-   subroutine gpu_and_header(startEvent,stopEvent)
+   subroutine gpu_and_header(startEvent,stopEvent,gpudevice)
       use cudafor
       use mod_input, only : nthread
       implicit None
       type(cudaEvent), intent(inout) :: startEvent, stopEvent
       type(cudaDeviceProp) :: gpu_properties
-      integer :: istat
+      integer :: istat, gpudevice
       ! Get CUDA properties from device 0 (can be set from environmente variable CUDA_VISIBLE_DEVICES)
-
-      istat = cudaSetDevice(0)
+      
+      istat = cudaSetDevice(gpudevice)
       if (istat == 0) then
-         istat = cudaGetDeviceProperties(gpu_properties, 0)
+         istat = cudaGetDeviceProperties(gpu_properties, gpudevice)
       else
-         write(*,"('*** Unrecoverable error: no GPU available !!')")
+         write(*,"('*** Unrecoverable error:  GPU ',i0,' is not available !!')") gpudevice
          stop
       end if
       shmsize = gpu_properties%sharedMemPerBlock

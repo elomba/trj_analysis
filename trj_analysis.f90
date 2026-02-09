@@ -147,24 +147,33 @@ program trj_analysis
     implicit none
 
     integer :: io = 0, ioerr, istat, ncid_in
-    integer :: argc, ncstart, i
+    integer :: argc, ncstart, i, devnum
     logical :: first_configuration=.true., nstepi0 = .false. 
     real :: t0 = 0, t1 = 0
+    character(len=2) :: deviceNumber
     ! Command line arguments control
     argc = command_argument_count()
-    if (argc /= 1) then
-        stop '!!! Error: You must specify only ONE argument: the name of the &
-                & input file\r\nexample: trj_analisys.exe input_file.nml'
+    if (argc < 1) then
+        write(*,"('!!! Error: You must specify at least ONE argument: the name of the ')")
+        write(*,"('    input file e.g.: trj_analisys.exe input_file.nml')")
+        write(*,"('    Second argument (optional) is the GPU device number to use, (default 0)')")
+        stop 
     end if
     call get_command_argument(1, input_filename)
+    if (argc ==2) then
+        call get_command_argument(2, deviceNumber)
+        read(deviceNumber,*) devNum
+    else
+        devNum = 0
+    end if
     !
     ! initialize timers
     !
     call cpu_time(time_cpu_start)
     call cpu_time(cpu0)
 
-    ! Get CUDA properties from device 0 (can be set from environmente variable CUDA_VISIBLE_DEVICES)
-    call gpu_and_header(startEvent,stopEvent)
+    ! Get CUDA properties from device devNum 
+    call gpu_and_header(startEvent,stopEvent,devNum)
    
   
     ! Load namelist input file & init log system
