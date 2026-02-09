@@ -2,7 +2,7 @@ module mod_nc
    use mod_precision
    use mod_common, Only : ex_vel, ex_force, ex_stress, run_thermo, &
       u_p, stress, ex_mol, ex_qc, periodic, voigt, &
-      ener_name, press_name, pwall, pwallp, tunits
+      ener_name, press_name, pwall, pwallp, tunits, nstep
    use mod_input, only : idir
    interface
       subroutine read_nc_cfg(ncid, ncstart, io, unit)
@@ -116,6 +116,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
    cstart(2) = ncstart
    ccount(1) = 3
    ccount(2) = 1
+
    if (first) then
       Write (iunit, "(//'**** Using NetCDF library version ',A)") trim(nf90_inq_libvers())
       !
@@ -313,6 +314,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          csstart(1) = ncstart
          cscount(1) = 1
          call check(nf90_get_var(ncid, i, step, csstart, cscount), ioerr)
+         nstep = step(1)
       end if
       if (ioerr /= nf90_noerr) then
          ioerr = -1
@@ -405,10 +407,7 @@ subroutine select_ncdfinput()
    if (.not.allocated(nct)) allocate(nct(nsp))
    if (.not.allocated(counter)) allocate(counter(nsp))
    nstep = nstep_in(1)
-   if (nstep == 0) then
-      write(*,"(' !!*** Warning: initial configuration for step 0, skipping ...  ')")
-      write(*,"(' !!*** Change ncfs_from_to to n 2 m in input file to avoid this message'/)") 
-   end if
+  
    ! quick and dirty fix to avoid problems with non-periodic directions
    ! cell_in(:, 1) = 1.5*cell_in(:, 1)
    sidel(:) = cell_in(:, 1)

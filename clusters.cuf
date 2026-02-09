@@ -476,6 +476,8 @@ contains
       integer :: cluster_id, i, j, istat
       real :: time_gpu
       Character :: error_msg*64
+      logical :: active
+      logical, device :: active_d
       !
       ! Search for neighbors and build graph
       !
@@ -489,12 +491,27 @@ contains
       istat = cudaEventRecord(startEvent, 0)
       ! 
       ! Main loop over all particles
-      ! (remains to be optimized in parallel)
       do i = 1, nmol
+         ! If i is a core particle and not yet assigned to a cluster, start a new cluster and expand it with BFS
          if (core(i) .and. done(i) == 0) then
             gvisited(:) = .false.
             cluster_id = cluster_id + 1
-            call breadfirst(i, nbcuda, nthread, Nmol, kmin, cluster_id, border, visited, done)
+!            call breadfirst(i, nbcuda, nthread, Nmol, kmin, cluster_id, border, visited, done)
+            border(i) = .true.
+            gborder(i) = .true.
+            ! active is a flag to check if BFS expansion is still active, i.e. if new border nodes are being
+            ! found. When no more border nodes are found, BFS is finished and we move to the next cluster.
+            active = .true.
+            ! Expand cluster with GPU BFS, starting from border nodes and 
+            ! expanding until no more border nodes found.
+            do while (active)
+               active_d = 0
+               call gbfs<<<nbcuda, nthread>>>(Nmol, gvisited, gborder, gcore, gdone, cluster_id, kmin, active_d)
+               active = active_d
+            end do
+            border(:) = gborder(:)
+            visited(:) = gvisited(:)
+            done(:) = gdone(:)
          end if
       end do
       time_gpu = gptime(stopEvent, startEvent)
@@ -507,26 +524,36 @@ contains
       maxcln = cluster_id
    end subroutine cluster_search
 
-   subroutine breadfirst(i, nbcuda, nthread, Nmol, kmin, cluster_id, border, visited, done)
-      use mod_cells
-      integer, intent(IN) :: Nmol, cluster_id, kmin, i, nbcuda, nthread
-      integer, intent(INOUT) :: done(Nmol)
-      logical(kind=1), intent(INOUT) :: visited(Nmol), border(Nmol)
-      logical(kind=1) :: gb
-      integer :: j
-      border(i) = .true.
-      gborder(i) = .true.
-      do while (count(border == .true.) .ne. 0)
-         call gbfs<<<nbcuda, nthread>>>(Nmol, gvisited, gborder, cluster_id, kmin)
-         border(:) = gborder(:)
-      end do
-      visited(:) = gvisited(:)
-      do j = 1, nmol
-         if (visited(j)) then
+   attributes(global) subroutine gbfs(Nmol, visited, border, core, done, cluster_id, kmin, active)
+      ! GPU BFS routine, uses neighbor lists to run through adjacent nodes, marks visited nodes and border nodes. 
+      ! Starts from border nodes and border is being expanded. Completely parallel implementation.
+      integer, value, intent(IN) :: Nmol, cluster_id, kmin
+      logical, intent(INOUT) :: active
+      logical(kind=1), intent(INOUT) :: visited(Nmol), border(Nmol), core(Nmol)
+      integer, intent(INOUT) ::  done(Nmol)
+      integer :: i, j, k
+      j = (blockidx%x - 1)*blockdim%x + threadidx%x
+      if (j <= Nmol) then
+         if (border(j)) then
+            ! Mark j as visited and not border anymore
+            visited(j) = .true.
+            border(j) = .false.
+            ! Mark cluster id for j
             done(j) = cluster_id
+!            if (core(j)) then
+            ! Set flag to continue BFS expansion
+            active = .true.
+            ! Active cluster expansion: mark neighbors of j as border if not visited
+            do i = goffset(j), goffset(j) + gneighbors(j) - 1
+               k = gadjacency(i)
+               if (.not. visited(k)) then
+                  border(k) = .true.
+               end if
+            end do
+!                end if
          end if
-      end do
-   end subroutine breadfirst
+      end if
+   end subroutine gbfs
 
    subroutine clusters_sq_init()
       use mod_common, only: ndr

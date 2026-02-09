@@ -257,27 +257,6 @@ contains
         fijd = (i*maxjd + j)
     end function fijd
 
-    attributes(global) subroutine gbfs(Nmol, visited, border, cluster_id, kmin)
-        ! GPU BFS routine, uses neighbor lists to run through adjacent nodes, marks visited nodes and border nodes. 
-        ! Starts from border nodes and border is being expanded. Completely parallel implementation.
-        integer, value, intent(IN) :: Nmol, cluster_id, kmin
-        logical(kind=1), intent(INOUT) :: visited(Nmol), border(Nmol)
-        integer :: i, j, k
-        j = (blockidx%x - 1)*blockdim%x + threadidx%x
-        if (j <= Nmol) then
-            if (border(j)) then
-                border(j) = .false.
-                visited(j) = .true.
-                do i = goffset(j), goffset(j) + gneighbors(j) - 1
-                    k = gadjacency(i)
-                    if (.not. visited(k)) then
-                        border(k) = .true.
-                    end if
-                end do
-            end if
-        end if
-    end subroutine gbfs
-
     attributes(global) subroutine gpu_graph_cell(r, Nmol, dim, rcl2, sidel, kmin)
     ! Graph construction on GPU using linked cells
         integer, value, intent(IN) :: Nmol, dim, kmin
