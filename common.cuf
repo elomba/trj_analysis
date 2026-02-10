@@ -21,10 +21,10 @@ module mod_common
       voigt, nrandom=0, ndrclus=100
    integer :: cntch(100), ncharge
    real(double), dimension(100) :: chgh
-   integer, allocatable, dimension(:) :: ntype, itype, lty, list, done, nq
+   integer, allocatable, dimension(:) :: ntype, itype, lty, list, label, nq
    integer, allocatable, dimension(:, :) :: ipos, densprofi,  histomixi
    integer (kind=2), allocatable, dimension(:,:) :: indqw
-   integer, device, allocatable, dimension(:) :: itype_d, ntype_d, gdone
+   integer, device, allocatable, dimension(:) :: itype_d, ntype_d, glabel
    real, device, allocatable, dimension(:) :: gii_d, g2ii_d
    integer, device, allocatable, dimension(:, :) :: ipos_d, densprof_d, histomix_d
    real(kind=8) :: ecaver
@@ -139,9 +139,9 @@ contains
       integer :: ierrsync
       integer, intent(out), optional :: retcode
       ierrSync = cudaGetLastError()
-      if (ierrSync /= cudaSuccess) then 
+      if (ierrSync /= cudaSuccess) then
          write(*,*) &
-         trim(routine),' with CUDA error: ', trim(cudaGetErrorString(ierrSync))
+            trim(routine),' with CUDA error: ', trim(cudaGetErrorString(ierrSync))
          if (present(retcode)) retcode = ierrSync
          retcode = ierrSync
       else
@@ -228,10 +228,10 @@ contains
       nA=size(A)
       nB=size(B)
       AB = spread(source = A, dim = 2, ncopies = nB) * &
-           spread(source = B, dim = 1, ncopies = nA)
-    end function outer_product
+         spread(source = B, dim = 1, ncopies = nA)
+   end function outer_product
 
-    function outer_product2(A,B) result(AB)
+   function outer_product2(A,B) result(AB)
       real(myprec), intent(in) :: A(2),B(2)
       real(myprec), dimension(2,2) :: AB
       integer :: i, j
@@ -240,7 +240,7 @@ contains
             AB(i,j) = A(i)*B(j)
          end do
       end do
-    end function outer_product2
+   end function outer_product2
 
    function vector_product(a, b) result(vv)
       use mod_precision
@@ -311,7 +311,7 @@ contains
          allocate (qcharge(nmol))
       endif
       allocate (list(nmol))
-      allocate (done(nmol))
+      allocate (label(nmol))
       allocate (r(ndim, nmol))
       if (ex_vel) then
          allocate (vel(ndim, nmol))
@@ -334,7 +334,7 @@ contains
       allocate (ntype_d(nsp))
       allocate (bsc_d(nsp))
       allocate (ipos_d(nsp, nmol))
-      allocate (gdone(nmol))
+      allocate (glabel(nmol))
 
       ! Init variables
       ecaver = 0.0

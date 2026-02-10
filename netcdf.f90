@@ -240,7 +240,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
                &, 1:natoms, 1))) + 5.0
                if (first) then
                   if (k == idir) then
-                     pwall = minval(r(k,1:natoms,1)) - 2.5
+                     pwall = minval(r(k,1:natoms,1)) - 5.0
                      pwallp = pwall + cell(k,1)
                   endif
                endif
