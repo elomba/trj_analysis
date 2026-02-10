@@ -217,7 +217,14 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
       end if
 
       if (conf(i)%varname == "coordinates") then
-         if (first) allocate (r(conf(i)%dimlen(1), conf(i)%dimlen(2), 1))
+         if (first) then 
+            allocate (r(conf(i)%dimlen(1), conf(i)%dimlen(2), 1))
+         else
+            if (conf(i)%dimlen(2) /= natoms) then
+               write(*,'("*** Fatal error: at present number of atoms must be constant and ",i0," /= ",i0)')conf(i)%dimlen(2), natoms
+               stop
+            endif
+         endif
          natoms = conf(i)%dimlen(2)
          nconf_i = conf(i)%dimlen(3)
          start(3) = ncstart
