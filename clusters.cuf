@@ -479,6 +479,8 @@ contains
       ! Build neighbor tables for graph constructtion
       !
       istat = cudaEventRecord(startEvent, 0)
+      !
+      ! Neighbors are determined with and without a linked-cell method
       if (use_cell) then
          call gpu_graph_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, kmin)
       else
@@ -490,11 +492,16 @@ contains
       neighbors(:) = gneighbors(:)
       core(:) = gcore(:)
       istat = cudaEventRecord(startEvent, 0)
+      ! Use thrust scan to build and efficient offset 1D array
       call thrustscan(goffset, Nmol, 1)
       time_gpu = gptime(stopEvent, startEvent)
       tthrus = tthrus + time_gpu
+      ! Offset determines the origins of the list of neighbors
       offset(:) = goffset(:)
       istat = cudaEventRecord(startEvent, 0)
+      !
+      ! Build adjacency list 
+      !
       if (use_cell) then
          call gpu_adj_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d)
       else
@@ -508,7 +515,10 @@ contains
    subroutine cluster_search()
       !
       ! Main cluster search call
-      ! Code uses G-DBSCAN algorithm to identify clusters
+      ! Code uses G-DBSCAN algorithm to identify clusters following this article
+      !
+      !   G. Andrade, et al, “G-DBSCAN: A GPU Accelerated Algorithm for Density-based Clustering,” 
+      !   Procedia Computer Science, vol. 18, pp. 369–378, 2013, doi: 10.1016/j.procs.2013.05.200.
       !
       use mod_common
       use mod_thrust
@@ -528,9 +538,9 @@ contains
       glabel(:) = 0
       label(:) = 0
       cluster_id = 0
-      ! Recursive BFS search of connected clusters
       istat = cudaEventRecord(startEvent, 0)
       !
+      ! Recursive BFS search of connected clusters
       ! Main loop over all particles
       do i = 1, nmol
          ! If i is a core particle and not yet assigned to a cluster, start a new cluster and expand it with BFS
@@ -593,68 +603,17 @@ contains
    end if
 end subroutine gbfs
 
-subroutine clusters_sq_init()
-   use mod_common, only: ndr
-   implicit none
-
-   allocate (radii(0:ndr))
-   radii(:) = 0
-
-end subroutine clusters_sq_init
-
-subroutine clusters_init(nmol)
-   implicit none
-   integer, intent(in) :: nmol
-   ! Allocate CPU memory
-   allocate (sizedist(nmol))
-
-   ! Init variables
-   sizedist(:) = 0.0
-   ekclaver = 0.0
-   ekinclsav = 0.0
-   write(*,"(//' *** Clusters module initializing: G-DBSCAN starts from ',&
-      i0'-particle clusters (recomended kmin>= 2*dim+1=',i0,')'/)") kmin,2*ndim+1
-   ! Open output files
-   if (maxcln > cl_thresh) then
-      open (io_centers_file, file=centers_filename)
-      open (io_shape_file, file=fshape_filename)
-   end if
-   open (io_clusevol_file, file=clusevol_filename)
-   write (io_clusevol_file,"('# conf no. clusters % particles in cluster ', &
-   & 8('x_av(',i1,')':))")nsp-1
-   write (io_shape_file, '("# cluster size, average deviation spherical shape, &
-   & average dev axial symmetry")')
-
-end subroutine clusters_init
-
-
-
-
-subroutine clusters_clear()
-   implicit none
-
-
-   ! Clean house
-   ! deallocate (sizedist)
-   deallocate (densclus)
-   deallocate (radii)
-   deallocate (dratio, dsph, countcl)
-
-   ! Close open files
-   close (io_centers_file)
-   close (io_clusevol_file)
-
-end subroutine clusters_clear
 
 subroutine denspcl(dim, members, nm, sidel, side2, rho, lsmax, deltar, center)
+   !
+   ! Cluster density profile from the geometric center
+   !
    integer, intent(IN) :: nm, lsmax, dim
    integer, intent(IN) :: members(nm)
    real, intent(IN) :: sidel(3), center(3), deltar, side2
    real, intent(INOUT) :: rho(0:lsmax)
    real :: rv(3), rr2, rr, fact
    integer :: k, l, i, j, ind
-   ! g(r) is normalized for each configuration,
-   ! since particle number may change
    do k = 1, nm
       i = members(k)
       rv(1:dim) = r(1:dim, i) - center(1:dim)
@@ -670,23 +629,24 @@ subroutine denspcl(dim, members, nm, sidel, side2, rho, lsmax, deltar, center)
 end subroutine denspcl
 
 function minj(dim, members, nm, center, sidel, side2)
+   ! locate closest particle to the geometric center of a cluster
    integer, intent(IN) :: nm, dim
    integer, intent(IN) :: members(nm)
    real, intent(IN) :: center(3), sidel(3), side2
    real :: rv(3), dist, r2
-   integer :: j, i, kmin, minj
+   integer :: jx, ix, lmin, minj
    dist = 100000000.0
-   do j = 1, nm
-      i = members(j)
-      rv(1:dim) = r(1:dim, i) - center(1:dim)
+   do jx = 1, nm
+      ix = members(jx)
+      rv(1:dim) = r(1:dim, ix) - center(1:dim)
       rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
       r2 = dot_product(rv(1:dim), rv(1:dim))
       if (r2 <= dist) then
          dist = r2
-         kmin = j
+         lmin = jx
       end if
    end do
-   minj = kmin
+   minj = lmin
 end function minj
 
 subroutine cshape(dim, members, nm, center, sidel, side2, ratio, &
@@ -765,6 +725,7 @@ subroutine diag(inerc,dim)
 end subroutine diag
 
 function cldens(dim, members, nm, sidel, side2, center, rclus)
+   ! Determine cluster density in compact (spherical-like) clusters
    integer, intent(IN) :: nm, dim
    integer, intent(IN) :: members(nm)
    real, intent(IN) :: sidel(3), side2, center(3), rclus
@@ -832,5 +793,58 @@ function radiusRg(members, nm, center, sidel, masat)
    end do
    radiusrg = sqrt(radiusrg/masat)
 end function radiusRg
+
+subroutine clusters_sq_init()
+   use mod_common, only: ndr
+   implicit none
+
+   allocate (radii(0:ndr))
+   radii(:) = 0
+
+end subroutine clusters_sq_init
+
+subroutine clusters_init(nmol)
+   implicit none
+   integer, intent(in) :: nmol
+   ! Allocate CPU memory
+   allocate (sizedist(nmol))
+
+   ! Init variables
+   sizedist(:) = 0.0
+   ekclaver = 0.0
+   ekinclsav = 0.0
+   write(*,"(//' *** Clusters module initializing: G-DBSCAN starts from ',&
+      i0'-particle clusters (recomended kmin>= 2*dim+1=',i0,')'/)") kmin,2*ndim+1
+   ! Open output files
+   if (maxcln > cl_thresh) then
+      open (io_centers_file, file=centers_filename)
+      open (io_shape_file, file=fshape_filename)
+   end if
+   open (io_clusevol_file, file=clusevol_filename)
+   write (io_clusevol_file,"('# conf no. clusters % particles in cluster ', &
+   & 8('x_av(',i1,')':))")nsp-1
+   write (io_shape_file, '("# cluster size, average deviation spherical shape, &
+   & average dev axial symmetry")')
+
+end subroutine clusters_init
+
+
+
+
+subroutine clusters_clear()
+   implicit none
+
+
+   ! Clean house
+   ! deallocate (sizedist)
+   deallocate (densclus)
+   deallocate (radii)
+   deallocate (dratio, dsph, countcl)
+
+   ! Close open files
+   close (io_centers_file)
+   close (io_clusevol_file)
+
+end subroutine clusters_clear
 
 end module mod_clusters
