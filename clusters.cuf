@@ -1,4 +1,8 @@
 module mod_clusters
+   ! Module for cluster analysis, including cluster search and calculation of cluster properties
+   ! Cluster search is performed with a GPU implementation of the DBSCAN algorithm, which identifies
+   ! clusters as connected components of a graph where edges are defined by a distance cutoff. 
+   ! The GPU implementation allows for efficient cluster search in large systems.
    use mod_precision
    use mod_common
    use mod_input
@@ -14,10 +18,25 @@ module mod_clusters
    character(len=12) :: clusevol_filename = 'clusevol.dat'
    character(len=10) :: fshape_filename = 'fshape.dat'
    integer, allocatable :: countcl(:)
+   Real(myprec), allocatable, save :: molfrac(:), clmfrac(:)
    Real(myprec), allocatable :: clmfracav(:), dsph(:), dratio(:)
    Real(myprec), allocatable :: cluster_order_cos(:,:), cluster_order_sin(:,:), cluster_ql(:,:), &
       avcluster_order_cos(:), avcluster_order_sin(:), avcluster_order(:)
    interface
+   ! Interface for cluster properties calculation
+   ! Cluster properties are calculated only for clusters larger than a certain size threshold, to save time.
+   ! Cluster properties include: internal density, cluster g(r), cluster shape, cluster-cluster structure factor ...
+   ! Cluster properties are calculated with CPU routines, since they are only calculated for a small number of clusters
+   ! Cluster properties are calculated with respect to the geometric center of the cluster, which is determined with PBC. 
+   ! The geometric center is used to avoid biasing the cluster properties by the position of the particles in the cluster, 
+   ! which can be affected by PBC.
+   ! The cluster shape is determined by the inertia tensor of the cluster, which is calculated with respect to the geometric center.
+   ! The cluster-cluster structure factor is calculated with a GPU routine, since it involves a double loop over 
+   ! clusters and can be time consuming for large systems.
+   ! The cluster g(r) is calculated with a CPU routine
+   ! The cluster density profile is calculated with a CPU routine, since it involves a loop over particles in the cluster 
+   !
+   !
       function minj(dim, members, nm, center, sidel, side2)
          use mod_precision
          integer, intent(IN) :: nm, dim
@@ -52,6 +71,8 @@ contains
    subroutine cluster_analysis(Iconf)
       !
       ! Compute cluster properties
+      ! Cluster properties are calculated only for clusters larger than a certain size threshold, to save time.
+      ! 
       !
       implicit none
       integer, intent(IN) :: Iconf
@@ -59,58 +80,18 @@ contains
       & imaxcl, clsz, clussize, cmin, NP_lconf, icount, im, countlarge
       Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
       Real(myprec) :: denscl, rmcl, cdmax=0, factorv
-      Real(myprec), allocatable, save :: molfrac(:), clmfrac(:)
       Real(kind=8) ::  mcl, ekcls, suma, rclus, rcluster, rgsum, averg, volcl
       if (iconf==1) call clusters_init(nmol)
+      ! Cluster dynamics in picoseconds, to convert to velocity units if needed
       if (conf(4)%units == 'femtosecond' ) factorv = 0.001
+      ! Correct cluster number if too small, to avoid problems with array allocation
       if (maxcln < 1) maxcln = 1
-      if (allocated(cluster)) then
-
-         deallocate (cluster, contador)
-         if (run_order) then
-            deallocate(cluster_order_cos)
-            deallocate(cluster_order_sin)
-            deallocate(cluster_ql)
-         end if
-         if (run_thermo) then
-            deallocate(bigcl_d)
-            deallocate(engcls,bigcl)
-         endif
-      else
-         allocate(clusid(1:nmol))
-         allocate(clusid_d(1:nmol))
-         allocate(molfrac(1:nsp), clmfrac(1:nsp), clmfracav(1:nsp))
-         clmfracav(1:nsp) = 0.0
-         clmfrac(:) = 0.0
-         molfrac(:) = 0.0
-         nmaxcl = 1000
-         allocate(dratio(1:nmaxcl), dsph(1:nmaxcl), countcl(1:nmaxcl))
-         if (run_order) then
-            allocate(avcluster_order_cos(norder))
-            allocate(avcluster_order_sin(norder))
-            allocate(avcluster_order(norder))
-            avcluster_order_cos(:) = 0.0
-            avcluster_order_sin(:) = 0.0
-            avcluster_order(:) = 0.0
-
-         end if
-      end if
-      allocate (cluster(maxcln), contador(maxcln))
-      if (run_thermo) then
-         allocate(bigcl_d(maxcln))
-         allocate(engcls(maxcln),bigcl(maxcln))
-      endif
-      if (run_order) then
-         allocate(cluster_order_cos(maxcln, norder))
-         allocate(cluster_order_sin(maxcln, norder))
-         allocate(cluster_ql(maxcln, norder))
-         cluster_order_cos(:,:) = 0.0
-         cluster_order_sin(:,:) = 0.0
-         cluster_ql(:,:) = 0.0
-      end if
+      call memory_manager_cluster(maxcln)
       Cluster_id = maxcln
       contador(:) = 0
       maxcl = 0
+      ! 
+      ! Allocate size for cluster structure
       do i = 1, cluster_id
          clsz = count(label == i)
          if (clsz > maxcl) then
@@ -122,6 +103,8 @@ contains
          allocate (cluster(i)%molfrac(nsp))
          !
       end do
+      ! 
+      ! Assign perticles to clusters
       contador(:) = 0
       do i = 1, Nmol
          j = label(i)
@@ -188,12 +171,14 @@ contains
             &- cluster(i)%vl(:), vel(:, ip) - cluster(i)%vl(:))
          end do
          cluster(i)%ekin = ekcls
+         ! Print trajectory file of clusters' mass centers
          if (maxcln > cl_thresh) then
             call centers_print(io_centers_file, i, ex_vel, factorv)
          endif
          if (Iconf == Nconf) NP_lconf = NP_lconf + j
       end do
       clmfrac(1:nsp) = 0.0
+      ! Count particle types
       do i = 1, cluster_id
          j = cluster(i)%clsize
          molfrac(:) = 0.0
@@ -227,6 +212,8 @@ contains
       ekinclsav = ekinclsav + ekincls
       write (io_clusevol_file, '(i7,i7,f15.7,8f8.4)') iconf, cluster_id, &
       &      (suma/natms)*100, clmfracav(1:nsp-1)/iconf
+      ! 
+      ! resize arrays when needed
       if (iconf > 1) then
          deallocate (rclxyz)
          deallocate (rclxyzd)
@@ -379,6 +366,60 @@ contains
       if (run_thermo .and. iconf ==1 ) call thermo_init_cluster(natms, ndim, sidel, side2, maxcln, cluster)
    end subroutine cluster_analysis
 
+   subroutine memory_manager_cluster(maxcln)
+      !
+      ! Allocate memory for cluster properties, with size depending on the number of clusters found
+      !
+      implicit none
+      integer, intent(IN) :: maxcln
+      integer :: i
+      !
+      ! Memory management: deallocate and reallocate arrays if necessary, depending on the number of clusters found.
+      ! Resize arrays if necessary
+      if (allocated(cluster)) then
+         deallocate (cluster, contador)
+         if (run_order) then
+            deallocate(cluster_order_cos)
+            deallocate(cluster_order_sin)
+            deallocate(cluster_ql)
+         end if
+         if (run_thermo) then
+            deallocate(bigcl_d)
+            deallocate(engcls,bigcl)
+         endif
+      else
+         allocate(clusid(1:nmol))
+         allocate(clusid_d(1:nmol))
+         allocate(molfrac(1:nsp), clmfrac(1:nsp), clmfracav(1:nsp))
+         clmfracav(1:nsp) = 0.0
+         clmfrac(:) = 0.0
+         molfrac(:) = 0.0
+         nmaxcl = 1000
+         allocate(dratio(1:nmaxcl), dsph(1:nmaxcl), countcl(1:nmaxcl))
+         if (run_order) then
+            allocate(avcluster_order_cos(norder))
+            allocate(avcluster_order_sin(norder))
+            allocate(avcluster_order(norder))
+            avcluster_order_cos(:) = 0.0
+            avcluster_order_sin(:) = 0.0
+            avcluster_order(:) = 0.0
+         end if
+      end if
+      allocate (cluster(maxcln), contador(maxcln))
+      if (run_thermo) then
+         allocate(bigcl_d(maxcln))
+         allocate(engcls(maxcln),bigcl(maxcln))
+      endif
+      if (run_order) then
+         allocate(cluster_order_cos(maxcln, norder))
+         allocate(cluster_order_sin(maxcln, norder))
+         allocate(cluster_ql(maxcln, norder))
+         cluster_order_cos(:,:) = 0.0
+         cluster_order_sin(:,:) = 0.0
+         cluster_ql(:,:) = 0.0
+      end if
+   end subroutine memory_manager_cluster
+
    subroutine centers_header(io_centers_file, nstep, maxcln, ex_vel)
       !
       ! Write header of cluster centers trajectory file
@@ -467,6 +508,7 @@ contains
    subroutine cluster_search()
       !
       ! Main cluster search call
+      ! Code uses G-DBSCAN algorithm to identify clusters
       !
       use mod_common
       use mod_thrust
