@@ -210,14 +210,13 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
             call check(nf90_get_att(ncid, i, nom_att, scale), ioerr)
             conf(i)%scale = scale
          else if (numatts > 2) then
-            write (*, "(' ** Error: program cannot handles more than two attr&
+            write (*, "(' ** Error: program cannot handle more than two attr&
             &ibutes for var ',A)") nombre
             stop
          end if
       end if
-
       if (conf(i)%varname == "coordinates") then
-         if (first) then 
+         if (first) then
             allocate (r(conf(i)%dimlen(1), conf(i)%dimlen(2), 1))
          else
             if (conf(i)%dimlen(2) /= natoms) then
