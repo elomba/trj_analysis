@@ -229,7 +229,7 @@ contains
             & " amu,  (",a4,")")') ntype(i), i, wtypes(i), mat(i), sp_labels(i)
          endif
       end do
-      if (ex_qc) write(*,'("   Net charge:",f12.5," e")')sum(qcharge(1:nmol))
+      if (ex_qc) write(*,'(/3x,"···   Net charge:",f12.5," e")')sum(qcharge(1:nmol))
 
       ! Print partial pair distribution functions
       if (run_rdf) then

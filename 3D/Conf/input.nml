@@ -1,0 +1,22 @@
+&INPUT
+  log_output_file='trj_analysis.log'
+  trj_input_file='run.nc'
+  ndim=3
+  nsp=7
+  nthread=64
+  ncfs_from_to=1 1 1
+  rdf_sq_cl_dyn_sqw_conf_ord=T F F F F T F
+/
+&INPUT_SP
+  sp_types_selected= 1 2 3 4 5 6 7
+  sp_labels="A" "B" "C" "D" "O" "H" "M" 
+  mat=87.0 67.07 15.04 57.12 16.0 1.0 0.0
+/
+&INPUT_RDF
+  deltar=0.25
+  rcrdf=30.0
+/
+&INPUT_CONF
+  idir=3
+/
+

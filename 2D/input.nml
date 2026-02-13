@@ -7,10 +7,11 @@
   norder=4
   nthread=64
   ncfs_from_to=1 1 1
-  rcl=5.25
+  rcl=5.5
   rdf_sq_cl_dyn_sqw_conf_ord=T T T F F  F T
   ener_name="ener"
   press_name="stress"
+  periodic = .t. .t. .t.
 /
 &INPUT_SP
   sp_types_selected=1
@@ -19,7 +20,7 @@
 /
 &INPUT_RDF
   deltar=0.5
-  rcrdf=500.0 ! Cutoff in rdf
+  rcrdf=250.0 ! Cutoff in rdf
 /
 &INPUT_SQ
   qmax=8.0
@@ -28,6 +29,7 @@
 &INPUT_CL
   dcl=6.0
   ndrclus=200
+  kmin=3
 /
 &INPUT_DYN
 nbuffer=6 ! No.of time origins to compute dynamics
@@ -39,11 +41,6 @@ qw=0.18
 &INPUT_ORDER
 orderp=5 6 10 20
 nnbond=0
-print_orderp=.true.
+print_orderp=.false.
 rclcl=275.0
-/
-&INPUT_CONF
-  idir=0
-  pwall=0.0
-  pwallp=0.0
 /

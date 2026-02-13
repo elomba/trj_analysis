@@ -2,7 +2,7 @@ module mod_nc
    use mod_precision
    use mod_common, Only : ex_vel, ex_force, ex_stress, run_thermo, &
       u_p, stress, ex_mol, ex_qc, periodic, voigt, &
-      ener_name, press_name, pwall, pwallp, tunits, nstep
+      ener_name, press_name, pwall, pwallp, tunits, vunits, nstep
    use mod_input, only : idir
    interface
       subroutine read_nc_cfg(ncid, ncstart, io, unit)
@@ -25,6 +25,7 @@ module mod_nc
       integer, dimension(:), allocatable :: dimlen, dimids
       real(myprec) :: scale
       character(len=:), allocatable :: units
+      character(len=:), allocatable :: vunits
    end type config
    ! Character variables of flexible length
    type globalat
@@ -195,21 +196,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
             write (iunit, "('    · Attribute ',2A15,' length',i3)") nom_att&
             &, tipos(tipo), nlen
          end do
-         if (numatts > 0) then
-            call check(nf90_inq_attname(ncid, i, 1, nom_att), ioerr)
-            call check(nf90_get_att(ncid, i, nom_att, attr), ioerr)
-            ln = len(trim(adjustl(attr)))
-            allocate (character(len=ln) :: conf(i)%units)
-            conf(i)%units = trim(adjustl(attr))
-            ! Variable allocation performed in the assign
-            ! statement
-            tunits = conf(i)%units
-         end if
-         if (numatts == 2) then
-            call check(nf90_inq_attname(ncid, i, 2, nom_att), ioerr)
-            call check(nf90_get_att(ncid, i, nom_att, scale), ioerr)
-            conf(i)%scale = scale
-         else if (numatts > 2) then
+         if (numatts > 2) then
             write (*, "(' ** Error: program cannot handle more than two attr&
             &ibutes for var ',A)") nombre
             stop
@@ -243,10 +230,10 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
                ! LAMMPS sets cell length to zero if not periodic
                ! so we set it to a default value
                cell(k, 1) = abs(maxval(r(k, 1:natoms, 1)) - minval(r(k&
-               &, 1:natoms, 1))) + 5.0
+               &, 1:natoms, 1))) + 8.0
                if (first) then
                   if (k == idir) then
-                     pwall = minval(r(k,1:natoms,1)) - 5.0
+                     pwall = minval(r(k,1:natoms,1)) - 6.0
                      pwallp = pwall + cell(k,1)
                   endif
                endif
@@ -254,7 +241,17 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          end do
       else if (conf(i)%varname == "velocities") then
          ex_vel = .true.
-         if (first) allocate (v(conf(i)%dimlen(1), conf(i)%dimlen(2), 1))
+         if (first) then
+            allocate (v(conf(i)%dimlen(1), conf(i)%dimlen(2), 1))
+            call check(nf90_inq_attname(ncid, i, 1, nom_att), ioerr)
+            call check(nf90_get_att(ncid, i, nom_att, attr), ioerr)
+            ln = len(trim(adjustl(attr)))
+            allocate (character(len=ln) :: conf(i)%vunits)
+            conf(i)%vunits = trim(adjustl(attr))
+            ! Variable allocation performed in the assign
+            ! statement
+            vunits = conf(i)%vunits
+         endif           
          start(3) = ncstart
          count(2) = natoms
          call check(nf90_get_var(ncid, i, v, start, count), ioerr)
@@ -321,6 +318,19 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          cscount(1) = 1
          call check(nf90_get_var(ncid, i, step, csstart, cscount), ioerr)
          nstep = step(1)
+         if (first) then
+            call check(nf90_inq_attname(ncid, i, 1, nom_att), ioerr)
+            call check(nf90_get_att(ncid, i, nom_att, attr), ioerr)
+            ln = len(trim(adjustl(attr)))
+            allocate (character(len=ln) :: conf(i)%units)
+            conf(i)%units = trim(adjustl(attr))
+            ! Variable allocation performed in the assign
+            ! statement
+            tunits = conf(i)%units
+            call check(nf90_inq_attname(ncid, i, 2, nom_att), ioerr)
+            call check(nf90_get_att(ncid, i, nom_att, scale), ioerr)
+            conf(i)%scale = scale
+         endif 
       end if
       if (ioerr /= nf90_noerr) then
          ioerr = -1

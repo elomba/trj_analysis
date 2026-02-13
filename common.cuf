@@ -54,7 +54,7 @@ module mod_common
       confined = .false.
    character :: fname99*18
    character, dimension(:), allocatable :: atoms*8
-   character(len=:), allocatable :: tunits
+   character(len=:), allocatable :: tunits, vunits
    character :: ener_name*12, press_name*12
    real(myprec) :: epotperatom, epot,epotav
    real(double) :: pressure, pressav, pxyz(6)
