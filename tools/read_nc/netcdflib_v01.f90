@@ -1,23 +1,35 @@
+!===============================================================================
+! NetCDF Library Interface for LAMMPS Trajectory Files - Version 0.1
+!===============================================================================
+! Purpose:
+!   Provides comprehensive NetCDF interface for reading and writing LAMMPS
+!   molecular dynamics trajectories. Handles data extraction, format
+!   conversion, and species selection for trajectory post-processing.
 !
-! This code reads a LAMMPS/AMBER NetCDF file with a series of
-! configurations, extracts all data, and then rewrites the
-! configurations in to a new NetCDF4 file to illustrate how to define
-! a data frame and dump it to a destination file. Specific atom types
-! can be selected at run time
+! Key Features:
+!   - Reads LAMMPS/AMBER NetCDF trajectory format
+!   - Writes new NetCDF4 files with filtered data
+!   - Species selection and filtering
+!   - Handles non-periodic dimensions
+!   - Automatic cell dimension correction
 !
-! Programmed by Enrique Lomba, IQF, Madrid, November 2023
+! Modules:
+!   myncdf        - NetCDF wrapper functions and data types
+!   configuration - Global trajectory data storage
+!   comun         - Shared variables and parameters
 !
-! IMPORTANT NOTE !!! LAMMPS netcdf dump format specifies that the
-! cell length of non pediodic dimensions is set to 0, irrespective of
-! the information set in the lammps script. To cope with this the
-! program redifnes the length using abs(max(r_xyz)-min(r_xyz))+10 or
-! 2*abs(origin_xyz) depending on the dimension involved. 
+! Important Notes:
+!   - LAMMPS sets non-periodic cell lengths to 0 in NetCDF format
+!   - Code automatically corrects using: abs(max-min) + 10 or 2*abs(origin)
+!   - Supports species filtering at runtime
 !
-! to be compiled with
-! ifort -I /usr/local/intel_netcdf/include \
-!           -L/usr/local/intel_netcdf/lib64 read_nc.f90 -lnetcdff
-! export LD_LIBRARY_PATH=/usr/local/intel_netcdf/lib64:$LD_LIBRARY_PATH
+! Usage:
+!   Compile with NetCDF library:
+!   ifort -I /path/to/netcdf/include -L/path/to/netcdf/lib read_nc.f90 -lnetcdff
+!   Set LD_LIBRARY_PATH=/path/to/netcdf/lib:$LD_LIBRARY_PATH
 !
+! Author: Enrique Lomba, IQF, Madrid, November 2023
+!===============================================================================
 
 
 module myncdf
@@ -79,9 +91,32 @@ contains
     END IF
   END SUBROUTINE check
 end module myncdf
+!===============================================================================
+! Module: configuration
+!===============================================================================
+! Purpose:
+!   Stores global trajectory data including atomic positions, velocities,
+!   forces, cell parameters, and metadata for NetCDF trajectory processing.
 !
-! Define general variables to store configuration vales 
-! 
+! Key Variables:
+!   natms     - Number of atoms
+!   natypes   - Number of atom types
+!   ndim      - Spatial dimensions (2 or 3)
+!   nconf     - Number of configurations
+!   nstep     - Current timestep number
+!   tstep     - Timestep size
+!   cell      - Simulation cell matrix
+!   coord     - Atomic coordinates
+!   vel       - Atomic velocities
+!   force     - Atomic forces
+!   typ       - Atom type array
+!   charge    - Atomic charges
+!   conf()    - Array of config types for each trajectory variable
+!
+! Notes:
+!   - All arrays allocated dynamically based on trajectory size
+!   - Supports optional fields (velocities, forces, charges)
+!===============================================================================
 module configuration
   use myncdf
   use netcdf

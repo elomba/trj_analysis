@@ -1,6 +1,49 @@
+!===============================================================================
+! Module: mod_order  
+!===============================================================================
+! Purpose:
+!   Calculates Steinhardt bond orientational order parameters to quantify
+!   local and global crystalline order. Supports both 2D and 3D systems
+!   with flexible order parameter selection.
+!
+! Key Functionality:
+!   - Steinhardt order parameters Q_l and q_l (l = 1 to llmax)
+!   - Global averaged order parameters <Q_l>
+!   - Per-particle order parameters q_l
+!   - Per-cluster order parameters
+!   - Radial profiles of order parameters within clusters
+!   - GPU-accelerated spherical harmonic calculations
+!   - Neighbor search for bond orientation analysis
+!
+! Theory:
+!   Q_l = (4π/(2l+1) Σ_m |<Y_lm>|²)^(1/2)
+!   where Y_lm are spherical harmonics averaged over bonds
+!
+! Main Variables:
+!   orderp()           - Array of order parameter values to compute
+!   atomic_ql()        - Per-particle order parameters
+!   avorder()          - Time-averaged global order parameters
+!   cluster_ql()       - Per-cluster order parameters
+!   rhoorder()         - Radial density profile of order
+!   nnbond             - Number of neighbors for bond calculation
+!
+! Subroutines:
+!   order_init()       - Initializes order parameter arrays
+!   compute_order()    - Main routine to compute all order parameters
+!   order_clear()      - Deallocates arrays
+!
+! GPU Kernels:
+!   compute_qlm2D/3D() - Computes spherical harmonic coefficients
+!
+! Notes:
+!   - Requires neighbor list (from cells or direct search)
+!   - 3D: maximum l = llmax (default 12)
+!   - 2D: uses modified 2D bond order parameters
+!   - Cutoff distance rcl defines neighbors
+!===============================================================================
 module mod_order
     
-    ! Module for order parameter calculationso
+    ! Module for order parameter calculations
     ! Added 3D order parameter calculation
     use mod_precision
     use mod_common, only: r_d, r, sidel_d, cellxd, cellyd, cellzd, maxjd, maxkd, nnd, headd, listad, neighd, gptime, startEvent, stopEvent, tord, side2, ndrclus, drclus, neighbors

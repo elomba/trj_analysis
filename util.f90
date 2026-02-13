@@ -1,3 +1,37 @@
+!===============================================================================
+! Module: mod_util
+!===============================================================================
+! Purpose:
+!   Collection of utility routines for initialization, coordination, and
+!   finalization of analysis modules. Serves as orchestration layer between
+!   main program and specialized analysis modules.
+!
+! Key Functionality:
+!   - GPU device initialization and property reporting
+!   - Module initialization orchestration
+!   - Species selection and validation
+!   - Configuration range setup
+!   - Module dependency resolution
+!   - Results printing coordination
+!   - Memory cleanup and deallocation
+!   - Data transfer between CPU and GPU
+!
+! Main Subroutines:
+!   gpu_and_header()         - Initialize GPU device and print header
+!   select_species()         - Validate and setup species selection
+!   reset_confs()            - Configure trajectory reading range
+!   form_dependencies()      - Check and set module dependencies  
+!   init_modules()           - Initialize all selected analysis modules
+!   basic_init()             - Basic initialization for first configuration
+!   reformat_input_conf()    - Pre-process configuration data
+!   print_results()          - Coordinate printing of all results
+!   clean_memory()           - Deallocate all module memory
+!
+! Notes:
+!   - Called from main program to coordinate workflow  
+!   - Manages initialization order for module dependencies
+!   - Handles both host and device memory management
+!===============================================================================
 module mod_util
    use mod_common, only : shmsize, maxthread,  run_thermo, ex_stress, &
       printDevPropShort, common_clear, nit, ener_name, press_name, &
@@ -42,7 +76,7 @@ contains
       write(*,"('*',t80,'*')")
       write(*,"('*    Using GPU with CUDA nvfortran/nvcc >= 25.9/13.0',t80,'*')")
       write(*,"('*',t80,'*')")
-      write(*,"('*    Version 1.2 February 2026',,t80,'*')")
+      write(*,"('*    Version 1.0 January 2026',,t80,'*')")
       write(*,"('*',78(' '),'*'/80('*')/)")
       call printDevPropShort(gpu_properties, 0)
       ! Check that maximum number of threads is not surpassed
@@ -96,6 +130,7 @@ contains
       implicit None
       integer, intent(in) :: nconf_i
       integer, intent(inout) :: nconf
+      ! If ncfs_from_to(1)=0, read all configurations in file
       if (ncfs_from_to(1) == 0) then
          ncfs_from_to(1) = nconf_i
          ncfs_from_to(2) = 1
@@ -103,6 +138,7 @@ contains
       end if
       nconf = ncfs_from_to(1)
       ncfs_from_to(3) = ncfs_from_to(3) + 1
+      ! Check that requested configs don't exceed trajectory length
       if (nconf > nmconf) then
          write(*,"(/' !!*** Warning: resetting Nconf to ',i5,', last conf. in trajectory !'/)") nmconf
          nconf = nmconf
@@ -120,7 +156,7 @@ contains
 
    subroutine form_dependencies()
       implicit none
-      ! Radial ditribution function
+      ! Radial distribution function
       if (rdf_sq_cl_dyn_sqw_conf_ord(1) == .true.) run_rdf = .true.
       run_sq = .false.
       ! Static structure factors
@@ -134,7 +170,7 @@ contains
          run_clusters = .true.
          run_rdf = .true.
       else
-         ! Deactivate cells
+         ! Deactivate cells if not needed
          if (.not. rdf_sq_cl_dyn_sqw_conf_ord(7)) use_cell = .false.
       end if
       ! Dynamic correlations
@@ -143,7 +179,7 @@ contains
       if (rdf_sq_cl_dyn_sqw_conf_ord(5) == .true.) then
          run_sqw = .true.
          run_dyn = .true.
-         run_sq = .true.
+         run_sq = .true.  ! Need S(q) for normalization
       endif
       ! Confined system (density profile analysis in the direction of confinement)
       if (rdf_sq_cl_dyn_sqw_conf_ord(6) == .true.) run_rdf = .true.
@@ -214,11 +250,12 @@ contains
 
       ! Print out S(Q)'s
       if (run_sq) then
-         call sq_transfer_gpu_cpu()
+         call sq_transfer_gpu_cpu()  ! Transfer results from GPU to CPU
          call printSQ(Nmol)
       end if
 
       write(*,"(/60('-'))")
+      ! Print summary of species information
       do i = 1, nsp
          if (ex_qc) then
             write (*, '(" ** ",i6," atoms of type ",i2,", in LAMMPS (",i2,"), ",f8.4,&
@@ -235,6 +272,7 @@ contains
       if (run_rdf) then
          call printrdf(rcl, lsmax)
       end if
+      ! Print dynamics results
       if (run_dyn) then
          call print_rtcor()
       endif
@@ -247,6 +285,7 @@ contains
             call printPotEngCl()
          end if
       end if
+      ! Print order parameter results
       if (run_order) then
          call print_order()
       endif

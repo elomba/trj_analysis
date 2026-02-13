@@ -1,3 +1,33 @@
+!===============================================================================
+! Module: mod_nc
+!===============================================================================
+! Purpose:
+!   Provides NetCDF file I/O interface for reading LAMMPS trajectory files.
+!   Handles configuration data extraction including positions, velocities,
+!   forces, energy, and stress tensors from NetCDF format trajectories.
+!
+! Key Functionality:
+!   - Opens and reads NetCDF trajectory files from LAMMPS
+!   - Extracts global attributes and dimension information
+!   - Reads per-atom data (positions, velocities, forces)
+!   - Processes compute outputs (energy, stress tensor)
+!   - Handles periodic/non-periodic boundary conditions
+!   - Error checking and status reporting
+!
+! Data Structures:
+!   config     - Type for NetCDF variable properties (name, type, dimensions)
+!   globalat   - Type for global NetCDF attributes
+!   dimens     - Type for dimension information
+!
+! Main Routines:
+!   read_nc_cfg()  - Reads a configuration from NetCDF file
+!   check()        - NetCDF error handling wrapper
+!
+! Notes:
+!   - Requires NetCDF4 library with Fortran interface
+!   - Supports LAMMPS real and lj unit systems
+!   - Handles optional fields (velocities, forces, energies, stress)
+!===============================================================================
 module mod_nc
    use mod_precision
    use mod_common, Only : ex_vel, ex_force, ex_stress, run_thermo, &
@@ -55,9 +85,46 @@ contains
       END IF
    END SUBROUTINE check
 end module mod_nc
+!===============================================================================
+! Module: mod_nc_conf
+!===============================================================================
+! Purpose:
+!   Stores trajectory configuration data and metadata read from NetCDF
+!   files. Provides global storage for positions, velocities, forces,
+!   energies, and structural information.
 !
-! Define general variables to store configuration vales
+! Key Variables:
+!   Configuration Arrays:
+!     r(:,:,:)       - Atomic positions (ndim, natoms, 1)
+!     v(:,:,:)       - Atomic velocities
+!     fxyz(:,:,:)    - Atomic forces
+!     stress_i(:,:,:)- Per-atom stress tensors
+!     u_pi(:,:)      - Per-atom potential energies
+!     qc(:,:)        - Atomic charges
 !
+!   Metadata:
+!     idi(:,:)       - Atom IDs
+!     ity(:,:)       - Atom types
+!     imol(:,:)      - Molecule IDs
+!     conf(:)        - Configuration variable descriptors
+!     mydims(:)      - Dimension information
+!     myglobatts(:)  - Global attributes
+!
+!   System Properties:
+!     natoms         - Number of atoms
+!     ntypes         - Number of atom types
+!     nmconf         - Number of molecules/particles
+!     nconf_i        - Number of configurations in file
+!     cell           - Simulation cell vectors
+!     org            - Cell origin
+!     wtypes(:)      - Selected atom types for analysis
+!     orgty(:)       - Original atom types in trajectory
+!
+! Notes:
+!   - Arrays allocated dynamically based on trajectory size
+!   - Supports optional fields (velocities, forces, energies)
+!   - Used by all modules requiring trajectory data
+!===============================================================================
 module mod_nc_conf
    use mod_nc
    use netcdf

@@ -1,23 +1,32 @@
+!===============================================================================
+! NetCDF Library Interface for LAMMPS Trajectory Files - Version 0.0
+!===============================================================================
+! Purpose:
+!   Provides NetCDF interface for reading and writing LAMMPS molecular
+!   dynamics trajectories. Initial version with basic functionality for
+!   trajectory data extraction and format conversion.
 !
-! This code reads a LAMMPS/AMBER NetCDF file with a series of
-! configurations, extracts all data, and then rewrites the
-! configurations in to a new NetCDF4 file to illustrate how to define
-! a data frame and dump it to a destination file. Specific atom types
-! can be selected at run time
+! Key Features:
+!   - Reads LAMMPS/AMBER NetCDF trajectory format
+!   - Writes new NetCDF4 files
+!   - Handles 2D and 3D systems
+!   - Non-periodic dimension correction
 !
-! Programmed by Enrique Lomba, IQF, Madrid, November 2023
+! Modules:
+!   myncdf        - NetCDF wrapper functions and data types
+!   configuration - Global trajectory data storage
+!   comun         - Shared variables and parameters
 !
-! IMPORTANT NOTE !!! LAMMPS netcdf dump format specifies that the
-! cell length of non pediodic dimensions is set to 0, irrespective of
-! the information set in the lammps script. To cope with this the
-! program redifnes the length using abs(max(r_xyz)-min(r_xyz))+10 or
-! 2*abs(origin_xyz) depending on the dimension involved. 
+! Important Notes:
+!   - LAMMPS sets non-periodic cell lengths to 0 in NetCDF format
+!   - Code corrects using abs(max-min) + 10 or 2*abs(origin)
 !
-! to be compiled with
-! ifort -I /usr/local/intel_netcdf/include \
-!           -L/usr/local/intel_netcdf/lib64 read_nc.f90 -lnetcdff
-! export LD_LIBRARY_PATH=/usr/local/intel_netcdf/lib64:$LD_LIBRARY_PATH
+! Usage:
+!   Compile with NetCDF library:
+!   ifort -I /path/to/netcdf/include -L/path/to/netcdf/lib -lnetcdff
 !
+! Author: Enrique Lomba, IQF, Madrid, November 2023
+!===============================================================================
 
 
 module myncdf

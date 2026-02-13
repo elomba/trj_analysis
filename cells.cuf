@@ -1,3 +1,43 @@
+!===============================================================================
+! Module: mod_cells
+!===============================================================================
+! Purpose:
+!   Implements linked-cell algorithm for efficient neighbor searching in
+!   molecular dynamics analysis. Partitions simulation box into cells to
+!   reduce computational complexity from O(N²) to O(N).
+!
+! Key Functionality:
+!   - Builds linked-cell lists for particle neighbor searches
+!   - Initializes cell structure based on simulation box dimensions
+!   - Maintains cell-particle associations
+!   - Provides cell-based neighbor iteration
+!   - Handles 2D and 3D periodic boundary conditions
+!
+! Algorithm:
+!   - Divides simulation box into cubic/square cells
+!   - Cell size determined by cutoff distance (rcl)
+!   - Each cell contains linked list of particles
+!   - Neighbor search only checks adjacent cells
+!
+! Main Variables:
+!   head()    - Head of linked list for each cell
+!   lista()   - Linked list array (next particle in cell)
+!   cellx/y/z - Cell dimensions
+!   maxi/j/k  - Number of cells in each direction
+!   ncell     - Total number of cells
+!
+! Subroutines:
+!   cells_build()             - Constructs cell lists from particle positions
+!   cells_init_pre_nc_read()  - Pre-configuration initialization
+!   cells_init_post_nc_read() - Post-configuration cell setup
+!   cells_reset_struct()      - Resets structure factor cell arrays
+!   cells_clear()             - Deallocates cell arrays
+!
+! Notes:
+!   - Only for orthogonal simulation cells
+!   - Cell size must be >= cutoff distance for clustering
+!   - Critical for performance in cluster analysis
+!===============================================================================
 module mod_cells
     use mod_precision
     use mod_common
@@ -10,15 +50,19 @@ contains
     subroutine cells_build()
         implicit none
         integer :: n, i, j, k, icell
+        ! Initialize linked cell lists
         head(:) = 0
         lista(:) = 0
 
+        ! Assign each particle to its cell and build linked lists
         do n = 1, natms
+            ! Calculate cell index in x direction
             i = int((R(1, n))/cellx)
             if (i < 0 .or. i >= maxi) then
                 print *, ' error in cells in x direction for ', n, R(1, n), cellx, i, maxi
                 stop
             end if
+            ! Calculate cell index in y direction
             j = int((R(2, n))/celly)
             if (j < 0 .or. j >= maxj) then
                 print *, ' error in cells in y direction for ', n, R(2, n), celly, j, maxj
@@ -26,18 +70,23 @@ contains
                 stop
             end if
             if (ndim == 3) then
+                ! Calculate cell index in z direction (3D only)
                 k = int((R(3, n))/cellz)
                 if (k < 0 .or. k >= maxk) then
                     print *, ' error in cells in z direction for ', n, R(3, n), cellz, k, maxk
                     stop
                 end if
+                ! Linear cell index for 3D
                 icell = (i*maxj + j)*maxk + k
             else
+                ! Linear cell index for 2D
                 icell = i*maxj + j
             end if
+            ! Add particle to cell's linked list
             lista(n) = head(icell)
             head(icell) = n
         end do
+        ! Transfer cell lists to GPU device memory
         listad(1:natms) = lista(1:natms)
         headd(0:ncell - 1) = head(0:ncell - 1)
     end subroutine cells_build
@@ -49,14 +98,16 @@ contains
         !
         Integer :: i, j, k, ii, jj, kk, l, in
         !
-        ! Cell size extends up to rcut
+        ! Cell size extends up to rcut (clustering distance)
         !
         maxi = Int(sidel(1)/rcl)
         maxj = int(sidel(2)/rcl)
         maxk = 1
         if (ndim == 3) maxk = Int(sidel(3)/rcl)
+        ! Total number of cells and neighbors per cell
         ncell = maxi*maxj*maxk
-        nn = 3**ndim
+        nn = 3**ndim  ! 9 in 2D (3x3), 27 in 3D (3x3x3)
+        ! Copy cell dimensions to device constants
         maxid = maxi
         maxjd = maxj
         maxkd = maxk

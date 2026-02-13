@@ -1,3 +1,44 @@
+!===============================================================================
+! Module: mod_rdf
+!===============================================================================
+! Purpose:
+!   Calculates radial distribution functions (RDF) g(r) and related
+!   structural correlations. Implements GPU-accelerated histogram
+!   accumulation for pair distances.
+!
+! Key Functionality:
+!   - Partial RDFs for multi-component systems (g_ij(r))
+!   - Cluster-cluster RDF for cluster analysis
+!   - Local number density fluctuations (hyperuniformity tests)
+!   - GPU-optimized histogram computation
+!   - Periodic boundary condition handling
+!
+! Main Variables:
+!   histomix()     - Host RDF histogram
+!   histomix_d()   - Device RDF histogram
+!   lsmax          - Maximum RDF bin index
+!   deltar         - Bin width
+!   rcrdf          - RDF cutoff distance
+!   nrandom        - Number of random origins for fluctuations
+!
+! Subroutines:
+!   RDF_init()       - Initializes RDF arrays and parameters
+!   RDFcomp()        - Computes RDF (calls GPU kernel)
+!   printrdf()       - Outputs RDF results to files
+!   rdf_clear()      - Deallocates RDF arrays
+!
+! GPU Kernels:
+!   rdf3D/rdf2D()  - RDF histogram accumulation kernels
+!
+! Output Files:
+!   - gmixsim.dat: partial RDFs
+!   - Number fluctuation data (if nrandom > 0)
+!
+! Notes:
+!   - Uses shared memory for histogram accumulation
+!   - Automatic normalization by ideal gas density
+!   - Supports 2D and 3D systems
+!===============================================================================
 module mod_rdf
    use mod_precision
    use mod_common
@@ -9,24 +50,29 @@ contains
    subroutine RDF_init(nsp)
       implicit none
       integer, intent(in) :: nsp
+      ! Calculate maximum RDF bin index based on cutoff or half box size
       if (rcrdf > 0.0) then
          lsmax = nint(rcrdf/deltar) + 1
       else
          lsmax = nint(minval(sidel(1:ndim))/2.0/deltar) + 1
       end if
+      ! Check shared memory requirements for GPU kernel
       if (lsmax*nit*4>shmsize) then
          print *, " Error g(r) grid requires ",4*lsmax*nit," bytes, larger that shared memory,",shmsize
          print *, " Increase grid size, dr, or reduce g(r) cutoff, rcdrf"
          stop
       endif
       ndr = lsmax
+      ! Allocate RDF histogram arrays (host and device)
       Allocate (histomix(lsmax, nsp, nsp), histomixi(nbcuda*lsmax, nit))
       Allocate (histomix_d(nbcuda*lsmax, nit))
       dim_hist = nbcuda*lsmax
+      ! Allocate arrays for number fluctuation analysis if requested
       if (nrandom>0) then
          Allocate(gii_d(0:lsmax),g2ii_d(0:lsmax))
          Allocate( gii(0:lsmax),g2ii(0:lsmax),gi(0:lsmax),g2i(0:lsmax))
       endif
+      ! Allocate arrays for cluster analysis if active
       if (run_clusters) then
          Allocate(gcluster(lsmax), gclustav(lsmax), gclcl(lsmax), rhoclus(0:ndrclus),&
          & rhoclusav(0:ndrclus))
@@ -38,6 +84,7 @@ contains
          gclr(:) = 0
          gclr2(:) = 0
       endif
+      ! Initialize histograms to zero
       histomix(:, :, :) = 0
       histomix_d(:, :) = 0
       if (nrandom>0) then
@@ -78,6 +125,7 @@ contains
       integer, intent(IN) :: Nmol, Iconf, nbcuda, nthread
       integer :: istart, i, ind, k, j, l, istat=0, ierrSync, rdfb, rdfth
       real :: time_gpu, suma
+      ! Initialize histograms to zero for this configuration
       histomix_d(:, :) = 0
       if (nrandom>0) then
          gii_d(:) = 0
@@ -90,6 +138,7 @@ contains
       !             memory (assumed sized arrays for the shared histogram)
       !
       istat = cudaEventRecord(startEvent, 0)
+      ! Adjust thread/block configuration for optimal shared memory usage
       if (nthread*6 <= 1024) then
          rdfth = 6*nthread
          rdfb = nbcuda/6 + 1
@@ -97,6 +146,7 @@ contains
          rdfth = nthread*4
          rdfb = nbcuda/4 + 1
       end if
+      ! Call appropriate GPU kernel for dimensionality
       if (ndim == 3) then
          call rdf_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, nit&
          &, nsp, nbcuda*lsmax, lsmax, side2, sidel_d, deltar)

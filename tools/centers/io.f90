@@ -1,3 +1,50 @@
+!===============================================================================
+! Module: mod_io
+!===============================================================================
+! Purpose:
+!   Handles file I/O for cluster center trajectory analysis including
+!   reading configuration files, cluster trajectories, and writing
+!   analysis results.
+!
+! Key Functionality:
+!   - Reads input parameters
+!   - Parses LAMMPS trajectory format files
+!   - Writes filtered trajectory files
+!   - Generates lifetime histograms
+!   - Extracts simulation box dimensions
+!
+! Main Subroutines:
+!   read_input_file()
+!     - Reads time_steps parameter
+!     - Allocates configuration arrays
+!
+!   read_centers_file()
+!     - Reads centers.lammpstrj file
+!     - Extracts box dimensions
+!     - Loads cluster positions and velocities
+!     - Determines min/max cluster counts
+!
+!   write_trajectories_atl()
+!     - Writes filtered continuous trajectories
+!     - LAMMPS format for Ovito visualization
+!     - Only includes long-lived clusters
+!
+!   write_histogram()
+!     - Outputs cluster lifetime distribution
+!     - Binned by histogram_dt parameter
+!
+! File Formats:
+!   Input:
+!     - Input: Single integer (time_steps)
+!     - centers.lammpstrj: LAMMPS trajectory format
+!   Output:
+!     - centers_atl.lammpstrj: LAMMPS trajectory format
+!     - centers_histogram.dat: Two-column (time, count)
+!
+! Notes:
+!   - LAMMPS format: timestep, box, atoms per frame
+!   - Variable number of clusters per timestep supported
+!===============================================================================
 module mod_io
    use, intrinsic :: iso_fortran_env, only: sp => real32, dp => real64
    use mod_common
@@ -9,11 +56,12 @@ contains
       integer :: io
       print *, 'Reading input file: ', input_filename
       open (newunit=io, file=input_filename, status='old', action='read')
-      read (io, *) time_steps
+      read (io, *) time_steps  ! Read number of timesteps
       close (io)
+      ! Allocate arrays for all timesteps
       allocate (host_configurations(time_steps))
       allocate (host_distances(time_steps))
-      host_distances = 1000000_sp
+      host_distances = 1000000_sp  ! Initialize with large value
    end subroutine read_input_file
 
    subroutine read_centers_file()
@@ -21,21 +69,25 @@ contains
       real :: trashr
       print *, 'Reading centers file: ', centers_filename
       open (newunit=io, file=centers_filename, status='old', action='read')
+      ! Skip header lines
       do i = 1, 5
          read (io, *)
       end do
+      ! Read simulation box dimensions
       do i = 1, n_dim
          read (io, *) low(i), high(i)
       end do
       side = high-low
-      side_div_2 = side/2.0
+      side_div_2 = side/2.0  ! For PBC minimum image
       rewind (unit=io)
+      ! Read all configurations and extract cluster information
       do i = 1, time_steps
          host_configurations(i)%id = i
          read (io, *)
-         read(io,*) nsteps(i)
+         read(io,*) nsteps(i)  ! MD timestep
          read(io,*)
-         read (io, *) host_configurations(i)%n_centers
+         read (io, *) host_configurations(i)%n_centers  ! Number of clusters
+         ! Track min/max cluster counts
          if (host_configurations(i)%n_centers < min_n_centers) &
             min_n_centers = host_configurations(i)%n_centers
          if (host_configurations(i)%n_centers > max_n_centers) &

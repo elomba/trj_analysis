@@ -1,3 +1,45 @@
+!===============================================================================
+! Module: mod_thermo
+!===============================================================================
+! Purpose:
+!   Calculates thermodynamic properties from trajectory data including
+!   kinetic energy, potential energy, temperature, and pressure.
+!   Processes per-atom energy and stress data from LAMMPS computes.
+!
+! Key Functionality:
+!   - Kinetic energy and temperature calculation
+!   - Potential energy accumulation (from LAMMPS pe/atom)
+!   - Pressure and stress tensor (from LAMMPS stress/atom)
+!   - Cluster-resolved energies
+!   - Time-averaged thermodynamic properties
+!
+! Main Variables:
+!   ekin         - Kinetic energy
+!   epot         - Total potential energy
+!   epotperatom  - Potential energy per atom
+!   temperature  - Instantaneous temperature
+!   pressure     - Instantaneous pressure
+!   pxyz()       - Stress tensor components
+!   engclus      - Average cluster internal energy
+!   engclpa      - Average cluster energy per particle
+!
+! Subroutines:
+!   thermo_kin()   - Computes kinetic energy and temperature
+!   poteng()       - Accumulates potential energy
+!   stress_calc()  - Computes pressure and stress tensor
+!   clusener()     - Calculates cluster energies
+!   thermo_clear() - Cleanup routine
+!
+! GPU Kernels:
+!   stressid() - Processes per-atom stress into histogram
+!
+! Notes:
+!   - Requires velocities for kinetic energy
+!   - Requires LAMMPS compute pe/atom for potential energy
+!   - Requires LAMMPS compute stress/atom for pressure
+!   - Supports 'real' and 'lj' unit systems
+!   - Temperature uses equipartition theorem
+!===============================================================================
 module mod_thermo
    use mod_precision
    use mod_common
@@ -15,16 +57,21 @@ contains
       integer :: i
 
       densty = natms/volumen
+      ! Sum kinetic energy: KE = 0.5 * m * v^2
       ekin = 0.0
       Do i = 1, natms
          ekin = ekin + masa(i)*Dot_product(vel(1:ndim, i)&
          &, vel(1:ndim, i))
       End Do
       ekin = 0.5d0*ekin
+      ! Accumulate time average
       ecaver = ecaver + ekin
+      ! Degrees of freedom for temperature calculation
       Tfact = (natms - nmzero - 1)*ndim
       Tfact = (natms - nmzero - 1)*ndim
+      ! Time-averaged temperature
       taver = 2*ecaver*(aunit/tunit)**2/(Tfact*Rgas*Iconf)
+      ! Instantaneous temperature from equipartition theorem
       temperature = 2*ekin*(aunit/tunit)**2/(Tfact*Rgas)
    end subroutine thermo_kin
 
@@ -32,13 +79,16 @@ contains
       integer, intent(IN) :: iconf, natoms
       real(kind=8) :: sumener
       integer :: i
+      ! Sum per-atom potential energies from LAMMPS compute pe/atom
       sumener = 0
       do i = 1, natoms
          sumener = sumener + u_p(i)
       enddo
       epot = sumener
       epotperatom = epot/natoms
+      ! Accumulate time average
       epotav = epotav + epot
+      ! Calculate cluster-resolved energies if cluster analysis is active
       if (run_clusters) call clusener(iconf,maxcln, cluster)
    end subroutine poteng
 
@@ -46,14 +96,17 @@ contains
       integer, intent(IN) :: iconf, dim, natoms
       real(kind=8) :: press_sum
       integer :: i
+      ! Sum stress tensor components from LAMMPS compute stress/atom
       press_sum=0
       pxyz(:) = 0
       do i=1, natoms
-         pxyz(1:6) = pxyz(1:6) + stress(1:6,i)
-         Press_sum = press_sum + sum(stress(1:dim,i))
+         pxyz(1:6) = pxyz(1:6) + stress(1:6,i)  ! xx, yy, zz, xy, xz, yz
+         Press_sum = press_sum + sum(stress(1:dim,i))  ! Trace for pressure
       enddo
+      ! Calculate pressure from trace of stress tensor (in Voigt notation)
       pressure = - press_sum/(dim*volumen)
       pxyz(1:6) = -pxyz(1:6)/volumen
+      ! Accumulate time average
       pressav = pressav+pressure
    end subroutine stress_calc
 

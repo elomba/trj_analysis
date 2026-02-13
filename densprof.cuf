@@ -1,3 +1,40 @@
+!===============================================================================
+! Module: mod_densprof
+!===============================================================================
+! Purpose:
+!   Computes particle and charge density profiles for confined systems
+!   (slit pore geometry). Analyzes density variations along non-periodic
+!   dimensions to characterize layering and interfacial structures.
+!
+! Key Functionality:
+!   - Density profiles along confinement direction (x, y, or z)
+!   - Species-resolved density distributions
+!   - Charge density profiles for charged systems
+!   - GPU-accelerated histogram accumulation
+!   - Profile normalization and averaging
+!
+! Main Variables:
+!   densprof()    - Host density profile histogram
+!   densprof_d()  - Device density profile histogram  
+!   qdensprof()   - Charge density profile
+!   width         - Number of bins in profile
+!   deltar        - Bin width
+!   pwall/pwallp  - Wall positions
+!
+! Subroutines:
+!   prof_init()      - Initializes profile arrays
+!   profile_comp()   - Computes density profiles (GPU kernel)
+!   normdenspr()     - Normalizes profiles by number of configurations
+!   prof_clear()     - Deallocates profile arrays
+!
+! GPU Kernels:
+!   densprofile() - Accumulates density histogram on GPU
+!
+! Notes:
+!   - Only for slit pore confinement geometry
+!   - Requires idir parameter to specify confinement direction
+!   - Wall positions define profile range
+!===============================================================================
 module mod_densprof
    use mod_precision
    use mod_common
@@ -38,10 +75,12 @@ contains
       integer :: I
       real(myprec) :: high, low, zpos, conste
       logical :: found
+      ! Find accessible region boundaries (where density > 0)
       found = .false.
       i = 0
       low = pwall
       high = pwallp
+      ! Find lower boundary of accessible region
       do while (.not. found)
          if (maxval(densprof(i, 1:nsp)) < 1.0e-6) then
             low = (2*i + 1)*deltar + pwall
@@ -50,6 +89,7 @@ contains
             found = .true.
          end if
       end do
+      ! Find upper boundary of accessible region
       found = .false.
       i = width
       do while (.not. found)
@@ -60,15 +100,18 @@ contains
             found = .true.
          end if
       end do
+      ! Average boundaries between walls and accessible region
       high = (pwallp + high)/2
       low = (pwall + low)/2
       write(*,"(//'   # Highest accesible constrained coordinate for fluid',f15.7,/'   # Lowest accessible constrained coordinate for fluid',f15.7)")high,low
+      ! Calculate accessible volume excluding wall regions
       volumen_r = (high - low)*product(sidel, pdir)
       rdenst = natms/volumen_r
       write (*, '(/" ** Total renormalized density =",f10.6)') rdenst
       do i = 1, nsp
          write (*, '(/"     - Renormalized density per species ",i2," =",f10.6)') i, ntype(i)/volumen_r
       end do
+      ! Write density profile to file
       open (222, file='densprof.dat')
       !
       ! One dimensional rho(x) normalized such that rho_i(L/2) approximates the bulk average rho_i
