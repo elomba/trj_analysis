@@ -1,3 +1,51 @@
+!===============================================================================
+! Module: mod_sq
+!===============================================================================
+! Purpose:
+!   Computes static structure factors S(q) for analyzing long-range
+!   structural correlations in the system. Implements GPU-accelerated
+!   Fourier space calculations of density-density correlations.
+!
+! Key Functionality:
+!   - Total and partial structure factors S(q)
+!   - Neutron scattering structure factors (with scattering lengths)
+!   - Cluster-cluster structure factors
+!   - Adaptive q-sampling (dense for small q, sparse for large q)
+!   - GPU-optimized computation
+!
+! Main Variables:
+!   sqf()       - Structure factor array
+!   sqfp()      - Partial structure factors
+!   sqfcl()     - Cluster structure factor
+!   nqmax       - Maximum q-vector index
+!   nqmin       - Threshold for full q-space sampling
+!   qmax        - Maximum q value
+!   qmin        - Threshold for directional sampling
+!   dq          - q-space grid spacing
+!   bsc()       - Neutron scattering lengths
+!
+! Subroutines:
+!   sq_init()            - Initializes S(q) arrays and q-grid
+!   SQcalc()             - Computes structure factors (GPU)
+!   sq_transfer_gpu_cpu()- Transfers results from GPU to CPU
+!   printsq()            - Outputs S(q) to files
+!   sq_clear()           - Deallocates arrays
+!
+! GPU Kernels:
+!   sqfnD()    - Full q-space sampling for small q
+!   sqfact()   - Directional sampling for large q (3D)
+!   sqfact2()  - Directional sampling for large q (2D)
+!
+! Output Files:
+!   - sq.dat: total structure factor
+!   - sqmix.dat: partial structure factors
+!   - sqcl.dat: cluster structure factors
+!
+! Notes:
+!   - q vectors respect periodic boundary conditions
+!   - Uses scattering lengths for neutron S(q)
+!   - Optimized for large systems with adaptive sampling
+!===============================================================================
 module mod_sq
    use mod_precision
    use mod_common
@@ -16,9 +64,11 @@ contains
       ! (1,0,0),(0,1,0),(0,0,1) beyond
       !
       istat = cudaEventRecord(startEvent, 0)
+      ! Full q-space sampling for small q (uniform fluid)
       if (nqmin > 1) then
          call sqfnD<<<tBlock, grid>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqf_d, sqfp_d,&
          & nsp, nqmax, qmin2, dq)
+         ! Directional sampling for large q (computational efficiency)
          if (ndim == 3) then
             call sqfact<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d,&
             & sqf_d, sqfp_d, nsp, nqmax, nqmin + 1)
@@ -42,6 +92,7 @@ contains
                sqfp_d, nsp, nqmax, nqmin)
          end if
       end if
+      ! Record GPU execution time
       time_gpu = gptime(stopEvent, startEvent)
       tsq = tsq + time_gpu
    end subroutine SQcalc

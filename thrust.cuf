@@ -1,3 +1,37 @@
+!===============================================================================
+! Module: mod_thrust
+!===============================================================================
+! Purpose:
+!   Provides Fortran interface to NVIDIA Thrust library parallel
+!   primitives. Enables GPU-accelerated prefix sum (scan) operations
+!   essential for efficient parallel algorithms.
+!
+! Key Functionality:
+!   - Inclusive prefix sum (scan) operations on GPU
+!   - Support for integer, single, and double precision data
+!   - C/Fortran interoperability for Thrust library
+!
+! Interface Functions:
+!   thrustscan - Generic interface for scan operations:
+!     scan_int()    - Integer prefix sum
+!     scan_float()  - Single precision prefix sum  
+!     scan_double() - Double precision prefix sum
+!
+! Usage:
+!   These wrappers call C++ Thrust functions from Fortran CUDA code.
+!   Critical for cluster labeling and connected component algorithms.
+!
+! Implementation:
+!   - C++ wrapper functions must be compiled separately
+!   - Uses iso_c_binding for Fortran-C interoperability
+!   - Device arrays passed directly to C++ functions
+!
+! Notes:
+!   - Requires compilation with CUDA C++ compiler (nvcc)
+!   - C++ wrappers defined in ex-scan.cu
+!   - Used in cluster search (DBSCAN-like algorithm)
+!   - Prefix sum enables efficient parallel labeling
+!===============================================================================
 module mod_thrust
 
     interface thrustscan

@@ -1,3 +1,38 @@
+!===============================================================================
+! Module: mod_common
+!===============================================================================
+! Purpose:
+!   Central repository for global variables, parameters, and data structures
+!   shared across the trajectory analysis program. Provides unified access
+!   to simulation data, GPU arrays, and physical constants.
+!
+! Key Components:
+!   - Physical constants (PI, gas constant, unit conversions)
+!   - System dimensions and particle data (positions, velocities, types)
+!   - GPU device arrays (device allocatable with _d suffix)
+!   - Simulation box parameters and cell structure variables
+!   - Thermodynamic data (energy, temperature, pressure)
+!   - Structure factor and RDF working arrays
+!   - Cluster analysis data structures
+!   - Timing and performance monitoring variables
+!
+! Parameters:
+!   npmx     - Maximum particles per block (8192)
+!   nmolmax  - Maximum number of particles (220000)
+!   nspmax   - Maximum number of species (10)
+!   llmax    - Maximum order for Steinhardt parameters (12)
+!
+! Constants:
+!   pi              - Pi constant
+!   rgas            - Gas constant (erg/(mol·K))
+!   kelvintokcal    - Kelvin to kcal/mol conversion
+!   kcal_a3_to_bar  - Pressure unit conversion
+!
+! Notes:
+!   - Arrays with _d suffix are GPU device arrays
+!   - This module must be used by nearly all other modules
+!   - Contains both host and device memory allocations
+!===============================================================================
 module mod_common
    use mod_precision
    use cudafor

@@ -1,3 +1,42 @@
+!===============================================================================
+! Module: mod_input
+!===============================================================================
+! Purpose:
+!   Reads and processes input parameters from namelist files for trajectory
+!   analysis. Handles validation and initialization of user-specified
+!   simulation parameters across multiple analysis modules.
+!
+! Key Functionality:
+!   - Reads multiple namelists from input file:
+!     * INPUT:       General parameters (dimensions, species, modules to run)
+!     * INPUT_SP:    Species selection and properties
+!     * INPUT_RDF:   RDF calculation parameters
+!     * INPUT_SQ:    Structure factor parameters
+!     * INPUT_CL:    Cluster analysis parameters
+!     * INPUT_CONF:  Confinement geometry parameters
+!     * INPUT_DYN:   Dynamics correlation parameters
+!     * INPUT_SQW:   Dynamic structure factor parameters
+!     * INPUT_ORDER: Order parameter calculation settings
+!   - Validates parameter consistency and ranges
+!   - Sets default values for optional parameters
+!
+! Main Variables:
+!   nthread              - CUDA threads per block (default 128)
+!   ndim                 - System dimensions (2 or 3)
+!   nsp                  - Number of species to analyze
+!   rcl                  - Cutoff distance for clustering and nearest neighbors
+!   sp_types_selected    - Array of selected species IDs
+!   rdf_sq_cl_dyn_sqw_conf_ord - Logical flags for modules to execute
+!
+! Subroutines:
+!   read_input_file()  - Main routine to read and validate all input namelists
+!   input_clear()      - Deallocates input arrays
+!
+! Notes:
+!   - Input file must contain INPUT namelist at minimum
+!   - Species selection mandatory via sp_types_selected
+!   - Module dependencies automatically checked
+!===============================================================================
 module mod_input
    use mod_precision
    use mod_common
@@ -37,12 +76,15 @@ contains
    subroutine read_input_file()
       integer :: io_input_file, i
 
+      ! Initialize all module flags to false
       rdf_sq_cl_dyn_sqw_conf_ord(:) = .false.
+      ! Open and read main INPUT namelist
       open (newunit=io_input_file, file=input_filename, action='read')
       read (unit=io_input_file, nml=INPUT)
       if (run_clusters) then
-         write(*,"(' *** Note: rcl (NN and/or connectivity distance) set to ',f8.4,' Å')") rcl
+         write(*,"(' *** Note: rcl (NN and/or connectivity distance) set to ',f8.4,' Å')" ) rcl
       endif
+      ! Allocate arrays for species properties
       allocate(sp_types_selected(nsp))
       !
       sp_types_selected(:) = 0
@@ -50,16 +92,19 @@ contains
       allocate(mat(nsp))
       allocate(charge(nsp))
       charge(:) = 0.0
-      allocate(bsc(nsp))
+      allocate(bsc(nsp))  ! Neutron scattering lengths
       bsc(:) = 1.0
+      ! Read species-specific parameters
       read (unit=io_input_file, nml=INPUT_SP)
       if (sp_types_selected(1) == 0) then
          write(*,'("*** Error: atom IDs must be specified in sp_types_selected !")')
          stop
       endif
+      ! Read RDF parameters if needed (RDF, cluster analysis, or confinement)
       deltar = -1.0
       if (rdf_sq_cl_dyn_sqw_conf_ord(1) == .true. .or. rdf_sq_cl_dyn_sqw_conf_ord(3) == .true. &
       & .or. rdf_sq_cl_dyn_sqw_conf_ord(6) == .true.) read (unit=io_input_file, nml=INPUT_RDF)
+      ! Read structure factor parameters if needed (S(q), cluster analysis, or S(q,w))
       qmax = -1.0
       if (rdf_sq_cl_dyn_sqw_conf_ord(2) == .true. &
       & .or. rdf_sq_cl_dyn_sqw_conf_ord(3) == .true. .or. rdf_sq_cl_dyn_sqw_conf_ord(5) == .true.  ) read (unit=io_input_file, nml=INPUT_SQ)

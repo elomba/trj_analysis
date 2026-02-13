@@ -1,3 +1,40 @@
+!===============================================================================
+! Module: mod_common
+!===============================================================================
+! Purpose:
+!   Defines global data structures and parameters for cluster center
+!   trajectory analysis. Provides shared access to configuration data,
+!   trajectories, and analysis parameters.
+!
+! Key Data Structures:
+!   configuration - Holds cluster centers for one timestep:
+!     - id: Timestep identifier
+!     - n_centers: Number of clusters
+!     - centers(:,:): Cluster positions
+!     - vel(:,:): Cluster velocities
+!
+!   center - Individual cluster properties:
+!     - coordinate(3): Position
+!     - velocity(3): Velocity
+!
+! Main Variables:
+!   host_configurations() - Array of all timestep configurations
+!   host_trajectories()   - Matrix of continuous cluster trajectories
+!   host_distances()      - Minimum distances per timestep
+!   clusters_time_life()  - Matrix tracking cluster existence
+!   clusters_time_steps() - Total lifetime of each cluster
+!   histogram()           - Lifetime distribution
+!   side()                - Simulation box dimensions
+!   min_distance          - Minimum cluster-cluster distance
+!
+! Parameters:
+!   n_dim           - Spatial dimensions (3)
+!   histogram_dt    - Histogram bin width
+!
+! Notes:
+!   - All arrays dynamically allocated based on trajectory length
+!   - Supports periodic boundary conditions
+!===============================================================================
 module mod_common
    use, intrinsic :: iso_fortran_env, only: sp => real32, dp => real64
    implicit none

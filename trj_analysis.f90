@@ -159,6 +159,7 @@ program trj_analysis
         write(*,"('    Second argument (optional) is the GPU device number to use, (default 0)')")
         stop 
     end if
+    ! Get input filename and optional GPU device number
     call get_command_argument(1, input_filename)
     if (argc ==2) then
         call get_command_argument(2, deviceNumber)

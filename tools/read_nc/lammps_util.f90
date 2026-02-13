@@ -1,3 +1,42 @@
+!===============================================================================
+! Module: lmp_util
+!===============================================================================
+! Purpose:
+!   Utility routines for reading LAMMPS trajectory files in various formats.
+!   Supports DL_POLY HISTORY format and LAMMPS dump formats for converting
+!   to NetCDF.
+!
+! Key Functionality:
+!   - Reads DL_POLY HISTORY trajectory files
+!   - Reads LAMMPS dump files (standard and custom formats)
+!   - Extracts atomic positions, velocities, forces
+!   - Handles different LAMMPS keytrj values (0,1,2)
+!   - Processes simulation cell information
+!   - Skips unwanted configurations efficiently
+!
+! Main Subroutines:
+!   ReadDummyCfg()    - Skips configurations without storing data
+!   ReadSingleCfg()   - Reads one complete configuration
+!   ReadCfgH()        - Reads DL_POLY HISTORY format
+!
+! Supported Formats:
+!   itrj = 0: DL_POLY HISTORY format
+!   itrj = 1: LAMMPS dump format (positions only)
+!   itrj = 2: LAMMPS dump custom format (with velocities/forces)
+!
+! Variables:
+!   keytrj - LAMMPS trajectory type:
+!            0: positions only
+!            1: positions + velocities
+!            2: positions + velocities + forces
+!   imcon  - Periodic boundary conditions flag
+!   cell   - Simulation cell matrix
+!
+! Notes:
+!   - Used by lmptrj2nc for format conversion
+!   - Handles both 2D and 3D systems
+!   - Automatically detects cell periodicity
+!===============================================================================
 Module lmp_util
    Use comun
    Implicit none

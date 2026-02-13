@@ -1,3 +1,37 @@
+!===============================================================================
+! Module: mod_log
+!===============================================================================
+! Purpose:
+!   Manages output logging and reporting of simulation results during
+!   trajectory analysis. Provides formatted output for thermodynamics,
+!   cluster properties, and order parameters.
+!
+! Key Functionality:
+!   - Initializes and manages log file I/O
+!   - Periodic output of instantaneous properties
+!   - Thermodynamic data reporting (energy, temperature, pressure)
+!   - Cluster analysis statistics output
+!   - Order parameter results formatting
+!   - Performance monitoring (CPU time per configuration)
+!   - Progress tracking during trajectory processing
+!
+! Main Subroutines:
+!   log_init()         - Opens output log file
+!   log_clear()        - Closes log file
+!   print_output()     - Periodic output of instantaneous properties
+!   print_clusinfo()   - Cluster analysis statistics
+!   print_order()      - Order parameter results
+!   printPotEngCl()    - Cluster potential energy distributions
+!
+! Output Files:
+!   - Log file: specified in input namelist
+!   - thermo_run.dat: instantaneous thermodynamic properties
+!
+! Notes:
+!   - Output frequency controlled by nprint parameter
+!   - Supports both 'real' and 'lj' unit systems
+!   - Energy and pressure units automatically handled
+!===============================================================================
 module mod_log
    use mod_precision
    use mod_common
@@ -32,11 +66,12 @@ contains
          "      Pxy(bar)","    Pxz(bar)","     Pyz(bar)"/)
       real(myprec) :: thermo_q(nther), Tfcl
       integer :: i, j
+      ! Initialize thermodynamic array and select available quantities
       thermo_q(:) = 0
-      mascara(1) = ex_vel
+      mascara(1) = ex_vel   ! Temperature and kinetic energy
       mascara(2) = ex_vel
-      mascara(3) = run_thermo
-      mascara(4:10) = ex_stress
+      mascara(3) = run_thermo   ! Potential energy
+      mascara(4:10) = ex_stress  ! Pressure and stress components
       if (ex_vel) then
          thermo_q(1) = temperature
          thermo_q(2) = kelvintokcal*ekin*(aunit/tunit)**2/Rgas
@@ -46,6 +81,7 @@ contains
          thermo_q(4) = pressure
          thermo_q(5:10) = pxyz(1:6)
       endif
+      ! Write instantaneous thermodynamics to file
       if (sum(mascara)) then
          if (iconf == 1) then
             open(1000, file="thermo_run.dat")
@@ -54,6 +90,7 @@ contains
          write(1000,"(i9,12f15.5)")nstep, pack(thermo_q(1:nther),mascara)
       endif
 
+      ! Print periodic progress update to console
       If (Mod(Iconf - 1, nprint) .Eq. 0) Then
          call cpu_time(cpu1)
          if (tunits == 'lj') then
