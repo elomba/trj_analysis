@@ -42,7 +42,7 @@ contains
       write(*,"('*',t80,'*')")
       write(*,"('*    Using GPU with CUDA nvfortran/nvcc >= 25.9/13.0',t80,'*')")
       write(*,"('*',t80,'*')")
-      write(*,"('*    Version 1.0 January 2026',,t80,'*')")
+      write(*,"('*    Version 1.2 February 2026',,t80,'*')")
       write(*,"('*',78(' '),'*'/80('*')/)")
       call printDevPropShort(gpu_properties, 0)
       ! Check that maximum number of threads is not surpassed
