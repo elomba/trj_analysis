@@ -137,10 +137,10 @@ A Makefile is included (-mno-avx512f can be removed from compilation options if 
 Requires NVIDIA CUDA SDK >= 13.0, netcdf v 4.9, FFTW3.
 
 ## Authors and acknowledgment
- A. Diaz-Pozuelo & E. Lomba, CSIC-Madrid/USC Santiago de Compostela, January 2026 
+ A. Diaz-Pozuelo, E. Lomba, R. Lomba CSIC-Madrid/USC Santiago de Compostela, ETSIINF, UPM-Madrid
 
 ## License
-Creative Commons Non commercial CC BY-NC 4.0 (https://creativecommons.org/licenses/by-nc/4.0/)
+GNU General Public License v3.0
 ## Project status
-Version 1.0 ready. 
+Version 1.2 ready. 
 
