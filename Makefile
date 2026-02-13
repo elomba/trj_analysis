@@ -15,7 +15,7 @@ F90OPTS = -O3
 F90INC = $(FCINC)
 F90LIBS = $(FCLIBS)
 
-LKOPTS =  -cuda -c++libs -lnetcdff -lfftw3 -llapack -lblas 
+LKOPTS =  -cuda -gpu=cc80 -c++libs -lnetcdff -lfftw3 -llapack -lblas 
 LKLIBS = -L$(NETCDFLIB) -L$(NVLIBS)
 
 CC = nvcc
