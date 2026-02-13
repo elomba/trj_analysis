@@ -45,7 +45,7 @@ Trajectory analysis
       `dump trj1 all netcdf ${Ndump} run.nc  id type x y z`   
 
 ## Usage   
-        trj_analysis.exe input.nml (input file with sequence of namelists)
+        trj_analysis.exe input.nml (input file with sequence of namelists) GPU_DEVICE_NUMBER (optional)
 ## Input file 
 
     !

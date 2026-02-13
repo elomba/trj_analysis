@@ -37,11 +37,12 @@ program trj_analysis
     !                     in order to compute potential energies and pressures            
     !       compute stress all stress/atom NULL
     !       compute ener all pe/atom
-    !       dump trj1 all netcdf ${Ndump} run.nc  id type x y z vx vy vz c_stress[*] c_ener
+    !       dump trj1 all netcdf ${Ndump} run.nc  id type x y z vx vy vz q c_stress[*] c_ener
+    !
     !    In the first INPUT namelist optional character variables "ener_name" and "press_name" refer to the
     !    names of the computes
     !
-    !    Usage: trj_analysis.exe input.nml (input file with sequence of namelists)
+    !    Usage: trj_analysis.exe input.nml (input file with sequence of namelists) GPU_DEVICE_NUMBER (optional)
     !
     ! namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, norder,nthread, &
     !       ncfs_from_to, rcl, rdf_sq_cl_dyn_sqw_conf_ord, nqw, ener_name, press_name, 
