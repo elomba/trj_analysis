@@ -79,7 +79,7 @@
 !   Output: LAMMPS "real" units (time in ps) or "lj" units (reduced)
 !
 ! Authors:
-!   A. Díaz-Pozuelo & E. Lomba (optimized DBSCAN contributed by R. Lomba)
+!   A. Díaz-Pozuelo & E. Lomba (optimized G-DBSCAN contributed by R. Lomba)
 !   CSIC Madrid / USC Santiago de Compostela
 !   February 2026
 !

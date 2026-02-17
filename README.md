@@ -8,10 +8,10 @@ This program performs advanced structural, thermodynamic, and dynamic analysis o
 
 ## Authors
 
-**A. Díaz-Pozuelo** & **E. Lomba**  
+**A. Díaz-Pozuelo** & **E. Lomba**  & **R. Lomba** (G-DBSCAN optimization)
 Instituto de Química Física Blas Cabrera, CSIC (Madrid)  
 Universidade de Santiago de Compostela (USC)  
-January 2026
+February 2026
 
 ## Features
 
@@ -110,7 +110,6 @@ dump trj1 all netcdf ${Ndump} run.nc id type x y z
    export LD_LIBRARY_PATH="/usr/local/netcdf-nvfortran/lib:$LD_LIBRARY_PATH"
    ```
 
-   **Note**: Remove `-mno-avx512f` flag in Makefile if your CPU supports AVX-512 instructions.
 
 ## Restrictions
 
@@ -123,7 +122,7 @@ dump trj1 all netcdf ${Ndump} run.nc id type x y z
 ## Usage
 
 ```bash
-./trj_analysis.exe input.nml
+./trj_analysis.exe input.nml GPU_DEVICE_NUMBER (optional, reverts to 0 if absent)
 ```
 
 Where `input.nml` contains a sequence of Fortran namelists defining analysis parameters.
