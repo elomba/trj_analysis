@@ -1,10 +1,16 @@
 # Makefile to build trj_analysis.
-# A word of warning: when making changes in common
-# Specify main local directory
+#
+# The following environment variables must be defined :
+#
+# NVBIN path of nvfortran binaris
+# NVINCLUDE path to nvfortran header files and modules
+# NVLIBS path to nvfortran dynamic libraries
+# NETCDFINC path to NETCDF and NETCDFF includes
+# NETCDFLIB path to NETCDF and NETCDFF libraries
+#
+#
 #
 PATH := $(NVBIN):$(PATH)
-PROG_DIR = /usr/local
-# Specify directory to Netcdf libs. The must be compiled with NVIDIA's nvfortran !!
 
 FC = nvfortran
 FCOPTS = -O3 -gpu=cc80 -cudalib=curand
