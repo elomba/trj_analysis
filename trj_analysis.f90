@@ -1,133 +1,92 @@
+!===============================================================================
+! Program: trj_analysis
+!===============================================================================
+! Purpose:
+!   GPU-accelerated analysis of LAMMPS NetCDF trajectory files for comprehensive
+!   structural, thermodynamic, and dynamic characterization of molecular systems.
+!   Source: https://www.lammps.org/
+!
+! Analysis Capabilities:
+!   STRUCTURAL:
+!     - Radial distribution functions (RDF) g_αβ(r) with species resolution
+!     - Static structure factors S(Q) with adaptive Q-sampling
+!     - Steinhardt orientational order parameters Q_l (2D and 3D)
+!     - Density and charge density profiles for confined systems
+!     - Cluster-cluster correlations (RDF and S(Q))
+!
+!   CLUSTER ANALYSIS:
+!     - DBSCAN-based cluster identification
+!     - Cluster size and radii distributions
+!     - Average cluster density profiles
+!     - Cluster shape descriptors (sphericity, cylindricity)
+!     - Center-of-mass trajectory generation (centers.lammpstrj)
+!     - Internal energy distributions (per particle and total)
+!
+!   DYNAMICS:
+!     - Mean squared displacement (MSD) and velocity autocorrelation
+!     - Intermediate scattering functions F(Q,t) and Fs(Q,t)
+!     - Dynamic structure factors S(Q,ω) and Ss(Q,ω)
+!     - Multi-buffer time correlation averaging with configurable origins
+!     - Shear viscosity from stress tensor autocorrelation
+!
+!   THERMODYNAMICS:
+!     - Kinetic energy and temperature (from velocities)
+!     - Potential energy (from LAMMPS pe/atom compute)
+!     - Pressure tensor (from LAMMPS stress/atom compute)
+!     - Energy histograms with configurable binning
+!
+! Input Configuration:
+!   Input file format: Fortran namelists (see README.md and examples/)
+!   
+!   Key namelists:
+!     /INPUT/       - General parameters, module selection, file paths
+!     /INPUT_SP/    - Species selection (types, labels, masses)
+!     /INPUT_RDF/   - RDF grid and cutoff parameters
+!     /INPUT_SQ/    - Structure factor Q-range and scattering lengths
+!     /INPUT_CL/    - Cluster analysis thresholds and binning
+!     /INPUT_ORD/   - Order parameter settings and neighbor criteria
+!     /INPUT_CONF/  - Confinement geometry (wall positions)
+!     /INPUT_DYN/   - Dynamics buffers, time limits, and windowing
+!     /INPUT_SQW/   - Dynamic S(Q,ω) Q-values and time ranges
+!
+!   LAMMPS dump requirements for full functionality:
+!     compute stress all stress/atom NULL
+!     compute ener all pe/atom
+!     dump trj1 all netcdf ${Ndump} run.nc id type x y z vx vy vz q c_stress[*] c_ener
+!
+!   Minimum requirements (positions only):
+!     dump trj1 all netcdf ${Ndump} run.nc id type x y z
+!
+! Restrictions:
+!   - NetCDF trajectory format required (LAMMPS dump netcdf)
+!   - Orthogonal simulation cells only (no triclinic)
+!   - Constant particle number (NpT allowed with minor S(Q) errors)
+!   - Atomic-level analysis (molecular internal DOF not considered)
+!   - LAMMPS units: "real" or "lj" (automatic conversion)
+!
+! Output Files:
+!   THERMODYNAMICS: thermo_run.dat
+!   STRUCTURE:      gmixsim.dat, sq.dat, sqmix.dat, sqcl.dat, order.dat
+!   DYNAMICS:       dyn.dat, fkt.dat, fskt.dat, sqw.dat, viscor.dat, dynw.dat
+!   CLUSTERS:       rhoprof.dat, radii.dat, clustdistr.dat, distUcl_N.dat,
+!                   distUcltot.dat, clusevol.dat, fshape.dat, ordprof_clust.dat,
+!                   ordprof_clcum.dat, order_per_cl.dat, centers.lammpstrj
+!
+! Usage:
+!   ./trj_analysis.exe input.nml
+!
+! Units:
+!   Output: LAMMPS "real" units (time in ps) or "lj" units (reduced)
+!
+! Authors:
+!   A. Díaz-Pozuelo & E. Lomba
+!   CSIC Madrid / USC Santiago de Compostela
+!   January 2026
+!
+! Implementation:
+!   NVIDIA CUDA Fortran with GPU acceleration
+!===============================================================================
 program trj_analysis
-    !
-    !  This program performs an analysis of a netcdf trajectory file from LAMMPS
-    !  molecular dynamics package (https://www.lammps.org/).
-    !
-    !  At this stage it computes:
-    !     - Pair distribution functions
-    !     - Static structure factors
-    !     - Orientational order parameters (Steinhardt): only in 2D so far
-    !     - Density profiles in confined systems (slit pore geometry)
-    !     _ Charge density profiles in confined systems (slit pore geometry)
-    !     - Cluster analysis (average cluster profiles, cluster-cluster rdf's and sq's)
-    !                         size and radii distributions, and a trajectory file with the
-    !                         evolution of cluster  com's 
-    !     - Dynamics (position and velocity correlation functions, 
-    !                 intermediate scattering functions, frequency dependent S(q,w)'s, complete and self)
-    !                 Only total quantities are computed in mixtures. Use the selection option if
-    !                 single component quantities are needed
-    !     - Kinetic energy (if velocities present in the trajectory file)
-    !     - Potential energ (if compute pe/peratom pressent in the trajectory file)
-    !     - Stress tensor (pressure)  (if compute stress/atom pressent in the trajectory file)
-    !       LAMMPS table file with RSQ tabulation -IMPORTANT!!-)
-    !     - The code allows for selection of specific components in mixtures
-    !
-    !   The input is provided as a set of namelist (see attached example) 
-    !
-    !   Restrictions: 
-    !                1. Only orthogonal cells are allowed
-    !                2. Particle numbers must remain constant all along the trajectory
-    !                3. Molecules are analyzed in terms of their atoms, 
-    !                   so far no internal degrees of freedom taken into account
-    !                4. LAMMPS units must be "real" or "lj" (unit conversion soon to be implemented)
-    !                   
-    !
-    ! 
-    !   Important notice: in LAMMPS script the following computes must be included in the dump
-    !                     in order to compute potential energies and pressures            
-    !       compute stress all stress/atom NULL
-    !       compute ener all pe/atom
-    !       dump trj1 all netcdf ${Ndump} run.nc  id type x y z vx vy vz c_stress[*] c_ener
-    !    In the first INPUT namelist optional character variables "ener_name" and "press_name" refer to the
-    !    names of the computes
-    !
-    !    Usage: trj_analysis.exe input.nml (input file with sequence of namelists)
-    !
-    ! namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, norder,nthread, &
-    !       ncfs_from_to, rcl, rdf_sq_cl_dyn_sqw_conf_ord, nqw, ener_name, press_name, 
-    !       potnbins, potengmargin, periodic(ndim)
-    !       Name of log file, name of netcdf trajectory file, no. of dimensions (2,3), no. of species,
-    !       no. of CUDA threads (default 128), no. of configurations-start-end, modules to run 
-    !       NN distance for clustering and order parameters,
-    !       (logical vars: RDF, structure factor, cluster analysis, dynamics, dynamic S(q,w),
-    !       no. of Q's for dynamic analysis, name of compute for potential energy/atom in LAMMPS,
-    !       name of stress/atom, no. of bins for energy histograms (def. 100), extra margins 
-    !       in energy histograms (def. 0))
-    !       periodic(ndim): defaults to true, logical var to indicate non-periodic dimension
-    ! namelist /INPUT_SP/ sp_types_selected, sp_labels, mat
-    !          IDs of selected species (if nsp<ntypes in trajectory), character labels, atomic mass
-    ! namelist /INPUT_RDF/ deltar, rcrdf, nrandom
-    !          grid in RDF calculation, cut-off for rdf (default half box size), no. os random origins 
-    !          for calculation of local number fluctuations
-    ! namelist /INPUT_SQ/ qmax, qmin, bsc
-    !          Max value of Q for S(Q), max value for full calculations (all Qs for 0<Q<=qmin), 
-    !          scattering lengths 
-    ! namelist /INPUT_CL/ dcl, kmin, ndrclus, cl_thresh
-    !         Grid cluster distribution minimum cluster size for analysis, no. of bins 
-    !         for cluster profilesi, minimum cluster size threshold to compute correlations
-    ! namelist /INPUT_ORD/ orderp, print_orderp, rclcl, nnbond
-    !     Orientational order parameters  to be computed
-    !    (def. .true.), print average per particle order parameters 
-    !    (def. .false.), distance between clusters, for neighbor search
-    !    in order parameter calculation  (def. rcl), if nnbond=0 (default)
-    !    all NN are used up to the cutoff to compute, otherwise the number of 
-    !    neighbors must be the same as the order of the parameter 
-    !
-    ! namelist /INPUT_CONF/ idir, pwall, pwallp
-    !          Direction of confinement (1,2,3->x,y,z), position of left wall, position of right wall
-    ! namelist /INPUT_DYN/ nbuffer, tmax, tmaxp, tlimit, jump
-    !           Number of buffers (time origins) for dynamic correlation analysis
-    !           buffers are separated by jump configurations (def. 1), maximum time for 
-    !           correlation functions (at tmax a window function is applied for FFTs, if omitted tmax=tlimit), if omitted all
-    !           t values are used. For viscosity a window function is used at tmaxp (if omitted =tmax)
-    !           Averages stored over tlimit only (in ps), and then origin for calculation is shifted if tlimit is
-    !           omitted is calculated as a function of the trajectory length, no. buffers, and jump.
-    ! namelist /INPUT_SQW/ qw, tmqw
-    !          values of Q to compute F(Q,t), Fs(Q,t) and S(Q,w),Ss(Q,w) maximum times for F(Q,t),
-    !          if omitted tmax is used
-    !
-    !    OUTPUT FILES:
-    !      * Thermodynamics
-    !      - thermo_run.dat (Instantaneous values of thermod. quantities)
-    !      * Dynamics
-    !      - dyn.dat (msd, <v(t)v(0)>)
-    !      - dynw.dat w, Z(w)
-    !      - fkt.dat (F(Q_i,t) for nqw Qs)
-    !      - fskt.dat (F_self(Q_i,t) for nqw Qs)
-    !      - sqw.dat   (S(q,w), S_self(Q,w))
-    !      - viscor.dat (<p_xy(t)p_xy(0)  eta(t) (shear viscosity integral))
-    !
-    !      * Structure
-    !      - gmixsim.dat (g_ab(r), g_clcl(r) in cluster analysis on)
-    !      - sq.dat  S_NN(Q), (S_cc(Q) , S_11, S_12, S_22 in binary systems)
-    !      - sqcl.dat Cluster-cluster S(Q)
-    !      - sqmix.dat S_ii (i<=nsp)
-    !      - sqw.dat  (S(Q_i,w), S_self(Q_i,w) for nwq Qs)
-    !      - order.dat Average Steinhardt order parameters <Q_l> (l=1,norder)
-    !      - order_per_mol.dat Average per particle Steinhardt order parameters <q_l>, if print_orderp=.t.
-    !      - last_clconf.dat Last configuration with cluster particle IDs (defined by size)
-    !
-    !      * Cluster analysis
-    !      - rhoprof.dat Average cluster density profile (only for finite clusters) 
-    !      - radii.dat Distribution of cluster gyration radii
-    !      - clustdistr.dat Distribution of cluster particle size
-    !      - distUcl_N.dat Distribution of cluster internal energies per particle
-    !      - distUcltot.dat Distribution of cluster internal energies (total)
-    !      - clusevol.dat , conf no., no. of clusters, % of particles in clusters
-    !      - fshape.dat, cluster shape (deviation from sphere and cylnder)
-    !                    (0,0) perfect sphere, (>0,0) perfect cylindero
-    !      - ordprof_clust.dat Steinhardt order parameter density profiles (within clusters): averaged over all clusters across slices
-    !      - ordprof_clcum.dat Steinhardt order parameter density profiles (cummulative)
-    !      - order_per_cl.dat Average Steinhardt order parameters per cluster <Q_l> (l=1,norder)
-    !      - centers.lammpstrj trajectory of clusters centers of mass (to be visualized with Ovito)
-    !                          Particle no. not constant along the trajectory !!
-    !
-           
-    !   OUTPUT Units: LAMMPS "real" units, except time (ps) and lj units (reduced)
-    !   Programmed in NVIDIA CUDA Fortran
-    !
-    !   A. Diaz-Pozuelo & E. Lomba, Madrid/Santiago de Compostela, January 2026 
-    !
    
     use mod_precision
     use mod_common

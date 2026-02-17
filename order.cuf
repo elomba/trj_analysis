@@ -42,9 +42,6 @@
 !   - Cutoff distance rcl defines neighbors
 !===============================================================================
 module mod_order
-    
-    ! Module for order parameter calculations
-    ! Added 3D order parameter calculation
     use mod_precision
     use mod_common, only: r_d, r, sidel_d, cellxd, cellyd, cellzd, maxjd, maxkd, nnd, headd, listad, neighd, gptime, startEvent, stopEvent, tord, side2, ndrclus, drclus, neighbors
     use mod_input, only: norder, orderp, nnbond, nthread, run_clusters, rclcl, deltar,  use_cell, ndim 

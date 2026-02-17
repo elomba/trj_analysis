@@ -32,8 +32,7 @@
 !===============================================================================
 
 
-module myncdf
-  ! 
+module myncdf 
   use g_types
   interface 
      subroutine read_nc_cfg(ncid,ncstart,io,unit)

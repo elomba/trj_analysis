@@ -29,8 +29,7 @@
 !===============================================================================
 
 
-module myncdf
-  ! 
+module myncdf 
   use g_types
   interface 
      subroutine read_nc_cfg(ncid,ncstart,io,unit)
@@ -88,9 +87,40 @@ contains
     END IF
   END SUBROUTINE check
 end module myncdf
+
+!===============================================================================
+! Module: configuration
+!===============================================================================
+! Purpose:
+!   Global data structures for storing LAMMPS trajectory configuration data
+!   read from NetCDF files. Manages arrays for positions, velocities, types,
+!   and other per-atom properties.
 !
-! Define general variables to store configuration vales 
-! 
+! Data Structures:
+!   conf()          - Array of config types for each trajectory variable
+!   mydims()        - Dimension information from NetCDF file
+!   myglobatts()    - Global attribute storage
+!   r(:,:,:)        - Atomic positions [dimension, atom, config]
+!   v(:,:,:)        - Atomic velocities (optional)
+!   idi(:,:)        - Atom IDs
+!   ity(:,:)        - Atom types
+!   imol(:,:)       - Molecule IDs (optional)
+!   atypes(:)       - Unique atom types present
+!   wtypes(:)       - Atom type weights/counts
+!
+! Key Variables:
+!   natoms          - Total number of atoms
+!   nconf           - Number of configurations
+!   ntypes          - Number of atom types
+!   ex_vel          - Flag indicating velocity presence
+!   ex_mol          - Flag indicating molecule ID presence
+!   periodic(:)     - Periodic boundary flags per dimension
+!
+! Notes:
+!   - Arrays allocated dynamically based on trajectory size
+!   - Supports optional fields (velocities, forces, charges)
+!   - Handles non-periodic dimensions (LAMMPS sets length=0)
+!===============================================================================
 module configuration
   use myncdf
   use netcdf

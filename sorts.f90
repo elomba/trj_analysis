@@ -1,41 +1,64 @@
-! These various sort routines are provided as
-! examples, rather than being fully optimised
-! for the best possible performance, or even
-! exhaustively tested. MJR 9/2019, 1/2023
+!===============================================================================
+! Module: sorts
+!===============================================================================
+! Purpose:
+!   Collection of sorting algorithms for integer and real arrays.
+!   Provides various implementations with different performance characteristics
+!   ranging from O(N²) to O(N log N) complexity.
 !
-! So far the collection is:
+! Available Algorithms:
+!   QUADRATIC O(N²):
+!     - bubble_sort             - Classic bubble sort
+!     - selection_sort          - Selection sort
+!     - inline_selection_sort   - Optimized selection variant
+!     - insertion_sort          - Insertion sort
+!     - binary_insertion_sort   - Binary search insertion
+!     - pair_insertion_sort     - Bidirectional insertion
+!     - double_insertion_sort   - Dual-ended insertion
 !
-!  bubble_sort               (order N**2)
-!  selection_sort            (order N**2)
-!  inline_selection_sort     (order N**2)
-!  insertion_sort            (order N**2)
-!  binary_insertion_sort     (order N**2)
-!  pair_insertion_sort       (order N**2)
-!  double_insertion_sort     (order N**2)
-!  shell_sort                (order N**(4/3)) (possibly)
-!  odd_even_merge_sort       (order N log N log N)
-!  odd_even_merge_sort_knuth (order N log N log N)
-!  merge_sort               (order N log N)
-!  alt_merge_sort           (order N log N)
-!  heap_sort                (order N log N)
-!  heap_sort_nr             (order N log N)
-!  smoothsort               (order N log N)
-!  quicksort                (order N log N) (usually)
-!  quicksort_nr             (order N log N) (usually)
-!  dpquicksort              (order N log N) (usually)
-!  radixsort                (order N)
-!  radixsort_opt            (order N)
-
-! 14/10/19 and 18/10/19 indexing errors in heap sorts corrected
-
-! 4/4/20 smooth sort and non-recursive quicksort added, and some
-!        minor code tidying
-
-! 30/12/22 add odd_even_merge_sort and odd_even_merge_sort_knuth
-
-! 9/11/23 add radixsorts
-! From  Michel Rutter's https://www.mjr19.org.uk/IT/sorts/
-
+!   IMPROVED O(N^(4/3)) (possibly):
+!     - shell_sort              - Shell sort with gap sequence
+!
+!   LOGARITHMIC O(N log N):
+!     - merge_sort              - Standard merge sort
+!     - alt_merge_sort          - Alternative merge implementation
+!     - heap_sort               - Heap sort
+!     - heap_sort_nr            - Non-recursive heap sort
+!     - smoothsort              - Leonardo heap variant
+!
+!   O(N log N log N):
+!     - odd_even_merge_sort       - Batcher's odd-even merge
+!     - odd_even_merge_sort_knuth - Knuth's variant
+!
+!   AVERAGE O(N log N):
+!     - quicksort               - Recursive quicksort
+!     - quicksort_nr            - Non-recursive with stack
+!     - dpquicksort             - Dual-pivot quicksort
+!
+!   LINEAR O(N):
+!     - radixsort               - Radix sort for integers
+!     - radixsort_opt           - Optimized radix sort
+!
+! Notes:
+!   - Provided as examples, not exhaustively optimized
+!   - Non-recursive variants avoid stack overflow for large arrays
+!   - Radix sorts limited to integer keys
+!   - Performance varies with data characteristics
+!
+! History:
+!   - Original collection: M.J. Rutter, 9/2019
+!   - 14/10/19, 18/10/19: Fixed indexing errors in heap sorts
+!   - 4/4/20: Added smoothsort and non-recursive quicksort
+!   - 30/12/22: Added odd-even merge sorts
+!   - 9/11/23: Added radix sorts
+!
+! Source:
+!   Michel Rutter's sorting collection
+!   https://www.mjr19.org.uk/IT/sorts/
+!
+! Usage:
+!   call quicksort(array, n)  ! In-place sort of array(1:n)
+!===============================================================================
 module sorts
   use mod_precision
   implicit none

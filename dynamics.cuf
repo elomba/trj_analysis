@@ -1,10 +1,66 @@
+!===============================================================================
+! Module: mod_dyn
+!===============================================================================
+! Purpose:
+!   Computes dynamic properties from molecular trajectories including time
+!   correlation functions, intermediate scattering functions, and dynamic
+!   structure factors. Uses multi-buffer algorithm for efficient temporal
+!   averaging with shifted time origins.
+!
+! Key Functionality:
+!   - Mean squared displacement (MSD) computation
+!   - Velocity autocorrelation functions ⟨v(t)·v(0)⟩
+!   - Stress tensor autocorrelation for shear viscosity
+!   - Intermediate scattering functions: F(Q,t) and Fs(Q,t) (total and self)
+!   - Dynamic structure factors: S(Q,ω) and Ss(Q,ω) via Fourier transform
+!   - Multi-buffer temporal averaging with configurable time origins
+!   - Frequency-domain analysis Z(ω) for transport properties
+!
+! Algorithm Details:
+!   - Simultaneous correlation calculation over nbuffer independent time origins
+!   - Time origins separated by 'jump' configurations
+!   - Averages computed over time window 'tlimit' (ps)
+!   - Origins automatically shifted when tlimit exceeded
+!   - Window functions applied at tmax for FFT operations
+!   - Separate windowing at tmaxp for viscosity calculations
+!
+! Main Variables:
+!   nbuffer    - Number of independent time origins for averaging
+!   jump       - Configuration stride between time origins
+!   tlimit     - Time window for averaging before origin shift (ps)
+!   tmax       - Maximum correlation time with windowing for FFT
+!   tmaxp      - Maximum time for viscosity windowing
+!   ndyn       - Effective number of configurations for analysis
+!   itlimit    - Configuration index limit for time window
+!
+! Arrays:
+!   r0, v0, p0          - Initial positions, velocities, stress at time origins
+!   r2t, v2t            - Mean squared displacement and velocity correlation
+!   fkt, fskt           - Intermediate scattering functions F(Q,t), Fs(Q,t)
+!   sqw, ssqw           - Dynamic structure factors S(Q,ω), Ss(Q,ω)
+!   stcorr              - Stress tensor autocorrelation
+!   origin              - Configuration indices for time origins
+!
+! GPU Arrays (device):
+!   r0_d, rt_d, v0_d    - Positions and velocities on GPU
+!   fktb_d, fsktb_d     - Buffer for scattering function accumulation
+!   stcorr_d, poff_d    - Stress correlation buffers
+!   qw_d, indqw_d       - Q-vectors and indices for S(Q,ω)
+!
+! Subroutines:
+!   dyn_init()          - Initialize arrays and parameters
+!   dyn_kernel()        - Main GPU kernel for correlation computation
+!   dyn_finalize()      - FFT to frequency domain and output
+!   dyn_clear()         - Deallocate arrays
+!
+! Notes:
+!   - Requires velocities in trajectory for velocity correlations
+!   - Stress tensor needed for viscosity calculation
+!   - Buffer count limited to nbmax (1000) for memory management
+!   - Operations split into nblocks (5) for large particle counts
+!   - Q-vectors for S(Q,ω) specified via INPUT_SQW namelist
+!===============================================================================
 module mod_dyn
-   !
-   ! Module to calculate dynamics properties (MSD, velocity and stress self-correlation,
-   ! and dynamic structure factors and intermediate scattering functions, total and self)
-   ! Calculations are performed simulteneously over nbuffers separated by jump configurations
-   ! with time origins shifted every itlimit configurations (corresponding to tlimit ps)
-   !
    use mod_precision
    use mod_common
    use cudafor

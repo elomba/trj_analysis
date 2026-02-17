@@ -1,26 +1,38 @@
+!===============================================================================
+! Program: lmptrj2nc (read_nc)
+!===============================================================================
+! Purpose:
+!   Reads LAMMPS/AMBER NetCDF trajectory files, extracts configuration data,
+!   and rewrites to new NetCDF4 format. Allows selective atom type filtering
+!   and demonstrates NetCDF frame-by-frame I/O operations.
 !
-! This code reads a LAMMPS/AMBER NetCDF file with a series of
-! configurations, extracts all data, and then rewrites the
-! configurations in to a new NetCDF4 file to illustrate how to define
-! a data frame and dump it to a destination file. Specific atom types
-! can be selected at run time
+! Functionality:
+!   - Reads LAMMPS NetCDF trajectory dump files
+!   - Extracts positions, velocities, types, and metadata
+!   - Supports selective atom type extraction
+!   - Writes filtered data to new NetCDF4 file
+!   - Handles non-periodic dimensions with automatic box size adjustment
 !
-! Programmed by Enrique Lomba, IQF, Madrid, November 2023
+! Input (Interactive):
+!   - Number of configurations to read
+!   - Configuration range [start, end]
+!   - Input NetCDF filename
+!   - Atom ID for diagnostic output
+!   - Atom types to select (or 'all')
 !
-! IMPORTANT NOTE !!! LAMMPS netcdf dump format specifies that the
-! cell length of non pediodic dimensions is set to 0, irrespective of
-! the information set in the lammps script. To cope with this the
-! program redifnes the length using abs(max(r_xyz)-min(r_xyz))+10 or
-! 2*abs(origin_xyz) depending on the dimension involved. 
+! Box Size Handling:
+!   LAMMPS NetCDF format sets box length = 0 for non-periodic dimensions.
+!   This program redefines lengths using:
+!     - abs(max(r_xyz) - min(r_xyz)) + 10
+!     - or 2*abs(origin_xyz) depending on dimension
 !
-! to be compiled with
-! ifort -I /usr/local/intel_netcdf/include \
-!           -L/usr/local/intel_netcdf/lib64 read_nc.f90 -lnetcdff
-! export LD_LIBRARY_PATH=/usr/local/intel_netcdf/lib64:$LD_LIBRARY_PATH
+! Compilation:
+!   ifort -I /path/to/netcdf/include -L/path/to/netcdf/lib lmptrj2nc.f90 -lnetcdff
+!   export LD_LIBRARY_PATH=/path/to/netcdf/lib:$LD_LIBRARY_PATH
 !
-!
-! Main program 
-!
+! Author:
+!   Enrique Lomba, IQF, Madrid, November 2023
+!===============================================================================
 program read_nc
   use myncdf
   use configuration

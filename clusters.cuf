@@ -1,8 +1,103 @@
+!===============================================================================
+! Module: mod_clusters
+!===============================================================================
+! Purpose:
+!   Comprehensive cluster analysis for molecular systems including GPU-accelerated
+!   cluster identification via DBSCAN algorithm and detailed characterization of
+!   cluster structural, thermodynamic, and geometric properties.
+!
+! Key Functionality:
+!   CLUSTER IDENTIFICATION:
+!     - GPU-accelerated DBSCAN algorithm implementation
+!     - Identifies clusters as connected graph components
+!     - Distance-based connectivity criterion (cutoff rcl)
+!     - Handles periodic boundary conditions
+!     - Efficient for large systems via GPU parallelization
+!
+!   CLUSTER PROPERTIES:
+!     - Size distributions (number of particles per cluster)
+!     - Geometric centers (handling PBC for wrapped clusters)
+!     - Radii: maximum extent and radius of gyration
+!     - Shape descriptors from inertia tensor:
+!       * Sphericity deviation (0,0 = perfect sphere)
+!       * Cylindricity (>0,0 = cylindrical shape)
+!     - Internal density profiles (radial distribution from center)
+!     - Species composition (mole fractions per cluster)
+!
+!   CLUSTER CORRELATIONS:
+!     - Cluster-cluster radial distribution functions g_cl-cl(r)
+!     - Cluster-cluster structure factors S_cl(Q)
+!     - Computed only for clusters above size threshold (cl_thresh)
+!     - GPU acceleration for cluster-cluster S(Q) calculations
+!
+!   CLUSTER THERMODYNAMICS:
+!     - Kinetic energy per cluster (from velocities)
+!     - Potential energy distributions:
+!       * Per particle: U/N histograms
+!       * Total cluster internal energy
+!     - Temperature per cluster (via equipartition)
+!
+!   CLUSTER DYNAMICS:
+!     - Center-of-mass trajectory tracking
+!     - Velocity of cluster centers
+!     - Output: centers.lammpstrj (LAMMPS format for Ovito)
+!     - Time evolution of cluster count and particle fraction
+!
+!   ORDER PARAMETERS:
+!     - Steinhardt parameters Q_l averaged per cluster
+!     - Radial profiles of order parameters within clusters
+!     - Cumulative order parameter profiles
+!
+! Algorithm Details:
+!   - DBSCAN on GPU: Each thread processes particle connectivity
+!   - Geometric center: Iterative unwrapping with PBC corrections
+!   - Inertia tensor: Computed relative to geometric center (avoids PBC bias)
+!   - Thresholding: Only clusters ≥ cl_thresh analyzed for correlations
+!   - All cluster properties respect periodic boundaries
+!
+! Main Data Structures:
+!   cluster(i)%        - Per-cluster data structure:
+!     clsize             - Number of particles in cluster
+!     members(:)         - Particle indices belonging to cluster
+!     molfrac(:)         - Species mole fractions
+!     center(:)          - Geometric center coordinates
+!     velocity(:)        - Center-of-mass velocity
+!     radius             - Maximum extent from center
+!     radiusRg           - Radius of gyration
+!     ekin, epot         - Kinetic and potential energies
+!
+! Output Files:
+!   centers.lammpstrj  - Cluster COM trajectory (N varies over time)
+!   clusevol.dat       - Time evolution: conf#, N_clusters, fraction_clustered
+!   fshape.dat         - Shape descriptors (sphericity, cylindricity)
+!   rhoprof.dat        - Average density profile (finite clusters only)
+!   radii.dat          - Distribution of cluster radii
+!   clustdistr.dat     - Cluster size distribution
+!   distUcl_N.dat      - Internal energy per particle distribution
+!   distUcltot.dat     - Total cluster energy distribution
+!   ordprof_clust.dat  - Order parameter profiles (averaged over clusters)
+!   ordprof_clcum.dat  - Cumulative order parameter profiles
+!   order_per_cl.dat   - Average Q_l per cluster
+!
+! GPU Kernels:
+!   dbscan_kernel()    - Parallel cluster identification
+!   sqcl_kernel()      - Cluster-cluster structure factor
+!
+! CPU Subroutines:
+!   cluster_analysis() - Main cluster property calculation routine
+!   minj()             - Minimum image distance to center
+!   cldens()           - Cluster internal density
+!   radius()           - Maximum cluster extent
+!   radiusRg()         - Radius of gyration
+!
+! Notes:
+!   - Cluster IDs may not be consistent across configurations
+!   - COM trajectories require post-processing (tools/centers/)
+!   - Cluster property calculation CPU-based (few large clusters)
+!   - Memory allocated dynamically based on max cluster size
+!   - Threshold cl_thresh reduces computation for small clusters
+!===============================================================================
 module mod_clusters
-   ! Module for cluster analysis, including cluster search and calculation of cluster properties
-   ! Cluster search is performed with a GPU implementation of the DBSCAN algorithm, which identifies
-   ! clusters as connected components of a graph where edges are defined by a distance cutoff. 
-   ! The GPU implementation allows for efficient cluster search in large systems.
    use mod_precision
    use mod_common
    use mod_input
@@ -23,20 +118,6 @@ module mod_clusters
    Real(myprec), allocatable :: cluster_order_cos(:,:), cluster_order_sin(:,:), cluster_ql(:,:), &
       avcluster_order_cos(:), avcluster_order_sin(:), avcluster_order(:)
    interface
-   ! Interface for cluster properties calculation
-   ! Cluster properties are calculated only for clusters larger than a certain size threshold, to save time.
-   ! Cluster properties include: internal density, cluster g(r), cluster shape, cluster-cluster structure factor ...
-   ! Cluster properties are calculated with CPU routines, since they are only calculated for a small number of clusters
-   ! Cluster properties are calculated with respect to the geometric center of the cluster, which is determined with PBC. 
-   ! The geometric center is used to avoid biasing the cluster properties by the position of the particles in the cluster, 
-   ! which can be affected by PBC.
-   ! The cluster shape is determined by the inertia tensor of the cluster, which is calculated with respect to the geometric center.
-   ! The cluster-cluster structure factor is calculated with a GPU routine, since it involves a double loop over 
-   ! clusters and can be time consuming for large systems.
-   ! The cluster g(r) is calculated with a CPU routine
-   ! The cluster density profile is calculated with a CPU routine, since it involves a loop over particles in the cluster 
-   !
-   !
       function minj(dim, members, nm, center, sidel, side2)
          use mod_precision
          integer, intent(IN) :: nm, dim
