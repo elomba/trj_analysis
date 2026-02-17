@@ -2,26 +2,21 @@
 # A word of warning: when making changes in common
 # Specify main local directory
 #
-PATH := /usr/local/nvidia/hpc_sdk/Linux_x86_64/2024/compilers/bin:$(PATH)
+PATH := $(NVBIN):$(PATH)
 PROG_DIR = /usr/local
 # Specify directory to Netcdf libs. The must be compiled with NVIDIA's nvfortran !!
-NETCDF = nv_netcdf
-NETCDF_INC = $(PROG_DIR)/$(NETCDF)/include
-NETCDF_LIB = $(PROG_DIR)/$(NETCDF)/lib64
 
 FC = nvfortran
-FCOPTS = -O2 -mavx2 -mno-avx512f -gpu=cc60,cc70,cc80 -cudalib=curand
-FCINC = -I$(NETCDF_INC)
-FCLIBS = -L$(NETCDF_LIB)
+FCOPTS = -O3 -gpu=cc80 -cudalib=curand
+FCINC = -I$(NETCDFINC) -I$(NVINCLUDE)
 
 F90 = $(FC)
-F90OPTS = -O2 -mavx2 -mno-avx512f
+F90OPTS = -O3 
 F90INC = $(FCINC)
 F90LIBS = $(FCLIBS)
 
-LKOPTS =  -cuda -c++libs -gpu=cc60,cc70,cc80 -lnetcdff -lfftw3 -llapack -lblas 
-LKINC = -I$(NETCDF_INC)
-LKLIBS = -L$(NETCDF_LIB)
+LKOPTS =  -cuda -gpu=cc80 -c++libs -lnetcdff -lfftw3 -llapack -lblas 
+LKLIBS = -L$(NETCDFLIB) -L$(NVLIBS)
 
 CC = nvcc
 
@@ -44,7 +39,7 @@ all: $(OBJ)
 	$(FC) $(LKOPTS) $(LKINC) $(EXE) $(OBJ) $(LKLIBS)
 
 ex-scan.o:
-	$(CC) -O4 --std c++14 -c ex-scan.cu
+	$(CC) -O4 --std c++17 -c ex-scan.cu
 common.o: precision.o common.cuf 
 	$(FC) -c $(FCOPTS) $(FCINC) $(FCLIBS) common.cuf
 precision.o: precision.f90
