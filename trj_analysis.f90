@@ -73,15 +73,15 @@
 !                   ordprof_clcum.dat, order_per_cl.dat, centers.lammpstrj
 !
 ! Usage:
-!   ./trj_analysis.exe input.nml
+!   ./trj_analysis.exe input.nml GPU_device_number (optional)
 !
 ! Units:
 !   Output: LAMMPS "real" units (time in ps) or "lj" units (reduced)
 !
 ! Authors:
-!   A. Díaz-Pozuelo & E. Lomba
+!   A. Díaz-Pozuelo & E. Lomba (optimized DBSCAN contributed by R. Lomba)
 !   CSIC Madrid / USC Santiago de Compostela
-!   January 2026
+!   February 2026
 !
 ! Implementation:
 !   NVIDIA CUDA Fortran with GPU acceleration

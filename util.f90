@@ -56,7 +56,8 @@ contains
       type(cudaEvent), intent(inout) :: startEvent, stopEvent
       type(cudaDeviceProp) :: gpu_properties
       integer :: istat, gpudevice
-      ! Get CUDA properties from device 0 (can be set from environmente variable CUDA_VISIBLE_DEVICES)
+      ! Get CUDA properties from gpudevice (2nd argument in command
+      ! invocation, optional, if absent reverts to 0)
       
       istat = cudaSetDevice(gpudevice)
       if (istat == 0) then
