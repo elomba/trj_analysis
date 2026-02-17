@@ -7,6 +7,7 @@
 # NVLIBS path to nvfortran dynamic libraries
 # NETCDFINC path to NETCDF and NETCDFF includes
 # NETCDFLIB path to NETCDF and NETCDFF libraries
+# FFTWINC path to FFTW3 include files
 #
 #
 #
@@ -14,7 +15,7 @@ PATH := $(NVBIN):$(PATH)
 
 FC = nvfortran
 FCOPTS = -O3 -gpu=cc80 -cudalib=curand
-FCINC = -I$(NETCDFINC) -I$(NVINCLUDE)
+FCINC = -I$(NETCDFINC) -I$(NVINCLUDE) -I$(FFTWINC)
 
 F90 = $(FC)
 F90OPTS = -O3 
