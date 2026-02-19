@@ -254,21 +254,6 @@ All outputs are written to the working directory with descriptive filenames.
 ### Confinement
 - Density and charge profiles along confined direction (filenames reflect analysis type)
 
-## Auxiliary Tools
-
-The `tools/` directory contains post-processing utilities:
-
-### `tools/centers/`
-Analyzes cluster center-of-mass trajectories to identify persistent clusters:
-- Matches clusters across timesteps using minimum distance criterion
-- Tracks cluster lifetimes and continuous trajectories
-- Requires compilation: `cd tools/centers && make`
-
-### `tools/read_nc/`
-NetCDF file conversion utilities:
-- `lmptrj2nc.f90` - Convert LAMMPS text trajectories to NetCDF
-- `read_nc.f90` - Read and validate NetCDF trajectory files
-- Requires compilation: `cd tools/read_nc && make`
 
 ## Example Workflow
 
@@ -327,8 +312,8 @@ Contributions are welcome. Please ensure code follows the existing style and inc
 
 If you use this software in your research, please cite:
 ```
-A. Díaz-Pozuelo and E. Lomba, "Trajectory Analysis: GPU-accelerated LAMMPS 
-trajectory analysis toolkit", CSIC-Madrid/USC Santiago de Compostela (2026)
+A. Díaz-Pozuelo, R. Lomba-Moreno, and E. Lomba, "Trajectory Analysis: GPU-accelerated LAMMPS 
+trajectory analysis toolkit", CSIC-Madrid/USC Santiago de Compostela (to be published, 2026)
 ```
 
 ## License
@@ -339,7 +324,7 @@ GNU GENERAL PUBLIC LICENSE Version 3
 
 ## Project Status
 
-**Version 1.0** - Production ready (February 2026)
+**Version 1.3** - Production ready (February 2026)
 
 ## Support
 
@@ -347,4 +332,4 @@ For bug reports and feature requests, please contact the authors or open an issu
 
 ## Acknowledgments
 
-This work was supported by computational resources provided by CSIC and USC.
+This work was supported by computational resources provided by CSIC and CESGA.
