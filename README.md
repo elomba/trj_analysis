@@ -146,7 +146,7 @@ The input file uses Fortran namelist format. Sample configurations are provided 
 | `norder` | integer | Maximum order for Steinhardt parameters |
 | `nthread` | integer | CUDA threads per block (default: 128) |
 | `ncfs_from_to(2)` | integer | Configuration range [start, end] |
-| `rcl` | real | Cutoff distance for cluster identification |
+| `rcl` | real | Cutoff distance for cluster identification & neighbor analysis |
 | `rdf_sq_cl_dyn_sqw_conf_ord` | logical(7) | Enable modules: RDF, S(Q), clusters, dynamics, S(Q,ω), confinement, order parameters |
 | `nqw` | integer | Number of Q-values for dynamic analysis |
 | `ener_name` | character | LAMMPS compute name for potential energy (optional) |
