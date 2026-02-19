@@ -8,6 +8,7 @@
 # NETCDFINC path to NETCDF and NETCDFF includes
 # NETCDFLIB path to NETCDF and NETCDFF libraries
 # FFTWINC path to FFTW3 include files
+# FFTWLIB path to FFTW2 dynamic libs
 #
 PATH := $(NVBIN):$(PATH)
 
@@ -21,7 +22,7 @@ F90INC = $(FCINC)
 F90LIBS = $(FCLIBS)
 
 LKOPTS =  -cuda -gpu=80 -c++libs -lnetcdff -lfftw3 -llapack -lblas 
-LKLIBS = -L$(NETCDFLIB) -L$(NVLIBS)
+LKLIBS = -L$(NETCDFLIB) -L$(NVLIBS) -L$(FFTWLIB)
 
 CC = nvcc
 

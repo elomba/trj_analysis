@@ -102,6 +102,7 @@ dump trj1 all netcdf ${Ndump} run.nc id type x y z
    export NETCDFLIB=/usr/local/modules/x64_v4/software/netCDF-Fortran/4.6.1-NVHPC-25.3-CUDA-12.8.0/lib64
    export NETCDFINC=/usr/local/modules/x64_v4/software/netCDF-Fortran/4.6.1-NVHPC-25.3-CUDA-12.8.0/include
    export FFTWINC=/usr/local/modules/x64_v4/software/FFTW/3.3.10-GCC-14.3.0/include
+   export FFTWLIB=/usr/local/modules/x64_v4/software/FFTW/3.3.10-gompi-2021b/lib
    make -f Makefile
    ```
    
