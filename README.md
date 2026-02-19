@@ -94,8 +94,14 @@ dump trj1 all netcdf ${Ndump} run.nc id type x y z
 
 ### Compilation
 
-1. **Compile the program**:
+1. **Compile the program (set NVIDIA and NetCDF first) **:
    ```bash
+   export NVBIN=/usr/local/modules/x64_v4/software/NVHPC/25.3-CUDA-12.8.0/Linux_x86_64/25.3/compilers/bin
+   export NVINCLUDE=/usr/local/modules/x64_v4/software/NVHPC/25.3-CUDA-12.8.0/Linux_x86_64/25.3/compilers/include
+   export NVLIBS=/usr/local/modules/x64_v4/software/NVHPC/25.3-CUDA-12.8.0/Linux_x86_64/25.3/compilers/lib
+   export NETCDFLIB=/usr/local/modules/x64_v4/software/netCDF-Fortran/4.6.1-NVHPC-25.3-CUDA-12.8.0/lib64
+   export NETCDFINC=/usr/local/modules/x64_v4/software/netCDF-Fortran/4.6.1-NVHPC-25.3-CUDA-12.8.0/include
+   export FFTWINC=/usr/local/modules/x64_v4/software/FFTW/3.3.10-GCC-14.3.0/include
    make -f Makefile
    ```
    
@@ -106,8 +112,8 @@ dump trj1 all netcdf ${Ndump} run.nc id type x y z
 
 2. **Set environment variables** (if NetCDF was installed to custom location):
    ```bash
-   export PATH="/usr/local/netcdf-nvfortran/bin:$PATH"
-   export LD_LIBRARY_PATH="/usr/local/netcdf-nvfortran/lib:$LD_LIBRARY_PATH"
+   export PATH="$NVBIN:$PATH"
+   export LD_LIBRARY_PATH="$NETCDFLIB:$LD_LIBRARY_PATH"
    ```
 
 
