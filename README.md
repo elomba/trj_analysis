@@ -94,7 +94,7 @@ dump trj1 all netcdf ${Ndump} run.nc id type x y z
 
 ### Compilation
 
-1. **Compile the program (set NVIDIA and NetCDF paths first) **:
+1. **Compile the program** (set NVIDIA and NetCDF paths first):
    ```bash
    export NVBIN=/usr/local/modules/x64_v4/software/NVHPC/25.3-CUDA-12.8.0/Linux_x86_64/25.3/compilers/bin
    export NVINCLUDE=/usr/local/modules/x64_v4/software/NVHPC/25.3-CUDA-12.8.0/Linux_x86_64/25.3/compilers/include
