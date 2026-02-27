@@ -10,6 +10,7 @@
 # FFTWINC path to FFTW3 include files
 # FFTWLIB path to FFTW2 dynamic libs
 #
+#
 PATH := $(NVBIN):$(PATH)
 
 FC = nvfortran
