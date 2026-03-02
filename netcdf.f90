@@ -572,7 +572,7 @@ subroutine select_ncdfinput()
          ! Coordinates are folded back into the simulation cell under PBC
          ! Has no effect  if not periodic
          do k=1,ndim
-            if (k.neq.idir) r(k, j) = r(k, j) - sidel(k)*int(r(k, j)/sidel(1:k))
+            if (k.ne.idir) r(k, j) = r(k, j) - sidel(k)*int(r(k, j)/sidel(1:k))
          enddo
          itype(j) = it(1)
       endif
