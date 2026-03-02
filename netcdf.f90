@@ -303,7 +303,6 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
                      pwall = minval(r(k,1:natoms,1)) - 6.0
                      pwallp = pwall + cell(k,1)
                   endif
-                  print *, pwall, minval(r(k,1:natoms,1))
                endif
             end if
          end do
@@ -577,9 +576,6 @@ subroutine select_ncdfinput()
          itype(j) = it(1)
       endif
    end do
-   do i=1, natoms
-      write(996,*)i,r(idir,i)
-   enddo
    compcharge = .false.
    do i = 1, nsp
       masa(nct(i) + 1:nct(i) + ntype(i)) = mat(i)

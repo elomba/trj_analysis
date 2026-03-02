@@ -165,10 +165,7 @@ contains
       real, dimension(dim, Nmol), intent(IN) :: r
       real(double), intent(INOUT) :: qdensprof(0:width), dqplus(0:width), dqminus(0:width)
       real :: qc
-      print *, pwall, width, pwall+width*2*deltar 
-      print *, minval(r(idir,1:nmol))
       do i = 1, Nmol
-         write(997,*)i, r(idir,i)
          qc = qcharge(i)
          !
          ! Warning: density profile must be computed along a confined direction or using wrapped coordinates
@@ -181,8 +178,6 @@ contains
             else
                dqplus(ind) = dqplus(ind)+qc
             endif
-!         else
-!            print *, r(idir, i), ind, width
          endif
       enddo
    end subroutine qdprof
