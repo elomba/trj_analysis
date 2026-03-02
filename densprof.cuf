@@ -168,6 +168,7 @@ contains
       print *, pwall, width, pwall+width*2*deltar 
       print *, minval(r(idir,1:nmol))
       do i = 1, Nmol
+         write(997,*)i, r(idir,i)
          qc = qcharge(i)
          !
          ! Warning: density profile must be computed along a confined direction or using wrapped coordinates

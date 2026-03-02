@@ -571,10 +571,15 @@ subroutine select_ncdfinput()
          endif
          ! Coordinates are folded back into the simulation cell under PBC
          ! Has no effect  if not periodic
-         r(1:ndim, j) = r(1:ndim, j) - sidel(1:ndim)*int(r(1:ndim, j)/sidel(1:ndim))
+         do k=1,ndim
+            if (n.neq.idir) r(k, j) = r(k, j) - sidel(1:ndim)*int(r(1:ndim, j)/sidel(1:ndim))
+         enddo
          itype(j) = it(1)
       endif
    end do
+   do i=1, natoms
+      write(996,*)i,r(idir,i)
+   enddo
    compcharge = .false.
    do i = 1, nsp
       masa(nct(i) + 1:nct(i) + ntype(i)) = mat(i)
