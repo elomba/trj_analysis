@@ -166,6 +166,7 @@ contains
       real(double), intent(INOUT) :: qdensprof(0:width), dqplus(0:width), dqminus(0:width)
       real :: qc
       print *, pwall, width, pwall+width*2*deltar 
+      print *, minval(r(idir,1:nmol))
       do i = 1, Nmol
          qc = qcharge(i)
          !
@@ -179,8 +180,8 @@ contains
             else
                dqplus(ind) = dqplus(ind)+qc
             endif
-         else
-            print *, r(idir, i), ind, width
+!         else
+!            print *, r(idir, i), ind, width
          endif
       enddo
    end subroutine qdprof
