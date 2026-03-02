@@ -180,7 +180,7 @@ contains
                dqplus(ind) = dqplus(ind)+qc
             endif
          else
-            print *, r(idir, i)
+            print *, r(idir, i), ind, width
          endif
       enddo
    end subroutine qdprof
