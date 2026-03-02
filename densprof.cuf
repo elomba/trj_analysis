@@ -165,6 +165,7 @@ contains
       real, dimension(dim, Nmol), intent(IN) :: r
       real(double), intent(INOUT) :: qdensprof(0:width), dqplus(0:width), dqminus(0:width)
       real :: qc
+      print *, pwall, width 
       do i = 1, Nmol
          qc = qcharge(i)
          !
