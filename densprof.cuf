@@ -179,6 +179,8 @@ contains
             else
                dqplus(ind) = dqplus(ind)+qc
             endif
+         else
+            print *, r(idir, i)
          endif
       enddo
    end subroutine qdprof
