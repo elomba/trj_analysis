@@ -303,6 +303,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
                      pwall = minval(r(k,1:natoms,1)) - 6.0
                      pwallp = pwall + cell(k,1)
                   endif
+                  print *, pwall, minval(r(k,1:natoms,1))
                endif
             end if
          end do
