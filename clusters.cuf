@@ -394,11 +394,11 @@ contains
       averg = 0
       im = 0
       do i = 1, cluster_id
-            rcluster = radius(cluster(i)%members(:), clussize, clcent, sidel)
-            cluster(i)%radio = rcluster
             clussize = cluster(i)%clsize
             clcent(:) = cluster(i)%center(1:ndim)
             rclxyz(1:ndim, i) = clcent(1:ndim)
+            rcluster = radius(cluster(i)%members(:), clussize, clcent, sidel)
+            cluster(i)%radio = rcluster
             ! Radius of gyration
             cluster(i)%rg = radiusrg(cluster(i)%members(:), clussize, &
             & clcent, sidel,cluster(i)%mass)
