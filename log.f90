@@ -182,11 +182,13 @@ contains
          ! Cluster information
          if (run_clusters) then
             if (iconf>1.and.maxcln>cl_thresh) then
-               write (*, "(' ** Average cluster radius',f8.3,' average &
-                  &cluster density ',f10.7)") avradio/iconf, averdens/iconf
-               write (*, "(' ** Average cluster gyration radius',f8.3)") avrg/iconf
-               write (*, "(' ** Internal cluster density  ',f10.7)")&
-                  & sum(densav(:))/maxcln
+               if (geometry) then
+                  write (*, "(' ** Average cluster radius',f8.3,' average &
+                     &cluster density ',f10.7)") avradio/iconf, averdens/iconf
+                  write (*, "(' ** Average cluster gyration radius',f8.3)") avrg/iconf
+                  write (*, "(' ** Internal cluster density  ',f10.7)")&
+                     & sum(densav(:))/maxcln
+               endif
             end if
             write (*, "(' ** No. of clusters for this configuration :',i5)") maxcln
             print *, " ··Time for graph construction", tgraph/iconf

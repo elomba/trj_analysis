@@ -346,7 +346,9 @@ contains
       if (maxcln > cl_thresh)then
          ! Compute cluster properties (internal density, s(Q), g(r) ...) only if enough clusters found
          averg = 0
-         call cluster_geometry(Iconf)
+         if (geometry) then
+            call cluster_geometry(Iconf)
+         endif
          rclxyzd(:, :) = rclxyz(:, :)
          !
          ! Compute cluster-cluster structure factor
@@ -365,17 +367,19 @@ contains
       if (maxcln > cl_thresh) then
          ! Write cluster shape file only for last frame
          if (Iconf == Nconf) then
-            do i = 1, nmaxcl
-               if (countcl(i) > 0) then
-                  dsph(i) = dsph(i)/countcl(i)
-                  dratio(i) = dratio(i)/countcl(i)
-               else
-                  dsph(i) = 0.0
-                  dratio(i) = 0.0
-               end if
-               write(io_shape_file, '(i5,f15.7,f15.7)') i, dsph(i), dratio(i)
-            end do
-            close(io_shape_file)
+            if (geometry) then
+               do i = 1, nmaxcl
+                  if (countcl(i) > 0) then
+                     dsph(i) = dsph(i)/countcl(i)
+                     dratio(i) = dratio(i)/countcl(i)
+                  else
+                     dsph(i) = 0.0
+                     dratio(i) = 0.0
+                  end if
+                  write(io_shape_file, '(i5,f15.7,f15.7)') i, dsph(i), dratio(i)
+               end do
+               close(io_shape_file)
+            end if
          end if
       endif
       ! Potential Energy
@@ -916,7 +920,7 @@ subroutine clusters_init(nmol)
    ! Open output files
    if (maxcln > cl_thresh) then
       open (io_centers_file, file=centers_filename)
-      open (io_shape_file, file=fshape_filename)
+      if (geometry) open (io_shape_file, file=fshape_filename)
    end if
    open (io_clusevol_file, file=clusevol_filename)
    write (io_clusevol_file,"('# conf no. clusters % particles in cluster ', &

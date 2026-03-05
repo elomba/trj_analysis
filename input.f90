@@ -51,7 +51,7 @@ module mod_input
    !
    integer :: nthread=128, ndim, kmin=5,  idir=0, nsp, nbuffer=2, potnbins=100, nqw=0, &
             & jump=1, norder=1, nnbond=0, cl_thresh=10
-   logical :: use_cell = .true., run_order = .false., print_orderp=.false.
+   logical :: use_cell = .true., run_order = .false., print_orderp=.false., geometry=.true.
    logical, dimension(7) :: rdf_sq_cl_dyn_sqw_conf_ord
    real(myprec) :: deltar, rcl=-1.0, dcl, qmin, qmax, rcrdf, rclcl=0.0, &
       tmax=-1, tmaxp=-1, tlimit=-1, potengmargin=0.0
@@ -66,7 +66,7 @@ module mod_input
    namelist /INPUT_SP/ sp_types_selected, sp_labels, mat
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
    namelist /INPUT_SQ/ qmax, qmin, bsc
-   namelist /INPUT_CL/ dcl, kmin, ndrclus, cl_thresh
+   namelist /INPUT_CL/ dcl, kmin, ndrclus, cl_thresh, geometry
    namelist /INPUT_CONF/ idir
    namelist /INPUT_DYN/ nbuffer, tmax, tmaxp, tlimit, jump
    namelist /INPUT_SQW/ qw, tmqw
