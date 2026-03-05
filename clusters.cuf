@@ -317,7 +317,6 @@ contains
       densav(:) = 0.0
       rhoclus(:) = 0
       denscl = 0.0
-      rclus = 0.0
       im = 0
       !
       ! Determine cluster radii, density ..
