@@ -501,7 +501,7 @@ contains
          clmfrac(:) = 0.0
          molfrac(:) = 0.0
          nmaxcl = 1000
-         allocate(dratio(1:nmaxcl), dsph(1:nmaxcl), countcl(1:nmaxcl))
+         if(geometry) allocate(dratio(1:nmaxcl), dsph(1:nmaxcl), countcl(1:nmaxcl))
          if (run_order) then
             allocate(avcluster_order_cos(norder))
             allocate(avcluster_order_sin(norder))
