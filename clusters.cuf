@@ -161,7 +161,7 @@ contains
       & imaxcl, clsz, clussize, cmin, NP_lconf, icount, im, countlarge
       Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
       Real(myprec) :: denscl, rmcl, cdmax=0, factorv
-      Real(kind=8) ::  mcl, ekcls, suma, rclus, rcluster, rgsum, averg, volcl
+      Real(kind=8) ::  mcl, ekcls, suma, rgsum, averg, volcl
       if (iconf==1) call clusters_init(nmol)
       ! Cluster dynamics in picoseconds, to convert to velocity units if needed
       if (conf(4)%units == 'femtosecond' ) factorv = 0.001
@@ -327,8 +327,6 @@ contains
          im = im + 1
          clcent(:) = cluster(i)%center(1:ndim)
          rclxyz(1:ndim, im) = clcent(1:ndim)
-         rcluster = radius(cluster(i)%members(:), clussize, clcent, sidel)
-         cluster(i)%radio = rcluster
       end do
       !
       ! Resize arrays if necessary
@@ -337,7 +335,7 @@ contains
          rmcl = maxval(cluster(1:cluster_id)%radio)
          drclus = 2*rmcl/ndrclus
          if (2*maxval(cluster(1:cluster_id)%clsize) > nmaxcl) then
-            write(*,'(" *** Warning !!: increasing nmaxcl=",i4," to ",i4)') nmaxcl, 2*maxval(cluster(1:cluster_id)%clsize)
+            write(*,'(" *** Warning !!: increasing nmaxcl=",i4," to ",i6)') nmaxcl, 2*maxval(cluster(1:cluster_id)%clsize)
             nmaxcl = 2*maxval(cluster(1:cluster_id)%clsize)
             deallocate (dratio, dsph, countcl)
             allocate(dratio(1:nmaxcl), dsph(1:nmaxcl), countcl(1:nmaxcl))
@@ -397,6 +395,8 @@ contains
       averg = 0
       im = 0
       do i = 1, cluster_id
+            rcluster = radius(cluster(i)%members(:), clussize, clcent, sidel)
+            cluster(i)%radio = rcluster
             clussize = cluster(i)%clsize
             clcent(:) = cluster(i)%center(1:ndim)
             rclxyz(1:ndim, i) = clcent(1:ndim)
