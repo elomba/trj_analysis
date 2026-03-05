@@ -302,11 +302,11 @@ contains
       if (iconf > 1) then
          deallocate (rclxyz)
          deallocate (rclxyzd)
-         deallocate (densav)
+         if(geometry)deallocate (densav)
       end if
       allocate (rclxyz(ndim, cluster_id), densav(cluster_id))
       allocate (rclxyzd(ndim, cluster_id))
-      if (.not.allocated(densclus)) then
+      if (.not.allocated(densclus).and.geometry) then
          allocate(densclus(0:ndrho))
          densclus(0:ndrho) = 0.0
       end if
@@ -336,12 +336,16 @@ contains
          if (2*maxval(cluster(1:cluster_id)%clsize) > nmaxcl) then
             write(*,'(" *** Warning !!: increasing nmaxcl=",i4," to ",i6)') nmaxcl, 2*maxval(cluster(1:cluster_id)%clsize)
             nmaxcl = 2*maxval(cluster(1:cluster_id)%clsize)
-            deallocate (dratio, dsph, countcl)
-            allocate(dratio(1:nmaxcl), dsph(1:nmaxcl), countcl(1:nmaxcl))
+            if (geometry) then
+               deallocate (dratio, dsph, countcl)
+               allocate(dratio(1:nmaxcl), dsph(1:nmaxcl), countcl(1:nmaxcl))
+            endif
          end if
-         dratio(:) = 0.0
-         dsph(:) = 0.0
-         countcl(:) = 0
+         if (geometry) then
+            dratio(:) = 0.0
+            dsph(:) = 0.0
+            countcl(:) = 0
+         endif
       endif
       if (maxcln > cl_thresh)then
          ! Compute cluster properties (internal density, s(Q), g(r) ...) only if enough clusters found
