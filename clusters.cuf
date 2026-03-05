@@ -349,7 +349,7 @@ contains
       if (maxcln > cl_thresh)then
          ! Compute cluster properties (internal density, s(Q), g(r) ...) only if enough clusters found
          averg = 0
-         call cluster_geometry()
+         call cluster_geometry(Iconf)
          rclxyzd(:, :) = rclxyz(:, :)
          !
          ! Compute cluster-cluster structure factor
@@ -385,8 +385,9 @@ contains
       if (run_thermo .and. iconf ==1 ) call thermo_init_cluster(natms, ndim, sidel, side2, maxcln, cluster)
    end subroutine cluster_analysis
 
-   subroutine cluster_geometry()
+   subroutine cluster_geometry(Iconf)
       implicit none
+      integer, intent(IN) :: Iconf
       integer :: i, j, k, cluster_id, icl, ip, ind, indr, maxclsz,&
       & imaxcl, clsz, clussize, cmin, NP_lconf, icount, im, countlarge
       Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
