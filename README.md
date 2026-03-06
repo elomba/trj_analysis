@@ -333,7 +333,7 @@ GNU GENERAL PUBLIC LICENSE Version 3
 
 ## Project Status
 
-**Version 1.3** - Production ready (February 2026)
+**Version 1.3** - Production ready (March 2026)
 
 ## Support
 
