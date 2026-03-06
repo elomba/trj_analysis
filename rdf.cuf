@@ -73,7 +73,7 @@ contains
          Allocate( gii(0:lsmax),g2ii(0:lsmax),gi(0:lsmax),g2i(0:lsmax))
       endif
       ! Allocate arrays for cluster analysis if active
-      if (run_clusters) then
+      if (run_clusters.and.geometry) then
          Allocate(gcluster(lsmax), gclustav(lsmax), gclcl(lsmax), rhoclus(0:ndrclus),&
          & rhoclusav(0:ndrclus))
          Allocate(gclr(0:lsmax),gclr2(0:lsmax))
@@ -104,7 +104,7 @@ contains
          deallocate (gii,gi,g2i,g2ii)
          deallocate (gii_d,g2ii_d)
       endif
-      if (run_clusters) then
+      if (run_clusters.and.geometry) then
 
          deallocate (gcluster)
          deallocate (gclustav)

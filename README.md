@@ -11,7 +11,7 @@ This program performs advanced structural, thermodynamic, and dynamic analysis o
 **A. Díaz-Pozuelo** & **E. Lomba**  & **R. Lomba** (G-DBSCAN optimization)
 Instituto de Química Física Blas Cabrera, CSIC (Madrid)  
 Universidade de Santiago de Compostela (USC)  
-February 2026
+March 2026
 
 ## Features
 
@@ -190,6 +190,7 @@ The input file uses Fortran namelist format. Sample configurations are provided 
 | `kmin` | integer | Minimum cluster size for analysis |
 | `ndrclus` | integer | Bins for cluster radial profiles |
 | `cl_thresh` | integer | Minimum cluster count for correlations |
+| `geometry` | logical | Controls whether geometry & correlation are computed (.t.) |
 
 #### `/INPUT_ORD/` - Order Parameters
 | Parameter | Type | Description |
@@ -279,6 +280,7 @@ All outputs are written to the working directory with descriptive filenames.
       nsp = 1
       ncfs_from_to = 1 1000
       rdf_sq_cl_dyn_sqw_conf_ord = .true. .true. .false. .false. .false. .false. .false.
+      periodic = .true. .true. true.
    /
    
    &INPUT_SP

@@ -44,7 +44,7 @@
 module mod_order
     use mod_precision
     use mod_common, only: r_d, r, sidel_d, cellxd, cellyd, cellzd, maxjd, maxkd, nnd, headd, listad, neighd, gptime, startEvent, stopEvent, tord, side2, ndrclus, drclus, neighbors
-    use mod_input, only: norder, orderp, nnbond, nthread, run_clusters, rclcl, deltar,  use_cell, ndim 
+    use mod_input, only: norder, orderp, nnbond, nthread, run_clusters, rclcl, deltar,  use_cell, ndim, geometry 
     use mod_clusters, only: cluster, avcluster_order, avcluster_order_cos, avcluster_order_sin, &
     cluster_order_cos, cluster_order_sin, maxcln, rclxyz, neighbor_search, goffset, gneighbors, gadjacency, cluster_ql, llmax
     use mod_input, only: cl_thresh
@@ -122,7 +122,7 @@ contains
                 prefd(:,:) = 0.0
             end if  
         endif
-        if (run_clusters) then
+        if (run_clusters.and.geometry) then
             if (.not. allocated(rhoorder)) then
                 allocate(rhoorder(0:ndrclus, norder), ordercum(0:ndrclus, norder))
                 allocate(rhoorderav(0:ndrclus, norder), ordercumav(0:ndrclus, norder))
@@ -144,10 +144,10 @@ contains
         if (allocated(avorder_cos)) deallocate(avorder_cos)
         if (allocated(avorder_sin)) deallocate(avorder_sin)
         if (allocated(avorder)) deallocate(avorder)
-        if (allocated(rhoorder)) deallocate(rhoorder)
-        if (allocated(rhoorderav)) deallocate(rhoorderav)  
-        if (allocated(ordercum)) deallocate(ordercum)
-        if (allocated(ordercumav)) deallocate(ordercumav)
+        if (allocated(rhoorder).and.geometry) deallocate(rhoorder)
+        if (allocated(rhoorderav).and.geometry) deallocate(rhoorderav)  
+        if (allocated(ordercum).and.geometry) deallocate(ordercum)
+        if (allocated(ordercumav).and.geometry) deallocate(ordercumav)
         if (ndim == 3) then
             if (allocated(yll)) deallocate(yll)
             if (allocated(pref)) deallocate(pref)
@@ -209,15 +209,17 @@ contains
                 call prefactors(lmax,pref)
                 prefd(:,:) = pref(:,:)
                 call gpu_comp_order3D<<<Nmol/nthread+1, nthread,8*norder+1>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
-                if (run_clusters.and.maxcln>cl_thresh) Then
-                    ! Compute cluster 3D order parameters if enough clusters
-                    cluster_ql(:,:) = 0.0 
-                    if (rclcl > 0.0) then
-                        rclcl2 = rclcl*rclcl
-                        call cl_comp_order3D(rclxyz(1:dim, 1:maxcln), maxcln, dim, norder, nnbond, rclcl2, sidel)
+                if (geometry) then
+                    if (run_clusters.and.maxcln>cl_thresh) Then
+                        ! Compute cluster 3D order parameters if enough clusters
+                        cluster_ql(:,:) = 0.0 
+                        if (rclcl > 0.0) then
+                            rclcl2 = rclcl*rclcl
+                            call cl_comp_order3D(rclxyz(1:dim, 1:maxcln), maxcln, dim, norder, nnbond, rclcl2, sidel)
+                        end if
                     end if
                 end if
-            end if
+            endif
             time_gpu = gptime(stopEvent, startEvent)
             tord = tord + time_gpu
             ! Copy results back to host and compute averages
@@ -231,23 +233,25 @@ contains
                 atomic_ql(:,:) = atomic_ql_d(:,:)
                 avorder(1:norder) = avorder(1:norder) + sum(atomic_ql(1:Nmol,1:norder), dim=1)/Nmol
             end if  
-            if (run_clusters.and.maxcln>cl_thresh) then
-                if (ndim==2) then  
-                    avcluster_order_cos(1:norder) = sum(cluster_order_cos(1:maxcln,1:norder), dim=1)/maxcln
-                    avcluster_order_sin(1:norder) = sum(cluster_order_sin(1:maxcln,1:norder), dim=1)/maxcln
-                    avcluster_order(1:norder)=avcluster_order(1:norder)+sqrt(avcluster_order_cos(:)**2+avcluster_order_sin(:)**2)
-                else
-                    avcluster_order(1:norder) = avcluster_order(1:norder) + sum(cluster_ql(1:maxcln,1:norder), dim=1)/maxcln    
-                end if
-                rhoorder(:,:) = 0.0
-                do i = 1, maxcln
+            if (geometry) then
+                if (run_clusters.and.maxcln>cl_thresh) then
+                    if (ndim==2) then  
+                        avcluster_order_cos(1:norder) = sum(cluster_order_cos(1:maxcln,1:norder), dim=1)/maxcln
+                        avcluster_order_sin(1:norder) = sum(cluster_order_sin(1:maxcln,1:norder), dim=1)/maxcln
+                        avcluster_order(1:norder)=avcluster_order(1:norder)+sqrt(avcluster_order_cos(:)**2+avcluster_order_sin(:)**2)
+                    else
+                        avcluster_order(1:norder) = avcluster_order(1:norder) + sum(cluster_ql(1:maxcln,1:norder), dim=1)/maxcln    
+                    end if
+                    rhoorder(:,:) = 0.0
+                    do i = 1, maxcln
                         call clorderprof(r, dim, maxcln, cluster(i)%members(:),&
                         cluster(i)%clsize, sidel, rhoorder, ordercum, ndrclus, drclus, &
                             &  cluster(i)%center(1:dim))
-                enddo
-                rhoorderav(:,:) = rhoorderav(:,:)+rhoorder(:,:)/real(maxcln, myprec)
-                ordercumav(:,:) = ordercumav(:,:)+ordercum(:,:)/real(maxcln, myprec)
-            end if  
+                    enddo
+                    rhoorderav(:,:) = rhoorderav(:,:)+rhoorder(:,:)/real(maxcln, myprec)
+                    ordercumav(:,:) = ordercumav(:,:)+ordercum(:,:)/real(maxcln, myprec)
+                end if  
+            endif
         end if
     end subroutine compute_order
 

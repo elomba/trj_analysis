@@ -101,7 +101,7 @@ contains
       implicit none
 
       sqf(1:nqmax) = sqf_d(1:nqmax)
-      if (run_clusters .and. run_sq) sqfcl(1:nqmax) = sqfcl_d(1:nqmax)
+      if (run_clusters .and. run_sq .and. geometry) sqfcl(1:nqmax) = sqfcl_d(1:nqmax)
       sqfp(1:nqmax, 1:nsp) = sqfp_d(1:nqmax, 1:nsp)
 
    end subroutine sq_transfer_gpu_cpu
@@ -142,7 +142,7 @@ contains
       end if
       qmin = lmaxx*fk(1)
       Allocate (sqf(nqmax), sqfp(nqmax, nsp), nq(0:nqmax))
-      if (run_clusters .and. run_sq) then
+      if (run_clusters .and. run_sq .and. geometry) then
          Allocate(sqcl(nqmax), sqfcl(nqmax))
          Allocate(sqfcl_d(nqmax))
          sqfcl_d(:) = 0.0
@@ -471,7 +471,7 @@ subroutine sq_clear()
    deallocate (nq)
    deallocate (sqf_d)
    deallocate (sqfp_d)
-   if (run_clusters) then
+   if (run_clusters.and.geometry) then
       deallocate (sqfcl)
       deallocate (sqfcl_d)
       deallocate (sqcl)

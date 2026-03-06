@@ -326,13 +326,18 @@ contains
          im = im + 1
          clcent(:) = cluster(i)%center(1:ndim)
          rclxyz(1:ndim, im) = clcent(1:ndim)
-      end do
+         if (geometry) then
+            cluster(i)%radio = radius(cluster(i)%members(:), clussize, clcent, sidel)
+         endif
+      enddo
       !
       ! Resize arrays if necessary
       !
       if (iconf==1) Then
-         rmcl = maxval(cluster(1:cluster_id)%radio)
-         drclus = 2*rmcl/ndrclus
+         if (geometry) then
+            rmcl = maxval(cluster(1:cluster_id)%radio)
+            drclus = 2*rmcl/ndrclus
+         endif
          if (2*maxval(cluster(1:cluster_id)%clsize) > nmaxcl) then
             write(*,'(" *** Warning !!: increasing nmaxcl=",i4," to ",i6)') nmaxcl, 2*maxval(cluster(1:cluster_id)%clsize)
             nmaxcl = 2*maxval(cluster(1:cluster_id)%clsize)
@@ -357,15 +362,17 @@ contains
          !
          ! Compute cluster-cluster structure factor
          !
-         if (run_sq) then
+         if (run_sq.and.geometry) then
             call sqfnDcl<<<tBlock, grid>>>(rclxyzd, cluster_id, maxcln, ndim, fk_d, sqfcl_d, nqmax, qmin2, dq)
          endif
          
          !
          ! Cluster-cluster pdf
          !
-         call rdfclcl2(ndim, rclxyz(1:ndim, 1:cluster_id), cluster_id, maxcln, sidel&
-         &, nrandom, side2, gclcl, gclr, gclr2, lsmax, deltar, volumen)
+         if (geometry) then
+            call rdfclcl2(ndim, rclxyz(1:ndim, 1:cluster_id), cluster_id, maxcln, sidel&
+            &, nrandom, side2, gclcl, gclr, gclr2, lsmax, deltar, volumen)
+         endif
       endif
       NTclus = suma + NTclus
       if (maxcln > cl_thresh) then
@@ -453,6 +460,7 @@ contains
             if (j <= nmaxcl) then
                dsph(j) = dsph(j) + cluster(i)%devsphere
                dratio(j) = dratio(j) + cluster(i)%ratio
+               ! number of clusters of size j 
                countcl(j) = countcl(j) + 1
             end if
             if (densav(i) > 1.0e-6) then
@@ -919,18 +927,27 @@ subroutine clusters_init(nmol)
    sizedist(:) = 0.0
    ekclaver = 0.0
    ekinclsav = 0.0
+   ! Print informational messages
    write(*,"(//' *** Clusters module initializing: G-DBSCAN starts from ',&
       i0'-particle clusters (recomended kmin>= 2*dim+1=',i0,')'/)") kmin,2*ndim+1
+   if (.not.geometry) then 
+      write(*,"(' ·· Cluster geometric analysis and correlations deactivated !'//)")
+   endif
    ! Open output files
    if (maxcln > cl_thresh) then
       open (io_centers_file, file=centers_filename)
       if (geometry) open (io_shape_file, file=fshape_filename)
+   else
+      write(*,"(//' *** Number of clusters',i4,' < threshold: ',i4)")maxcln, cl_thresh
+      write(*,"('     cluster correlation analysis deactivatedi !!'//)")
    end if
    open (io_clusevol_file, file=clusevol_filename)
    write (io_clusevol_file,"('# conf no. clusters % particles in cluster ', &
    & 8('x_av(',i1,')':))")nsp-1
-   write (io_shape_file, '("# cluster size, average deviation spherical shape, &
-   & average dev axial symmetry")')
+   if (geometry) then
+      write (io_shape_file, '("# cluster size, average deviation spherical shape, &
+      & average dev axial symmetry")')
+   endif
 
 end subroutine clusters_init
 
@@ -943,9 +960,11 @@ subroutine clusters_clear()
 
    ! Clean house
    ! deallocate (sizedist)
-   deallocate (densclus)
-   deallocate (radii)
-   deallocate (dratio, dsph, countcl)
+   if (geometry) then
+      deallocate (densclus)
+      deallocate (radii)
+      deallocate (dratio, dsph, countcl)
+   endif
 
    ! Close open files
    close (io_centers_file)

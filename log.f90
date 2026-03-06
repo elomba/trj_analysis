@@ -307,8 +307,13 @@ contains
       endif
       if (nrandom>0) Open (199, file="s2n.dat")
       if (run_clusters.and.maxcln>cl_thresh) then
-         write (99, "('#       r',16x,'g_cl(r)        g_cl-cl(r)    ',5x,16('g_',2i1,'(r)',8x:))")&
-         & (((j, k), k=j, nsp), j=1, nsp)
+         if (geometry) then 
+            write (99, "('#       r',16x,'g_cl(r)        g_cl-cl(r)    ',5x,16('g_',2i1,'(r)',8x:))")&
+            & (((j, k), k=j, nsp), j=1, nsp)
+         else
+            write (99, "('#       r',9x,16('g_',2i1,'(r)',8x:))")&
+            & (((j, k), k=j, nsp), j=1, nsp)
+         endif
          if (nrandom>0)  write (199, "('#       r',16x,'s2n(cl)       s2n')")
       else
          if (nsp<=6) then
@@ -353,8 +358,13 @@ contains
             endif
          endif
          if (run_clusters.and.maxcln>cl_thresh) then
-            Write (99, '(28f16.5)') i*deltar,&
-            & gclustav(i)/(deltaV*Nconf), 2*gclcl(i)/(deltaV*Nconf),(gmix(j, j:nsp), j=1, nsp)
+            if (geometry) then
+               Write (99, '(28f16.5)') i*deltar,&
+               & gclustav(i)/(deltaV*Nconf), 2*gclcl(i)/(deltaV*Nconf),(gmix(j, j:nsp), j=1, nsp)
+            else
+               Write (99, '(28f16.5)') i*deltar,&
+               & (gmix(j, j:nsp), j=1, nsp)
+            endif
          else
             if (nsp <= 6) then
                Write (99, '(16f16.5)') i*deltar,  (gmix(j, j:nsp), j=1, nsp)
@@ -385,37 +395,37 @@ contains
       nint(sum(sizedist(:))/real(nconf)), kmin
       avcldens = sum(sizedist(:)/real(nconf))/volumen
       Write (*, "(' ** Average cluster density ', f15.9)") avcldens
-      open (125, file='dens.dat')
-      open (126, file='radii.dat')
-      open (999, file='rhoprof.dat')
       open (1001, file='clustdistr.dat')
-      write (125, "('#      rho_cl        %clusters(rho_c)   ')")
+      if (geometry) then
+         open (125, file='dens.dat')
+         open (126, file='radii.dat')
+         open (999, file='rhoprof.dat')
+         write (125, "('#      rho_cl        %clusters(rho_c)   ')")
       !
-      ! Note, the cluster density distribution is commputed in units reduced with and
-      ! estimated particle diameters
       !
-      do i = 1, ndrho
-         write (125, "(5f15.7)") i*drho, real(densclus(i))/(sum(densclus(:))*drho)
-      end do
-      write (126, "('#      r                  RG_cl(r)')")
-      write (999, "('#      r                  rho_cl(r)')")
-      ! Average cluster density profile
-      if (ndim==3) then
-         write (999, '(2f15.6)') 0.0, rhoclusav(0)/(4*pi*((drclus/2)**3)/3.0*Nconf)
-      else
-         write (999, '(2f15.6)') 0.0, rhoclusav(0)/(pi*((drclus/2)**2)*Nconf)
-      end if
-      do i = 1, ndrclus
-         ri = i*drclus
-         if (ndim == 3) then
-            deltaV = 4*pi*((ri + drclus/2)**3 - (ri - drclus/2)**3)/3.0
+         do i = 1, ndrho
+            write (125, "(5f15.7)") i*drho, real(densclus(i))/(sum(densclus(:))*drho)
+         end do
+         write (126, "('#      r                  RG_cl(r)')")
+         write (999, "('#      r                  rho_cl(r)')")
+         ! Average cluster density profile
+         if (ndim==3) then
+           write (999, '(2f15.6)') 0.0, rhoclusav(0)/(4*pi*((drclus/2)**3)/3.0*Nconf)
          else
-            deltaV = pi*((ri + drclus/2)**2 - (ri - drclus/2)**2)
+            write (999, '(2f15.6)') 0.0, rhoclusav(0)/(pi*((drclus/2)**2)*Nconf)
          end if
-         if (radii(i) .ne. 0) write (126, "(2f15.7)") ri, (real(radii(i))/sum(radii(:))/drclus)
-         write (999, '(2f15.6)') ri, rhoclusav(i)/(deltaV*Nconf)
-      end do
-      if (run_sq) then
+         do i = 1, ndrclus
+            ri = i*drclus
+            if (ndim == 3) then
+               deltaV = 4*pi*((ri + drclus/2)**3 - (ri - drclus/2)**3)/3.0
+            else
+               deltaV = pi*((ri + drclus/2)**2 - (ri - drclus/2)**2)
+            end if
+            if (radii(i) .ne. 0) write (126, "(2f15.7)") ri, (real(radii(i))/sum(radii(:))/drclus)
+            write (999, '(2f15.6)') ri, rhoclusav(i)/(deltaV*Nconf)
+         end do
+      endif
+      if (run_sq.and.geometry) then
          open (102, file='sqcl.dat')
          write (102, "('#      Q            S_cl-cl(Q)')")
          do i = 1, nqmin
@@ -446,11 +456,18 @@ contains
       real(myprec) :: dV
       open (newunit=onunit, file='order.dat')
       if ( run_clusters.and.maxcln>cl_thresh) then
-         write (onunit, "('#   order   psi_m   psi_m_clust   ')")
-         do i = 1, norder
-            write (onunit, '(i3,4f12.5)') orderp(i), avorder(i)/real(nconf), &
-            & avcluster_order(i)/real(nconf)
-         end do
+         if (geometry) then
+            write (onunit, "('#   order   psi_m   psi_m_clust   ')")
+            do i = 1, norder
+               write (onunit, '(i3,4f12.5)') orderp(i), avorder(i)/real(nconf), &
+               & avcluster_order(i)/real(nconf)
+            end do
+         else
+            write (onunit, "('#   order   psi_m   ')")
+            do i = 1, norder
+               write (onunit, '(i3,4f12.5)') orderp(i), avorder(i)/real(nconf)
+            end do
+         endif
       else
          if (ndim==2) then
             write (onunit, "('#   order  Real(psi_m)  Im(psi_m)     |psi_m|  ')")
@@ -481,35 +498,37 @@ contains
          end if
  
          close (onunit)
-         if (run_clusters.and.maxcln>cl_thresh) then
-            open (newunit=onunit, file='order_per_clust.dat')
-            if (ndim==2) then
-               write (onunit, "('# Cluster    x           y    ',5x,15('Real(psi_m) Im(psi_m)(',i0,')',1x:))")(orderp(i),i=1,norder)
-               do i = 1, maxcln
-                  write (onunit, '(i5,15f13.5)') i, cluster(i)%center(1:ndim), (cluster_order_cos(i,j), cluster_order_sin(i,j), j=1, norder)
+         if (geometry) then
+            if (run_clusters.and.maxcln>cl_thresh) then
+               open (newunit=onunit, file='order_per_clust.dat')
+               if (ndim==2) then
+                  write (onunit, "('# Cluster    x           y    ',5x,15('Real(psi_m) Im(psi_m)(',i0,')',1x:))")(orderp(i),i=1,norder)
+                  do i = 1, maxcln
+                     write (onunit, '(i5,15f13.5)') i, cluster(i)%center(1:ndim), (cluster_order_cos(i,j), cluster_order_sin(i,j), j=1, norder)
+                  end do
+               else
+                  write (onunit, "('# Cluster    x          y           z   ',7x,15('Q_l(',i2,')'5x:))") (orderp(i), i=1, norder)
+                  do i = 1, maxcln
+                     write (onunit, '(i5,15f12.5)') i, cluster(i)%center(1:ndim), (cluster_ql(i,j), j=1, norder)
+                  end do
+               end if
+               close (onunit)
+               open (newunit=onunit, file='ordprof_clust.dat')
+               write (onunit, "('#      r     ',15('   rho_psi',i2,'(r)':))")(orderp(i), i=1, norder)
+               write (onunit, '(f10.5, 15f12.5)') 0.0, rhoorderav(0,1:norder)/(Nconf)
+               do i = 1, ndrclus
+                  write (onunit, '(f10.5, 15f12.5)') i*drclus, rhoorderav(i,1:norder)/(Nconf)
                end do
-            else
-               write (onunit, "('# Cluster    x          y           z   ',7x,15('Q_l(',i2,')'5x:))") (orderp(i), i=1, norder)
-               do i = 1, maxcln
-                  write (onunit, '(i5,15f12.5)') i, cluster(i)%center(1:ndim), (cluster_ql(i,j), j=1, norder)
+               close(onunit)
+               open (newunit=onunit, file='ordprof_clcum.dat')
+               write (onunit, "('#      r     ',15('   psi_cum',i2,'(r)':))")(orderp(i), i=1, norder)
+               write (onunit, '(f10.5, 15f12.5)') 0.0, ordercumav(0,1:norder)/(Nconf)
+               do i = 1, ndrclus
+                  write (onunit, '(f10.5, 15f12.5)') i*drclus, ordercumav(i,1:norder)/(Nconf)
                end do
+               close(onunit)
             end if
-            close (onunit)
-            open (newunit=onunit, file='ordprof_clust.dat')
-            write (onunit, "('#      r     ',15('   rho_psi',i2,'(r)':))")(orderp(i), i=1, norder)
-            write (onunit, '(f10.5, 15f12.5)') 0.0, rhoorderav(0,1:norder)/(Nconf)
-            do i = 1, ndrclus
-               write (onunit, '(f10.5, 15f12.5)') i*drclus, rhoorderav(i,1:norder)/(Nconf)
-            end do
-            close(onunit)
-            open (newunit=onunit, file='ordprof_clcum.dat')
-            write (onunit, "('#      r     ',15('   psi_cum',i2,'(r)':))")(orderp(i), i=1, norder)
-            write (onunit, '(f10.5, 15f12.5)') 0.0, ordercumav(0,1:norder)/(Nconf)
-            do i = 1, ndrclus
-               write (onunit, '(f10.5, 15f12.5)') i*drclus, ordercumav(i,1:norder)/(Nconf)
-            end do
-            close(onunit)
-         end if
+         endif
       end if   
    end subroutine print_order
 end module mod_log
