@@ -183,9 +183,9 @@ contains
          if (run_clusters) then
             if (iconf>1.and.maxcln>cl_thresh) then
                if (geometry) then
-                  write (*, "(' ** Average cluster radius',f8.3,' average &
+                  write (*, "(' ** Average cluster radius',f10.3,' average &
                      &cluster density ',f10.7)") avradio/iconf, averdens/iconf
-                  write (*, "(' ** Average cluster gyration radius',f8.3)") avrg/iconf
+                  write (*, "(' ** Average cluster gyration radius',f10.3)") avrg/iconf
                   write (*, "(' ** Internal cluster density  ',f10.7)")&
                      & sum(densav(:))/maxcln
                endif
