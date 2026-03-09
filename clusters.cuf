@@ -157,8 +157,8 @@ contains
       !
       implicit none
       integer, intent(IN) :: Iconf
-      integer :: i, j, k, cluster_id, icl, ip, ind, indr, maxclsz,&
-      & imaxcl, clsz, clussize, cmin, NP_lconf, icount, im, countlarge
+      integer :: i, j, k, cluster_id, icl, ip, ind, indr, &
+      & clsz, clussize, cmin, NP_lconf, icount, im, countlarge
       Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
       Real(myprec) :: denscl, rmcl, cdmax=0, factorv
       Real(kind=8) ::  mcl, ekcls, suma, rgsum, averg, volcl
@@ -372,8 +372,8 @@ contains
    subroutine cluster_geometry(Iconf)
       implicit none
       integer, intent(IN) :: Iconf
-      integer :: i, j, k, cluster_id, icl, ip, ind, indr, maxclsz,&
-      & imaxcl, clsz, clussize, cmin, NP_lconf, icount, im, countlarge
+      integer :: i, j, k, cluster_id, icl, ip, ind, indr, &
+      & clsz, clussize, cmin, NP_lconf, icount, im, countlarge
       Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
       Real(myprec) :: denscl, rmcl, cdmax=0, factorv
       Real(kind=8) ::  mcl, ekcls, suma, rclus, rcluster, rgsum, averg, volcl
@@ -458,16 +458,17 @@ contains
       implicit none
       integer, intent(INOUT) :: maxclni
       integer, dimension(:), allocatable:: mapcl
+      integer :: clcount, i, j, clsz, maxclsz
       contador(:) = 0
       ! maxclsz is the maximum size of all clusters for current configuration (in case needed)
       if (allocated(mapcl)) deallocate(mapcl)
-      allocate(mapcl(maxcli))
+      allocate(mapcl(maxclni))
       maxclsz = 0
       ! 
       ! Allocate size for cluster structure eliminating outliers 
       clcount = 0
       mapcl(:) = 0
-      do i = 1, cluster_id
+      do i = 1, maxclni
          clsz = count(label == i)
          if (clsz >= kmin) then
             clcount = clcount + 1
@@ -477,7 +478,6 @@ contains
             mapcl(i) = clcount
             if (clsz > maxclsz) then
                maxclsz = clsz
-               imaxcl = i
             end if
             cluster(clcount)%clsize = clsz
             allocate (cluster(clcount)%members(clsz))
