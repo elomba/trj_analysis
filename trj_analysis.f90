@@ -205,6 +205,12 @@ program trj_analysis
         ! BFS cluster search
         if (run_clusters) call cluster_search()
         
+        ! Compute SQ
+        if (run_sq) call SQcalc()
+         
+        ! Compute cluster properties
+        if (run_clusters) call cluster_analysis(i)
+        
         ! kinetic energy (if velocities available) 
         if (ex_vel) call thermo_kin(i, ndim)
         ! Run RDF
@@ -213,11 +219,7 @@ program trj_analysis
 
         ! Compute density profile along idir direction
         if (confined) call profile_comp(nthread, ndim, idir, pwall, deltar)
-        ! Compute SQ
-        if (run_sq) call SQcalc()
-         
-        ! Compute cluster properties
-        if (run_clusters) call cluster_analysis(i)
+  
         ! Compute potential energy
         if (run_thermo) call poteng(i, natoms)
 

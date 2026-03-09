@@ -162,6 +162,9 @@ contains
       Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
       Real(myprec) :: denscl, rmcl, cdmax=0, factorv
       Real(kind=8) ::  mcl, ekcls, suma, rgsum, averg, volcl
+      !
+      ! Initialize cluster structures
+      !
       if (iconf==1) call clusters_init(nmol)
       ! Cluster dynamics in picoseconds, to convert to velocity units if needed
       if (conf(4)%units == 'femtosecond' ) factorv = 0.001
@@ -172,41 +175,8 @@ contains
       if (maxcln < 1) maxcln = 1
       print *, ' maxcln', maxcln, iconf
       call memory_manager_cluster(maxcln)
+      call outlier_purge(maxcln) 
       Cluster_id = maxcln
-      contador(:) = 0
-      ! maxclsz is the maximum size of all clusters for current configuration (in case needed) 
-      maxclsz = 0
-      ! 
-      ! Allocate size for cluster structure
-      do i = 1, cluster_id
-         clsz = count(label == i)
-         if (clsz > maxclsz) then
-            maxclsz = clsz
-            imaxcl = i
-         end if
-         cluster(i)%clsize = clsz
-         allocate (cluster(i)%members(clsz))
-         allocate (cluster(i)%molfrac(nsp))
-         !
-      end do
-      ! 
-      ! Assign perticles to clusters
-      contador(:) = 0
-      do i = 1, Nmol
-         j = label(i)
-         if (j > 0) then
-            contador(j) = contador(j) + 1
-            cluster(j)%members(contador(j)) = i
-         end if
-      end do
-      clusid(:) = 0
-      do i = 1, cluster_id
-         ! identify to which cluster belongs each particle
-         do j = 1, cluster(i)%clsize
-            clusid(cluster(i)%members(j)) = I
-         end do
-      end do
-      clusid_d(1:nmol) = clusid(1:nmol)
       !
       ! Write trajectory file with centers of mass of clusters if sufficient clusters found
       !
@@ -483,7 +453,62 @@ contains
       endif
       rhoclusav(0:ndrclus) = rhoclusav(0:ndrclus) + rhoclus(0:ndrclus)/maxcln
    end subroutine cluster_geometry
-
+   
+   subroutine outlier_purge(maxclni)
+      implicit none
+      integer, intent(INOUT) :: maxclni
+      integer, dimension(:), allocatable:: mapcl
+      contador(:) = 0
+      ! maxclsz is the maximum size of all clusters for current configuration (in case needed)
+      if (allocated(mapcl)) deallocate(mapcl)
+      allocate(mapcl(maxcli))
+      maxclsz = 0
+      ! 
+      ! Allocate size for cluster structure eliminating outliers 
+      clcount = 0
+      mapcl(:) = 0
+      do i = 1, cluster_id
+         clsz = count(label == i)
+         if (clsz >= kmin) then
+            clcount = clcount + 1
+            !
+            ! Remap cluster IDs
+            !
+            mapcl(i) = clcount
+            if (clsz > maxclsz) then
+               maxclsz = clsz
+               imaxcl = i
+            end if
+            cluster(clcount)%clsize = clsz
+            allocate (cluster(clcount)%members(clsz))
+            allocate (cluster(clcount)%molfrac(nsp))
+         endif
+         !
+      end do
+      if (clcount==0) then 
+         write(*, "(' *** Error: all clusters are outliers !!!')")
+         stop 
+      endif
+      maxclni = clcount
+      ! 
+      ! Assign perticles to clusters
+      contador(:) = 0
+      do i = 1, Nmol
+         j = mapcl(label(i))
+         if (j > 0) then
+            contador(j) = contador(j) + 1
+            cluster(j)%members(contador(j)) = i
+         end if
+      end do
+      clusid(:) = 0
+      do i = 1, maxclni
+         ! identify to which cluster belongs each particle
+         do j = 1, cluster(i)%clsize
+            clusid(cluster(i)%members(j)) = I
+         end do
+      end do
+      clusid_d(1:nmol) = clusid(1:nmol)
+   end subroutine outlier_purge
 
    subroutine memory_manager_cluster(maxcln)
       !
