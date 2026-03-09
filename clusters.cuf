@@ -430,8 +430,10 @@ contains
             denscl = denscl + cluster(i)%cldens
             rclus = rclus + rcluster
             ! Determine maximum cluster density
-            if (cluster(i)%cldens > cdmax) then
-               cdmax = cluster(i)%cldens
+            if (iconf == 1) then
+               if (cluster(i)%cldens > cdmax) then
+                  cdmax = cluster(i)%cldens
+               endif
             endif
       end do
       avrg = avrg +averg/maxcln
@@ -443,7 +445,7 @@ contains
             clussize = cluster(i)%clsize
             ind = nint(cluster(i)%cldens/drho)
             print *, ind, ndrho, drho, cdmax
-            if (ind <= ndrho) densclus(ind) = densclus(ind) + 1
+            if (ind <= ndrho .and. ind>0) densclus(ind) = densclus(ind) + 1
       end do
       averdens = averdens + denscl/maxcln
       avradio = avradio + rclus/maxcln
