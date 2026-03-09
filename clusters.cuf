@@ -937,7 +937,11 @@ subroutine clusters_init(nmol)
    ! Open output files
    if (maxcln > cl_thresh) then
       open (io_centers_file, file=centers_filename)
-      if (geometry) open (io_shape_file, file=fshape_filename)
+      if (geometry) then 
+         open (io_shape_file, file=fshape_filename)
+         write (io_shape_file, '("# cluster size, average deviation spherical shape, &
+         & average dev axial symmetry")')
+      endif
    else
       write(*,"(//' *** Number of clusters',i4,' < threshold: ',i4)")maxcln, cl_thresh
       write(*,"('     cluster correlation analysis deactivatedi !!'//)")
@@ -945,10 +949,7 @@ subroutine clusters_init(nmol)
    open (io_clusevol_file, file=clusevol_filename)
    write (io_clusevol_file,"('# conf no. clusters % particles in cluster ', &
    & 8('x_av(',i1,')':))")nsp-1
-   if (geometry) then
-      write (io_shape_file, '("# cluster size, average deviation spherical shape, &
-      & average dev axial symmetry")')
-   endif
+   
 
 end subroutine clusters_init
 
