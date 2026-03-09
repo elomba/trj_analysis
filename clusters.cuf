@@ -266,6 +266,7 @@ contains
       ! Count particle types
       do i = 1, cluster_id
          j = cluster(i)%clsize
+         print *, ' cluster=',i, j
          molfrac(:) = 0.0
          do k = 1, j
             ip = cluster(i)%members(k)
@@ -712,10 +713,6 @@ contains
             active = .true.
             ! Active cluster expansion: mark neighbors of j as border if not visited
             border(gadjacency(goffset(j):goffset(j)+gneighbors(j)-1)) = .true.
-            ! do i = goffset(j), goffset(j) + gneighbors(j) - 1
-            !    k = gadjacency(i)
-            !    border(k) = .true.
-            ! end do
          end if
       end if
    end if
