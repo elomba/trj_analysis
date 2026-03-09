@@ -170,6 +170,7 @@ contains
       ! maxcln is the number of clusters and it's being transferred through mod_common
       !
       if (maxcln < 1) maxcln = 1
+      print *, ' maxcln', maxcln, iconf
       call memory_manager_cluster(maxcln)
       Cluster_id = maxcln
       contador(:) = 0
