@@ -442,6 +442,7 @@ contains
       do i = 1, cluster_id
             clussize = cluster(i)%clsize
             ind = nint(cluster(i)%cldens/drho)
+            print *, ind, ndrho, drho, cdmax
             if (ind <= ndrho) densclus(ind) = densclus(ind) + 1
       end do
       averdens = averdens + denscl/maxcln
