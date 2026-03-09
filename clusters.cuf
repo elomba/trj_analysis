@@ -387,7 +387,7 @@ contains
                      dsph(i) = 0.0
                      dratio(i) = 0.0
                   end if
-                  write(io_shape_file, '(i5,f15.7,f15.7)') i, dsph(i), dratio(i)
+                  write(io_shape_file, '(i6,f15.7,f15.7)') i, dsph(i), dratio(i)
                end do
                close(io_shape_file)
             end if
