@@ -426,7 +426,6 @@ contains
             else
                volcl = pi*rcluster**2
             end if
-            print *, clussize, volcl, rcluster, real(clussize)/volcl
             cluster(i)%cldens = real(clussize)/volcl
             indr = nint(cluster(i)%rg/drclus)
             if (indr <= ndr) radii(indr) = radii(indr) + 1
