@@ -173,7 +173,6 @@ contains
       ! maxcln is the number of clusters and it's being transferred through mod_common
       !
       if (maxcln < 1) maxcln = 1
-      print *, ' maxcln', maxcln, iconf
       call memory_manager_cluster(maxcln)
       call outlier_purge(maxcln) 
       Cluster_id = maxcln
@@ -237,7 +236,6 @@ contains
       ! Count particle types
       do i = 1, cluster_id
          j = cluster(i)%clsize
-         print *, ' cluster=',i, j
          molfrac(:) = 0.0
          do k = 1, j
             ip = cluster(i)%members(k)
