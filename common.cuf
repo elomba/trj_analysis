@@ -89,7 +89,7 @@ module mod_common
       confined = .false.
    character :: fname99*18
    character, dimension(:), allocatable :: atoms*8
-   character(len=:), allocatable :: tunits, vunits
+   character(len=:), allocatable :: , vunits
    character :: ener_name*12, press_name*12
    real(myprec) :: epotperatom, epot,epotav
    real(double) :: pressure, pressav, pxyz(6)
@@ -303,7 +303,13 @@ contains
       real(myprec), intent(in) :: factor
       integer, intent(in) :: natoms, ndim, nthread, idir, nsp
       character(*), intent(in) :: units
-
+      if (rcl>0) then
+         if (units == 'lj') then
+            write(*,"(' *** Note: rcl (NN and/or connectivity distance) set to ',f8.4,' σ')" ) rcl
+         else
+            write(*,"(' *** Note: rcl (NN and/or connectivity distance) set to ',f8.4,' Å')" ) rcl
+         endif
+      endif
       nmol = natoms !! WARN, change when molecules are implemented
       natms = natoms !! WARN, assign for compatibility
       ! CUDA number of blocks
