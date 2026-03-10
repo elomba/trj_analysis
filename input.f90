@@ -42,7 +42,6 @@ module mod_input
    use mod_common
    use cudafor
    use sorts
-   use mod_nc_conf, only : conf
    implicit none
    integer, allocatable, dimension(:) :: sp_types_selected, nw
    integer, dimension(3) :: ncfs_from_to
