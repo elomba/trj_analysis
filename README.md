@@ -186,11 +186,11 @@ The input file uses Fortran namelist format. Sample configurations are provided 
 #### `/INPUT_CL/` - Cluster Analysis
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `dcl` | real | Grid spacing for cluster distributions |
+| `dcl` | real | Grid spacing for cluster distributions (no. of clusters) |
 | `minPts` | integer | Minimum cluster size for analysis (defaults to 2*ndim+1)|
-| `ndrclus` | integer | Bins for cluster radial profiles |
-| `cl_thresh` | integer | Minimum cluster count for correlations |
-| `geometry` | logical | Controls whether geometry & correlation are computed (.t.) |
+| `ndrclus` | integer | Bins for cluster radial profiles (defaults to 100) |
+| `cl_thresh` | integer | Minimum cluster count for correlations (defaults to 10) |
+| `geometry` | logical | Controls whether geometry & correlation are computed (defaults to .t.) |
 
 #### `/INPUT_ORD/` - Order Parameters
 | Parameter | Type | Description |
