@@ -82,12 +82,10 @@ contains
       open (newunit=io_input_file, file=input_filename, action='read')
       read (unit=io_input_file, nml=INPUT)
       if (rdf_sq_cl_dyn_sqw_conf_ord(3) == .true.) then
-         if (units == 'real') then
-            write(*,"(' *** Note: rcl (NN and/or connectivity distance) set to ',f8.4,' Å')" ) rcl
-         elseif (units == 'lj') then
+         if (tunits == 'lj') then
             write(*,"(' *** Note: rcl (NN and/or connectivity distance) set to ',f8.4,' σ')" ) rcl
          else
-            write(*,"(' *** Note: rcl (NN and/or connectivity distance) set to ',f8.4,' (units of length)')" ) rcl
+            write(*,"(' *** Note: rcl (NN and/or connectivity distance) set to ',f8.4,' Å')" ) rcl
          endif
          minPts = 2*ndim+1
       endif
