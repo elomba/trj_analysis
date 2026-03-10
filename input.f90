@@ -81,8 +81,7 @@ contains
       ! Open and read main INPUT namelist
       open (newunit=io_input_file, file=input_filename, action='read')
       read (unit=io_input_file, nml=INPUT)
-      print *, minPts, ndim, nsp, rcl
-      if (run_clusters) then
+      if (rdf_sq_cl_dyn_sqw_conf_ord(3) == .true.) then
          write(*,"(' *** Note: rcl (NN and/or connectivity distance) set to ',f8.4,' Å')" ) rcl
          minPts = 2*ndim+1
       endif
