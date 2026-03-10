@@ -64,7 +64,7 @@ module mod_common
    integer, device, allocatable, dimension(:, :) :: ipos_d, densprof_d, histomix_d
    real(kind=8) :: ecaver
    real(myprec) :: tuniti, volumen, side, side2, dq, densty, Tfact, taver, &
-      temperature, rdenst, volumen_r, tstep, pwall, pwallp, drclus
+      temperature, rdenst, volumen_r, tstep, pwall, pwallp, drclus, rcl=-1.0
    real(myprec), dimension(3) :: sidel, sidelv, rlow
    real, device, dimension(3) :: fk_d, sidel_d
    real(myprec), dimension(3, 3) :: cell

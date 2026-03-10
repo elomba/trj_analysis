@@ -54,7 +54,7 @@ module mod_input
             & jump=1, norder=1, nnbond=0, cl_thresh=10
    logical :: use_cell = .true., run_order = .false., print_orderp=.false., geometry=.true.
    logical, dimension(7) :: rdf_sq_cl_dyn_sqw_conf_ord
-   real(myprec) :: deltar, rcl=-1.0, dcl, qmin, qmax, rcrdf, rclcl=0.0, &
+   real(myprec) :: deltar, dcl, qmin, qmax, rcrdf, rclcl=0.0, &
       tmax=-1, tmaxp=-1, tlimit=-1, potengmargin=0.0
    real(myprec), allocatable, dimension(:) :: mat, bsc, charge, qw, tmqw
    integer, allocatable, dimension(:) :: orderp
