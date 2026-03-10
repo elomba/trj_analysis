@@ -190,8 +190,8 @@ contains
       end do
    end subroutine RDFcomp
 
-   subroutine rdfcl(dim, members, nm, sidel, side2, g, lsmax, deltar, dens, kmin)
-      integer, intent(IN) :: nm, lsmax, kmin, dim
+   subroutine rdfcl(dim, members, nm, sidel, side2, g, lsmax, deltar, dens, minPts)
+      integer, intent(IN) :: nm, lsmax, minPts, dim
       integer, intent(IN) :: members(nm)
       real, intent(IN) :: sidel(3), side2, deltar, dens
       real, intent(INOUT) :: g(lsmax)
@@ -201,8 +201,8 @@ contains
       fact = 1.0/dens
       do k = 1, nm
          i = members(k)
-         if (k .ne. kmin) then
-            j = members(kmin)
+         if (k .ne. minPts) then
+            j = members(minPts)
             rv(1:dim) = r(1:dim, i) - r(1:dim, j)
             ! PBC (unwrap if necessary)
             rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))

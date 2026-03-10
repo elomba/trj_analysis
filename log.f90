@@ -102,7 +102,7 @@ contains
                & ' ns, cpu time per conf.=',f7.2,' s:'/)") nstep, nstep*tstep/1000.0, (cpu1 - cpu0)/nprint
          endif
          if (run_clusters) then
-            Write (*, "( ' ** Clusters >= ',i3,' particles being analyzed '/)") kmin
+            Write (*, "( ' ** Clusters >= ',i3,' particles being analyzed '/)") minPts
          endif
          cpu0 = cpu1
          if (run_thermo) then
@@ -392,7 +392,7 @@ contains
       real(myprec) :: avcldens, deltaV, ri, suma, norm
       Write (*, "(' ** Average total number of particles in clusters ', f10.2)") NTclus/nconf
       Write (*, "(' ** Average total number of clusters ', I5,' larger than ',i3)") &
-      nint(sum(sizedist(:))/real(nconf)), kmin
+      nint(sum(sizedist(:))/real(nconf)), minPts
       avcldens = sum(sizedist(:)/real(nconf))/volumen
       Write (*, "(' ** Average cluster density ', f15.9)") avcldens
       open (1001, file='clustdistr.dat')

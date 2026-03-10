@@ -290,8 +290,8 @@ contains
    end subroutine sq_init
 
 
-   attributes(global) subroutine sqfact(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, kmin)
-   integer, value, intent(IN) :: Nmol, dim, nsp, kmax, kmin
+   attributes(global) subroutine sqfact(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, minPts)
+   integer, value, intent(IN) :: Nmol, dim, nsp, kmax, minPts
    integer, intent(IN) :: itype(Nmol), ntype(nsp), ipos(nsp, Nmol)
    real, dimension(3, Nmol), intent(IN) :: r_d
    real(kind=4), intent(INOUT) :: sqf(kmax), sqfp(kmax, nsp)
@@ -302,7 +302,7 @@ contains
    real(kind=4), intent(IN) :: fk(dim)
    integer :: i, j, k, ind, it, ia
    k = (blockidx%x - 1)*blockdim%x + threadidx%x
-   if (k .le. kmax .and. k .ge. kmin) then
+   if (k .le. kmax .and. k .ge. minPts) then
       fk1 = fk(1)
       fk2 = fk(2)
       fk3 = fk(3)
@@ -349,8 +349,8 @@ contains
    end if
 end subroutine sqfact
 
-attributes(global) subroutine sqfact2(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, kmin)
-integer, value, intent(IN) :: Nmol, dim, nsp, kmax, kmin
+attributes(global) subroutine sqfact2(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, minPts)
+integer, value, intent(IN) :: Nmol, dim, nsp, kmax, minPts
 integer, intent(IN) :: itype(Nmol), ntype(nsp), ipos(nsp, Nmol)
 real, dimension(2, Nmol), intent(IN) :: r_d
 real(kind=4), intent(INOUT) :: sqf(kmax), sqfp(kmax, nsp)
@@ -360,7 +360,7 @@ real(kind=8) :: sumcx, sumsx, sumcy, sumsy, sumcpx, sumspx, sumcpy, sumspy
 real(kind=4), intent(IN) :: fk(dim)
 integer :: i, j, k, ind, it, ia
 k = (blockidx%x - 1)*blockdim%x + threadidx%x
-if (k .le. kmax .and. k .ge. kmin) then
+if (k .le. kmax .and. k .ge. minPts) then
    fk1 = fk(1)
    fk2 = fk(2)
    sumcx = 0

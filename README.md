@@ -187,7 +187,7 @@ The input file uses Fortran namelist format. Sample configurations are provided 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `dcl` | real | Grid spacing for cluster distributions |
-| `kmin` | integer | Minimum cluster size for analysis |
+| `minPts` | integer | Minimum cluster size for analysis (defaults to 2*ndim+1)|
 | `ndrclus` | integer | Bins for cluster radial profiles |
 | `cl_thresh` | integer | Minimum cluster count for correlations |
 | `geometry` | logical | Controls whether geometry & correlation are computed (.t.) |

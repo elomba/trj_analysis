@@ -29,7 +29,7 @@
 &INPUT_CL
   dcl=6.0
   ndrclus=200
-  kmin=3
+  minPts=3
 /
 &INPUT_DYN
 nbuffer=6 ! No.of time origins to compute dynamics

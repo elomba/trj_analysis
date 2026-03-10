@@ -49,7 +49,7 @@ module mod_input
    !
    ! nthread : number of threads for CUDA kernels is preset to 64 by default, beware of larger values for big systems
    !
-   integer :: nthread=128, ndim, kmin=3,  idir=0, nsp, nbuffer=2, potnbins=100, nqw=0, &
+   integer :: nthread=128, ndim, minPts=3,  idir=0, nsp, nbuffer=2, potnbins=100, nqw=0, &
             & jump=1, norder=1, nnbond=0, cl_thresh=10
    logical :: use_cell = .true., run_order = .false., print_orderp=.false., geometry=.true.
    logical, dimension(7) :: rdf_sq_cl_dyn_sqw_conf_ord
@@ -66,7 +66,7 @@ module mod_input
    namelist /INPUT_SP/ sp_types_selected, sp_labels, mat
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
    namelist /INPUT_SQ/ qmax, qmin, bsc
-   namelist /INPUT_CL/ dcl, kmin, ndrclus, cl_thresh, geometry
+   namelist /INPUT_CL/ dcl, minPts, ndrclus, cl_thresh, geometry
    namelist /INPUT_CONF/ idir
    namelist /INPUT_DYN/ nbuffer, tmax, tmaxp, tlimit, jump
    namelist /INPUT_SQW/ qw, tmqw
@@ -83,6 +83,7 @@ contains
       read (unit=io_input_file, nml=INPUT)
       if (run_clusters) then
          write(*,"(' *** Note: rcl (NN and/or connectivity distance) set to ',f8.4,' Å')" ) rcl
+         minPts = 2*ndim+1
       endif
       ! Allocate arrays for species properties
       allocate(sp_types_selected(nsp))
@@ -114,6 +115,7 @@ contains
             write(*,'("*** Error: rcl (cluster distance) must be positive to compute clusters !")')
             stop
          endif
+        write(*,"(' *** Note: minPts (minimum number of points for cluster formation) set to ',i3)" ) minPts
       endif
       if (rdf_sq_cl_dyn_sqw_conf_ord(4) == .true. &
       &  .or. rdf_sq_cl_dyn_sqw_conf_ord(5) == .true. ) then 

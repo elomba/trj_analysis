@@ -300,9 +300,9 @@ contains
         fijd = (i*maxjd + j)
     end function fijd
 
-    attributes(global) subroutine gpu_graph_cell(r, Nmol, dim, rcl2, sidel, kmin)
+    attributes(global) subroutine gpu_graph_cell(r, Nmol, dim, rcl2, sidel, minPtstststs)
     ! Graph construction on GPU using linked cells
-        integer, value, intent(IN) :: Nmol, dim, kmin
+        integer, value, intent(IN) :: Nmol, dim, minPtststststs
         real(myprec), value :: rcl2
         real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
         real(myprec)  :: rv(3), rr2
@@ -342,15 +342,15 @@ contains
             end do
             ! determine number of neighbors and core status
             gneighbors(i) = counter
-            ! If number of neighbors >= kmin - 1 then mark as core node
-            if (counter >= kmin - 1) gcore(i) = .true.
+            ! If number of neighbors >= minPts - 1 then mark as core node
+            if (counter >= minPts - 1) gcore(i) = .true.
         end if
     end subroutine gpu_graph_cell
 
-    attributes(global) subroutine gpu_graf(r, Nmol, dim, rcl2, sidel, kmin)
+    attributes(global) subroutine gpu_graf(r, Nmol, dim, rcl2, sidel, minPts)
         ! Simple GPU graph construction without linked cells 
         integer, value, intent(IN) :: Nmol, dim
-        integer, value :: kmin
+        integer, value :: minPts
         real, value :: rcl2
         real(kind=4), intent(IN) :: r(dim, Nmol), sidel(dim)
         real(kind=4) :: rv(3), rr2
@@ -371,7 +371,7 @@ contains
                 end if
             end do
             gneighbors(i) = counter
-            if (counter >= kmin - 1) gcore(i) = .true.
+            if (counter >= minPts - 1) gcore(i) = .true.
         end if
     end subroutine gpu_graf
 

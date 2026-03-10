@@ -115,7 +115,7 @@ contains
       real, intent(IN) :: sidel(3), side2
       type(clus), dimension(maxcln), intent(inout) :: cluster
       real :: rv(3), rr2, rr, fact
-      integer :: k, kk, i, j, ind, iti, itj, ij, ir, c, d, cc, dd, kmin, id
+      integer :: k, kk, i, j, ind, iti, itj, ij, ir, c, d, cc, dd, minPts, id
       real(myprec) :: mu, mu2, xmu
       real(myprec) :: y0, y1, y2, y3, a0, a1, a2, a3
       real(double) :: engcl

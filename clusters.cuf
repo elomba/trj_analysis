@@ -468,7 +468,7 @@ contains
       mapcl(:) = 0
       do i = 1, maxclni
          clsz = count(label == i)
-         if (clsz >= kmin) then
+         if (clsz >= minPts) then
             clcount = clcount + 1
             !
             ! Remap cluster IDs
@@ -624,7 +624,7 @@ contains
       !
       ! Neighbors are determined with and without a linked-cell method
       if (use_cell) then
-         call gpu_graph_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, kmin)
+         call gpu_graph_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, minPtststs)
       else
          call gpu_graf<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, kmin)
       end if
