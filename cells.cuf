@@ -300,7 +300,7 @@ contains
         fijd = (i*maxjd + j)
     end function fijd
 
-    attributes(global) subroutine gpu_graph_cell(r, Nmol, dim, rcl2, sidel, minPtstststs)
+    attributes(global) subroutine gpu_graph_cell(r, Nmol, dim, rcl2, sidel, minPts)
     ! Graph construction on GPU using linked cells
         integer, value, intent(IN) :: Nmol, dim, minPtststststs
         real(myprec), value :: rcl2
