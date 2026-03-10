@@ -624,9 +624,9 @@ contains
       !
       ! Neighbors are determined with and without a linked-cell method
       if (use_cell) then
-         call gpu_graph_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, minPtststs)
+         call gpu_graph_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, minPts)
       else
-         call gpu_graf<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, kmin)
+         call gpu_graf<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, minPts)
       end if
       time_gpu = gptime(stopEvent, startEvent)
       tgraph = tgraph + time_gpu
@@ -696,7 +696,7 @@ contains
             ! expanding until no more border nodes found.
             do while (active)
                active_d = .false.
-               call gbfs<<<nbcuda, nthread>>>(Nmol, gborder, gcore, glabel, cluster_id, kmin, active_d)
+               call gbfs<<<nbcuda, nthread>>>(Nmol, gborder, gcore, glabel, cluster_id, minPts, active_d)
                istat = cudaDeviceSynchronize()
                active = active_d
             end do
@@ -715,10 +715,10 @@ contains
       maxcln = cluster_id
    end subroutine cluster_search
 
-   attributes(global) subroutine gbfs(Nmol, border, core, label, cluster_id, kmin, active)
+   attributes(global) subroutine gbfs(Nmol, border, core, label, cluster_id, minPts, active)
    ! GPU BFS routine, uses neighbor lists to run through adjacent nodes, marks visited nodes and border nodes.
    ! Starts from border nodes and border is being expanded. Completely parallel implementation.
-   integer, value, intent(IN) :: Nmol, cluster_id, kmin
+   integer, value, intent(IN) :: Nmol, cluster_id, minPts
    logical, intent(INOUT) :: active
    logical(kind=1), intent(INOUT) ::  border(Nmol), core(Nmol)
    integer, intent(INOUT) ::  label(Nmol)
@@ -953,7 +953,7 @@ subroutine clusters_init(nmol)
    ekinclsav = 0.0
    ! Print informational messages
    write(*,"(//' *** Clusters module initializing: G-DBSCAN starts from ',&
-      i0'-particle clusters (recomended kmin>= 2*dim+1=',i0,')'/)") kmin,2*ndim+1
+      i0'-particle clusters (recomended minPts>= 2*dim+1=',i0,')'/)") minPts,2*ndim+1
    if (.not.geometry) then 
       write(*,"(' ·· Cluster geometric analysis and correlations deactivated !'//)")
    endif

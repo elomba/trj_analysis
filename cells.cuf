@@ -302,7 +302,7 @@ contains
 
     attributes(global) subroutine gpu_graph_cell(r, Nmol, dim, rcl2, sidel, minPts)
     ! Graph construction on GPU using linked cells
-        integer, value, intent(IN) :: Nmol, dim, minPtststststs
+        integer, value, intent(IN) :: Nmol, dim, tstststs
         real(myprec), value :: rcl2
         real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
         real(myprec)  :: rv(3), rr2
