@@ -237,6 +237,7 @@ All outputs are written to the working directory with descriptive filenames.
 - `order.dat` - Averaged Steinhardt order parameters ⟨Ql⟩
 - `order_per_mol.dat` - Per-particle order parameters ⟨ql⟩ (if `print_orderp=.true.`)
 - `last_clconf.dat` - Final configuration with cluster IDs
+- `last_conf.lammpstrj` - Final complete configuration with orginal IDs
 
 ### Dynamics
 - `dyn.dat` - Mean squared displacement, velocity autocorrelation function
