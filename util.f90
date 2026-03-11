@@ -46,7 +46,7 @@ module mod_util
    use mod_input, only : input_clear, sp_types_selected, ncfs_from_to, rdf_sq_cl_dyn_sqw_conf_ord, rcl, run_order
    use mod_cells, only : cells_init_post_nc_read, cells_init_pre_nc_read, cells_clear, use_cell
    use mod_thermo, only : thermo_clear
-   use mod_nc_conf, only : wtypes, nmconf, orgty, wtypes
+   use mod_nc_conf, only : wtypes, nmconf, orgty, wtypes, natoms
    use mod_order, only : order_init, order_clear, compute_order, norder
 contains
    subroutine gpu_and_header(startEvent,stopEvent,gpudevice)
