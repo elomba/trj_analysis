@@ -294,18 +294,24 @@ contains
 
    subroutine print_last_clustconf()
       ! 
-      ! Print last cluster configuration in LAMMPS format
+      ! Print last cluster configuration in LAMMPS format readable by VMD. 
+      ! This is useful to visualize the clusters in the last configuration 
+      ! of the trajectory.
       ! Atom type is set to original type + cluster size
+      ! Last complete system configuration is also printed in last.lammpstrj,
+      ! with original atom types, for reference.
       !
       use mod_common, only : cluster, itype, r, sidel, nstep, ex_vel, Nconf
       use mod_input,only : ndim
       use mod_nc_conf, only : org
       implicit none
       ! maxcolor is set to 32, so cluster size distinguished by color in VMD
-      integer :: i, j, k, icl, id, io_lastclconf, natcl, maxcolor=32
+      integer :: i, j, k, icl, id, io_lastclconf, natcl, maxcolor=32, io_lastconf
       natcl = sum(cluster(1:maxcln)%clsize)
       open(newunit=io_lastclconf, file='last_clconf.lammpstrj', status='replace')
+      open(newunit=io_lastconf, file='last_conf.lammpstrj', status='replace')
       write (io_lastclconf, "('ITEM: TIMESTEP'/I12/'ITEM: NUMBER OF ATOMS'/I12/'ITEM: BOX BOUNDS pp pp pp')") nstep, natcl
+      write (io_lastconf, "('ITEM: TIMESTEP'/I12/'ITEM: NUMBER OF ATOMS'/I12/'ITEM: BOX BOUNDS pp pp pp')") nstep, Natoms
       write (io_lastclconf, "(2f15.7)") (org(i,1), org(i,1)+sidel(i), i=1, ndim)
       if (ndim == 2) write (io_lastclconf, "('-0.5 0.5')")
       if (ex_vel) then
@@ -313,6 +319,14 @@ contains
       else
          write (io_lastclconf, "('ITEM: ATOMS id type x y z')")
       end if
+      write (io_lastconf, "(2f15.7)") (org(i,1), org(i,1)+sidel(i), i=1, ndim)
+      if (ndim == 2) write (io_lastconf, "('-0.5 0.5')")
+      if (ex_vel) then
+         write (io_lastconf, "('ITEM: ATOMS id type x y z vx vy vz')")
+      else
+         write (io_lastconf, "('ITEM: ATOMS id type x y z')")
+      end if   
+
       icl = 0
       do i = 1, maxcln
          j = cluster(i)%clsize
@@ -328,7 +342,19 @@ contains
                end if
          end do
       end do
+
+         ! Print last complete system configuration with original atom types for reference
+      do i = 1, Natoms
+         if (ndim == 3) then
+            write (io_lastconf, "(I8,I4,3F15.7,3F15.7)") &
+               & i, itype(i), r(1:ndim,id)+org(1:ndim,1)
+         else
+            write (io_lastconf, "(I8,I4,2F15.7,3F15.7)") &
+               & i, itype(i), r(1:ndim,id)+org(1:ndim,1), 0.0
+         end if
+      end do
       close(io_lastclconf)
+      close(io_lastconf)
    end subroutine print_last_clustconf
 
    
