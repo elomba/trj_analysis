@@ -453,7 +453,7 @@ contains
       rhoclusav(0:ndrclus) = rhoclusav(0:ndrclus) + rhoclus(0:ndrclus)/maxcln
    end subroutine cluster_geometry
    
-   subroutine outlier_purge(maxclni, purge))
+   subroutine outlier_purge(maxclni, purge)
       implicit none
       logical, intent(IN) :: purge
       integer, intent(INOUT) :: maxclni
