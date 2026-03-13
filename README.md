@@ -190,6 +190,7 @@ The input file uses Fortran namelist format. Sample configurations are provided 
 | `ndrclus` | integer | Bins for cluster radial profiles (defaults to 100) |
 | `cl_thresh` | integer | Minimum cluster count for correlations (defaults to 10) |
 | `geometry` | logical | Controls whether geometry & correlation are computed (defaults to .t.) |
+| `outliers_purge`| logical | If true outliers are purged from the list of clusters
 
 #### `/INPUT_ORD/` - Order Parameters
 | Parameter | Type | Description |

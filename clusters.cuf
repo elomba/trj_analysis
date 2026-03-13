@@ -174,7 +174,10 @@ contains
       !
       if (maxcln < 1) maxcln = 1
       call memory_manager_cluster(maxcln)
-      call outlier_purge(maxcln) 
+      ! Cluster purge based on size threshold (minPts)
+      if (outliers_purge) then
+         call outlier_purge(maxcln)
+      endif
       Cluster_id = maxcln
       !
       ! Write trajectory file with centers of mass of clusters if sufficient clusters found
