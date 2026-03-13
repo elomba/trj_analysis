@@ -175,9 +175,7 @@ contains
       if (maxcln < 1) maxcln = 1
       call memory_manager_cluster(maxcln)
       ! Cluster purge based on size threshold (minPts)
-      if (outliers_purge) then
-         call outlier_purge(maxcln)
-      endif
+      call outlier_purge(maxcln, outliers_purge)
       Cluster_id = maxcln
       !
       ! Write trajectory file with centers of mass of clusters if sufficient clusters found
@@ -455,8 +453,9 @@ contains
       rhoclusav(0:ndrclus) = rhoclusav(0:ndrclus) + rhoclus(0:ndrclus)/maxcln
    end subroutine cluster_geometry
    
-   subroutine outlier_purge(maxclni)
+   subroutine outlier_purge(maxclni, purge))
       implicit none
+      logical, intent(IN) :: purge
       integer, intent(INOUT) :: maxclni
       integer, dimension(:), allocatable:: mapcl
       integer :: clcount, i, j, clsz, maxclsz
@@ -471,7 +470,10 @@ contains
       mapcl(:) = 0
       do i = 1, maxclni
          clsz = count(label == i)
-         if (clsz >= minPts) then
+         !
+         ! Eliminate clusters smaller than minPts if purge is true, otherwise keep all clusters
+         !
+         if (clsz >= minPts .or. .not. purge) then
             clcount = clcount + 1
             !
             ! Remap cluster IDs
