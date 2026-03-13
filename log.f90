@@ -102,7 +102,11 @@ contains
                & ' ns, cpu time per conf.=',f7.2,' s:'/)") nstep, nstep*tstep/1000.0, (cpu1 - cpu0)/nprint
          endif
          if (run_clusters) then
-            Write (*, "( ' ** Clusters >= ',i3,' particles being analyzed '/)") minPts
+            if (outliers_purge) then
+               Write (*, "( ' ** Clusters >= ',i3,' particles being analyzed. Outliers purged. '/)") minPts
+            else
+               Write (*, "( ' ** Clusters >= ',i3,' particles being analyzed. Outliers kept. '/)") minPts
+            endif
          endif
          cpu0 = cpu1
          if (run_thermo) then
