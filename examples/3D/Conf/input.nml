@@ -9,7 +9,6 @@
 /
 &INPUT_SP
   sp_types_selected= 1 2 3 4 5 6 7
-  sp_labels="A" "B" "C" "D" "O" "H" "M" 
   mat=87.0 67.07 15.04 57.12 16.0 1.0 0.0
 /
 &INPUT_RDF

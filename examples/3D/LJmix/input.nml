@@ -13,7 +13,6 @@
 &INPUT_SP
   sp_types_selected=1 2
   mat=1.0 2.0
-  sp_labels='A' 'B'
 /
 &INPUT_RDF
   deltar=0.05

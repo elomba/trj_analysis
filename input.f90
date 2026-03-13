@@ -45,7 +45,6 @@ module mod_input
    implicit none
    integer, allocatable, dimension(:) :: sp_types_selected, nw
    integer, dimension(3) :: ncfs_from_to
-   character(len=4), allocatable, dimension(:) :: sp_labels
    !
    ! nthread : number of threads for CUDA kernels is preset to 64 by default, beware of larger values for big systems
    !
@@ -63,7 +62,7 @@ module mod_input
    namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread,  &
       & ncfs_from_to,  rdf_sq_cl_dyn_sqw_conf_ord, nqw, norder, ener_name, &
       & press_name, potnbins, potengmargin, rcl, periodic
-   namelist /INPUT_SP/ sp_types_selected, sp_labels, mat
+   namelist /INPUT_SP/ sp_types_selected, mat
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
    namelist /INPUT_SQ/ qmax, qmin, bsc
    namelist /INPUT_CL/ dcl, minPts, ndrclus, cl_thresh, geometry
@@ -88,7 +87,6 @@ contains
       allocate(sp_types_selected(nsp))
       !
       sp_types_selected(:) = 0
-      allocate(sp_labels(nsp))
       allocate(mat(nsp))
       allocate(charge(nsp))
       charge(:) = 0.0
@@ -162,7 +160,6 @@ contains
    subroutine input_clear()
 
       deallocate(sp_types_selected)
-      deallocate(sp_labels)
       deallocate(mat)
       deallocate(bsc)
 

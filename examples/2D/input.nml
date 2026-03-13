@@ -15,7 +15,6 @@
 /
 &INPUT_SP
   sp_types_selected=1
-  sp_labels='A' 
   mat=1.0
 /
 &INPUT_RDF
