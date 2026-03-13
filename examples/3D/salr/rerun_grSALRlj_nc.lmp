@@ -1,0 +1,51 @@
+#  WARNING : units real implies tstep in fs !!!!
+
+units lj
+atom_style full
+boundary p p p
+#read_data data.atoms
+read_restart restart.beg
+
+
+variable Nrun equal 200
+variable Nsnaps equal 10
+variable Nf equal 200
+
+variable Nther equal 10*${Nf}
+variable Ne equal 1
+variable Nr equal ${Nf}/${Ne}
+variable Ndump equal ${Nrun}/${Nsnaps}
+variable Nr_rdf equal 0.5*${Nrun}/${Ne}
+
+
+
+
+variable tstep equal 1.0
+timestep ${tstep}
+reset_timestep 0
+
+thermo 2
+
+# Define force field
+variable Rc equal 1.0
+variable Nint equal 100000
+pair_style  table linear ${Nint} 
+pair_coeff 1 1 salr11.dat SALR11 ${Rc}
+pair_coeff 1 2 salr11.dat SALR11 ${Rc}
+pair_coeff 2 2 salr11.dat SALR11 ${Rc}
+neighbor        1.0 bin
+neigh_modify    every 10 delay 0 check yes
+write_data system.data
+
+neigh_modify one 10000
+comm_modify cutoff 151.5
+#compute rdf all rdf 600 1 1 cutoff 149.5
+variable Nfirst equal 20000100
+variable Nlast equal ${Nfirst}+${Nrun}
+variable Nfreq equal ${Nrun}/${Ndump}
+#fix rdf all ave/time  ${Ndump} ${Nfreq} ${Nlast} c_rdf[*] file grlmp.dat mode vector ave running
+
+
+
+rerun run.lammpstrj first ${Nfirst}  last ${Nlast}  every ${Ndump}  dump x y  z
+
