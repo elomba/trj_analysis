@@ -45,13 +45,13 @@ module mod_input
    implicit none
    integer, allocatable, dimension(:) :: sp_types_selected, nw
    integer, dimension(3) :: ncfs_from_to
-   character(len=4), allocatable, dimension(:) :: sp_labels
    !
    ! nthread : number of threads for CUDA kernels is preset to 64 by default, beware of larger values for big systems
    !
    integer :: nthread=128, ndim, minPts,  idir=0, nsp, nbuffer=2, potnbins=100, nqw=0, &
             & jump=1, norder=1, nnbond=0, cl_thresh=10
-   logical :: use_cell = .true., run_order = .false., print_orderp=.false., geometry=.true.
+   logical :: use_cell = .true., run_order = .false., print_orderp=.false., &
+               geometry=.true., outliers_purge=.false.
    logical, dimension(7) :: rdf_sq_cl_dyn_sqw_conf_ord
    real(myprec) :: deltar, dcl, qmin, qmax, rcrdf, rclcl=0.0, &
       tmax=-1, tmaxp=-1, tlimit=-1, potengmargin=0.0
@@ -63,10 +63,10 @@ module mod_input
    namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread,  &
       & ncfs_from_to,  rdf_sq_cl_dyn_sqw_conf_ord, nqw, norder, ener_name, &
       & press_name, potnbins, potengmargin, rcl, periodic
-   namelist /INPUT_SP/ sp_types_selected, sp_labels, mat
+   namelist /INPUT_SP/ sp_types_selected, mat
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
    namelist /INPUT_SQ/ qmax, qmin, bsc
-   namelist /INPUT_CL/ dcl, minPts, ndrclus, cl_thresh, geometry
+   namelist /INPUT_CL/ dcl, minPts, ndrclus, cl_thresh, geometry, outliers_purge
    namelist /INPUT_CONF/ idir
    namelist /INPUT_DYN/ nbuffer, tmax, tmaxp, tlimit, jump
    namelist /INPUT_SQW/ qw, tmqw
@@ -88,7 +88,6 @@ contains
       allocate(sp_types_selected(nsp))
       !
       sp_types_selected(:) = 0
-      allocate(sp_labels(nsp))
       allocate(mat(nsp))
       allocate(charge(nsp))
       charge(:) = 0.0
@@ -162,7 +161,6 @@ contains
    subroutine input_clear()
 
       deallocate(sp_types_selected)
-      deallocate(sp_labels)
       deallocate(mat)
       deallocate(bsc)
 

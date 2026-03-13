@@ -166,7 +166,6 @@ The input file uses Fortran namelist format. Sample configurations are provided 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `sp_types_selected` | integer(:) | LAMMPS type IDs for selected species |
-| `sp_labels` | character(:) | Labels for species |
 | `mat` | real(:) | Atomic masses |
 
 #### `/INPUT_RDF/` - Radial Distribution Functions
@@ -191,6 +190,7 @@ The input file uses Fortran namelist format. Sample configurations are provided 
 | `ndrclus` | integer | Bins for cluster radial profiles (defaults to 100) |
 | `cl_thresh` | integer | Minimum cluster count for correlations (defaults to 10) |
 | `geometry` | logical | Controls whether geometry & correlation are computed (defaults to .t.) |
+| `outliers_purge`| logical | If true outliers are purged from the list of clusters
 
 #### `/INPUT_ORD/` - Order Parameters
 | Parameter | Type | Description |
@@ -286,7 +286,6 @@ All outputs are written to the working directory with descriptive filenames.
    
    &INPUT_SP
       sp_types_selected = 1
-      sp_labels = 'Ar'
       mat = 39.948
    /
    

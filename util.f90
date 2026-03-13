@@ -241,7 +241,7 @@ contains
 
    subroutine print_results(run_sq,  run_rdf, run_dyn, run_clusters, run_thermo, ntype, nsp, lsmax, nmol, nqmin, rcl)
       use mod_precision
-      use mod_input, only : mat, charge, sp_labels, cl_thresh
+      use mod_input, only : mat, charge, cl_thresh
       implicit none
       real(myprec) :: rcl
       integer, intent(in) :: nsp, lsmax, nmol, nqmin
@@ -260,11 +260,11 @@ contains
       do i = 1, nsp
          if (ex_qc) then
             write (*, '(" ** ",i6," atoms of type ",i2,", in LAMMPS (",i2,"), ",f8.4,&
-            & " amu, average charge ",f9.5," e (",a4,")")') &
-            & ntype(i), i, wtypes(i), mat(i), charge(i), sp_labels(i)
+            & " amu, average charge ",f9.5," e ")")') &
+            & ntype(i), i, wtypes(i), mat(i), charge(i)
          else
             write (*, '(" ** ",i6," atoms of type ",i2,", in LAMMPS (",i2,"), ",f8.4, &
-            & " amu,  (",a4,")")') ntype(i), i, wtypes(i), mat(i), sp_labels(i)
+            & " amu  ")') ntype(i), i, wtypes(i), mat(i)
          endif
       end do
       if (ex_qc) write(*,'(/3x,"···   Net charge:",f12.5," e")')sum(qcharge(1:nmol))
