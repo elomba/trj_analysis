@@ -461,13 +461,21 @@ contains
       open (newunit=onunit, file='order.dat')
       if ( run_clusters.and.maxcln>cl_thresh) then
          if (geometry) then
-            write (onunit, "('#   order   psi_m   psi_m_clust   ')")
+            if (ndim==2) then
+               write (onunit, "('#   order   psi_m   psi_m_clust   ')")
+            else
+               write (onunit, "('#   order   Q_l(order)   Q_l_clust(order)  ')")
+            end if
             do i = 1, norder
                write (onunit, '(i3,4f12.5)') orderp(i), avorder(i)/real(nconf), &
-               & avcluster_order(i)/real(nconf)
+                  & avcluster_order(i)/real(nconf)
             end do
          else
-            write (onunit, "('#   order   psi_m   ')")
+            if (ndim==2) then
+               write (onunit, "('#   order   psi_m   ')")
+            else
+               write (onunit, "('#   order   Q_l(order)   ')")
+            end if
             do i = 1, norder
                write (onunit, '(i3,4f12.5)') orderp(i), avorder(i)/real(nconf)
             end do
