@@ -14,7 +14,7 @@ mass		2 10.0
 set type 1 charge		0.0
 set type 2 charge		0.0
 set atom * type 1
-variable tstep equal 2.
+variable tstep equal 0.5
 
 timestep ${tstep}
 
@@ -22,8 +22,8 @@ write_dump all atom init.lammpstrj modify scale no
 
 variable Tdamp equal 100*${tstep}
 
-variable Nrun equal 200
-variable Nsnaps equal 10
+variable Nrun equal 5000
+variable Nsnaps equal 500
 variable Nequil equal 5000
 variable Nf equal 20
 variable Nther equal 10*${Nf}
@@ -34,9 +34,9 @@ variable Nr_rdf equal 0.5*${Nrun}/${Ne}
 
 
 variable Text equal 100.0
-variable Text2 equal 300.0
+variable Text2 equal 100.0
 
-velocity all create  ${Text2} 123456
+#velocity all create  ${Text2} 123456
 
 # Define force field
 

@@ -5,9 +5,9 @@
   nsp=1
   nqw=1
   norder=5
-  ncfs_from_to=11 1 11
+  ncfs_from_to=500 1 500
   rcl=5.25
-  rdf_sq_cl_dyn_sqw_conf_ord=T T T F F  F T
+  rdf_sq_cl_dyn_sqw_conf_ord=T T F T T  F F
   ener_name="ener"
   press_name="stress"
   periodic=.t. .t. .t.
@@ -30,7 +30,7 @@
   ndrclus=200
 /
 &INPUT_DYN
-nbuffer=6 ! No.of time origins to compute dynamics
+nbuffer=10 ! No.of time origins to compute dynamics
 tmax=2.0
 /
 &INPUT_SQW
