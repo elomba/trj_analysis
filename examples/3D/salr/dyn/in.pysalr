@@ -1,0 +1,82 @@
+# 3d Lennard-Jones melt
+
+units		real
+atom_style	full
+dimension 3
+
+# Define initial configuration 
+
+read_data system.data
+
+mass		1 10.0
+mass		2 10.0
+
+set type 1 charge		0.0
+set type 2 charge		0.0
+set atom * type 1
+variable tstep equal 0.5
+
+timestep ${tstep}
+
+write_dump all atom init.lammpstrj modify scale no
+
+variable Tdamp equal 100*${tstep}
+
+variable Nrun equal 5000
+variable Nsnaps equal 500
+variable Nequil equal 5000
+variable Nf equal 20
+variable Nther equal 10*${Nf}
+variable Ne equal 1
+variable Nr equal ${Nf}/${Ne}
+variable Ndump equal ${Nrun}/${Nsnaps}
+variable Nr_rdf equal 0.5*${Nrun}/${Ne}
+
+
+variable Text equal 100.0
+variable Text2 equal 100.0
+
+#velocity all create  ${Text2} 123456
+
+# Define force field
+
+# Warning !!!! Define rc also in py_pot.py
+variable Rc equal 60.0
+variable Nint equal 100000
+pair_style      python ${Rc}
+pair_coeff      * * py_pot.SALR 1 2 
+shell rm -f salr11.dat
+shell rm -f salr12.dat
+shell rm -f salr22.dat
+pair_write 1 1 ${Nint} rsq 0.000001 ${Rc} salr11.dat SALR11
+pair_write 1 2 ${Nint} rsq 0.000001 ${Rc} salr12.dat SALR12
+pair_write 2 2 ${Nint} rsq 0.000001 ${Rc} salr22.dat SALR22
+pair_style  table linear ${Nint} 
+pair_coeff 1 1 salr11.dat SALR11 ${Rc}
+pair_coeff 1 2 salr12.dat SALR12 ${Rc}
+pair_coeff 2 2 salr22.dat SALR22 ${Rc}
+neighbor	5.0 bin
+neigh_modify	every 10 delay 0 check yes
+
+
+thermo_style custom step temp ke  pe etotal press
+thermo		100
+fix integrate all nvt temp ${Text2} ${Text} ${Tdamp}
+
+
+run ${Nequil}
+
+unfix integrate
+fix integrate all nvt temp ${Text} ${Text} ${Tdamp}
+write_restart   restart.equil1
+
+
+dump trj1 all netcdf ${Ndump} run.nc  id type x y z vx vy vz 
+dump_modify trj1 sort id
+
+dump trj2 all custom ${Ndump} run.lammpstrj  id type x y z vx vy vz 
+dump_modify trj2 sort id
+
+run		${Nrun}
+write_restart   restart.fin
+write_data final.data
