@@ -137,9 +137,11 @@ Where `input.nml` contains a sequence of Fortran namelists defining analysis par
 ## Input Configuration
 
 The input file uses Fortran namelist format. Sample configurations are provided in:
-- `2D/input.nml` - 2D system example
-- `3D/Conf/input.nml` - 3D confined system
-- `3D/LJmix/input.nml` - Binary Lennard-Jones mixture
+- `examples/2D/sarl/input.nml` - 2D system example for a SALR system
+- `examples/3D/sarl/input.nml` - 3D system example for a SALR system
+- `examples/3D/sarl/dyn/input.nml` - 3D system example for a SALR system dynamic properties 
+- `examples/3D/Conf/input.nml` - 3D confined system (electrolyte within plates)
+- `examples/3D/LJmix/input.nml` - Binary Lennard-Jones mixture
 
 ### Namelist Reference
 
@@ -204,8 +206,6 @@ The input file uses Fortran namelist format. Sample configurations are provided 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `idir` | integer | Confinement direction (1=x, 2=y, 3=z) |
-| `pwall` | real | Left wall position |
-| `pwallp` | real | Right wall position |
 
 #### `/INPUT_DYN/` - Dynamics
 | Parameter | Type | Description |
