@@ -3,24 +3,28 @@
   trj_input_file='run.nc'
   ndim=3
   nsp=2
-  nthread=128
-  ncfs_from_to=1 1 1
-  rdf_sq_cl_dyn_sqw_conf_ord=T T F F F  F F
+  nthread=64
+  ncfs_from_to=1000 1 1000
+  rdf_sq_cl_dyn_sqw_conf_ord=T T F F F  F T
   rcl=1.5
+  norder=5
   ener_name="ener" 
   press_name="stress"
 /
 &INPUT_SP
-  sp_types_selected=1 2
+  sp_types_selected=1
   mat=1.0 2.0
 /
 &INPUT_RDF
-  deltar=0.05
+  deltar=0.25
   rcrdf=15.0
 /
 &INPUT_SQ
-  qmax=24.5   ! for a single conf use multiple q-vectors only 
-  qmin=25.0
+  qmax=25.0
+  qmin=6.4
+/
+&INPUT_CL
+  dcl=20.0
 /
 &INPUT_DYN
 nbuffer=10
@@ -32,3 +36,9 @@ tlimit=10.0
 qw=0.183 0.567 1.95 
 tmqw=10.0 5.13 5.5
 /
+&INPUT_ORDER
+orderp=4 6 8 10 12
+print_orderp=.true.
+rclcl=12
+/
+
