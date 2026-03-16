@@ -1,0 +1,56 @@
+# Makefile to build trj_analysis.
+#
+# The following environment variables must be defined :
+#
+# NVBIN path of nvfortran binaris
+# NVINCLUDE path to nvfortran header files and modules
+# NVLIBS path to nvfortran dynamic libraries
+# NETCDFINC path to NETCDF and NETCDFF includes
+# NETCDFLIB path to NETCDF and NETCDFF libraries
+# FFTWINC path to FFTW3 include files (might be in system's path)
+# FFTWLIB path to FFTW2 dynamic libs (might be in system's path)
+#
+#
+PATH := $(NVBIN):$(PATH)
+
+FC = nvfortran
+FCOPTS = -O3 -gpu=cc80 -cudalib=curand
+FCINC = -I$(NETCDFINC) -I$(NVINCLUDE) $(if $(FFTWINC),-I$(FFTWINC))
+
+F90 = $(FC)
+F90OPTS = -O3 
+F90INC = $(FCINC)
+F90LIBS = $(FCLIBS)
+
+LKOPTS =  -cuda -gpu=cc80 -c++libs -lnetcdff -lfftw3 -llapack -lblas 
+LKLIBS = -L$(NETCDFLIB) -L$(NVLIBS) $(if $(FFTWLIB),-L$(FFTWLIB))
+
+CC = nvcc
+
+EXE = -o trj_analysis.exe
+
+OBJ = precision.o thrust.o common.o sorts.o input.o netcdf.o cells.o \
+	sq.o rdf.o densprof.o thermo.o clusters.o order.o log.o fftwlib.o dynamics.o\
+	util.o trj_analysis.o ex-scan.o
+
+%.o : %.mod
+.SUFFIXES : .cuf .f90
+
+%.o: %.cuf common.cuf precision.f90 
+	$(FC) -c $(FCOPTS) $(FCINC) $(FCLIBS) $< -o $@
+
+%.o: %.f90 common.cuf precision.f90 
+	$(F90) -c $(F90OPTS) $(F90INC) -c $(F90LIBS) $< -o $@
+
+all: $(OBJ) 
+	$(FC) $(LKOPTS) $(LKINC) $(EXE) $(OBJ) $(LKLIBS)
+
+ex-scan.o:
+	$(CC) -O4 --std c++17 -c ex-scan.cu
+common.o: precision.o common.cuf 
+	$(FC) -c $(FCOPTS) $(FCINC) $(FCLIBS) common.cuf
+precision.o: precision.f90
+	$(F90) -c $(F90OPTS) $(F90INC) -c $(F90LIBS) precision.f90
+
+clean:
+	rm -f *.o *.mod 

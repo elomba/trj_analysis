@@ -132,7 +132,6 @@ contains
                 ordercumav(:,:) = 0.0
             endif
         end if
-
     end subroutine order_init
 
     subroutine order_clear()
