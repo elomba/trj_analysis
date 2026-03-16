@@ -1,0 +1,71 @@
+variable siga equal 4.51
+variable sigb equal 4.38
+variable sigc equal 3.41
+variable sigd equal 5.04
+variable sigo equal 3.1589
+variable sigCC equal 3.45
+#variable sigCC equal 0.05
+variable epsa equal 0.7743785850860422
+variable epsb equal 0.6118546845124283
+variable epsc equal 0.08604206500956023
+variable epsd equal 0.4373804971319312
+variable epso equal 0.18520
+variable epsCC equal 0.07170172084130019
+#variable epsCC equal 0.00000000
+variable sigab equal (${siga}+${sigb})/2.0
+variable sigac equal (${siga}+${sigc})/2.0
+variable sigad equal (${siga}+${sigd})/2.0
+variable sigao equal (${siga}+${sigo})/2.0
+variable sigbc equal (${sigb}+${sigc})/2.0
+variable sigbd equal (${sigb}+${sigd})/2.0
+variable sigbo equal (${sigb}+${sigo})/2.0
+variable sigcd equal (${sigc}+${sigd})/2.0
+variable sigco equal (${sigc}+${sigo})/2.0
+variable sigdo equal (${sigd}+${sigo})/2.0
+variable sigCCa equal (${siga}+${sigCC})/2.0
+variable sigCCb equal (${sigb}+${sigCC})/2.0
+variable sigCCc equal (${sigc}+${sigCC})/2.0
+variable sigCCd equal (${sigd}+${sigCC})/2.0
+variable sigCCo equal (${sigo}+${sigCC})/2.0
+variable epsab equal sqrt(${epsa}*${epsb})
+variable epsac equal sqrt(${epsa}*${epsc})
+variable epsad equal sqrt(${epsa}*${epsd})
+variable epsao equal sqrt(${epsa}*${epso})
+variable epsbc equal sqrt(${epsb}*${epsc})
+variable epsbd equal sqrt(${epsb}*${epsd})
+variable epsbo equal sqrt(${epsb}*${epso})
+variable epscd equal sqrt(${epsc}*${epsd})
+variable epsco equal sqrt(${epsc}*${epso})
+variable epsdo equal sqrt(${epsd}*${epso})
+variable epsCCa equal sqrt(${epsa}*${epsCC})
+variable epsCCb equal sqrt(${epsb}*${epsCC})
+variable epsCCc equal sqrt(${epsc}*${epsCC})
+variable epsCCd equal sqrt(${epsd}*${epsCC})
+variable epsCCo equal sqrt(${epso}*${epsCC})
+pair_style  lj/cut/coul/long 13.0 
+#pair_style  lj/cut 6.0
+pair_coeff 1 1 ${epsa} ${siga}  6.0
+pair_coeff 1 2 ${epsab} ${sigab}  6.0
+pair_coeff 1 3 ${epsac} ${sigac}  6.0
+pair_coeff 1 4 ${epsad} ${sigad}  6.0
+pair_coeff 1 5 ${epsao} ${sigao}  6.0
+pair_coeff 2 2 ${epsb} ${sigb}  6.0
+pair_coeff 2 3 ${epsbc} ${sigbc}  6.0
+pair_coeff 2 4 ${epsbd} ${sigbd}  6.0
+pair_coeff 2 5 ${epsbo} ${sigbo}  6.0
+pair_coeff 3 3 ${epsc} ${sigc}  6.0
+pair_coeff 3 4 ${epscd} ${sigcd}  6.0
+pair_coeff 3 5 ${epsco} ${sigco}  6.0
+pair_coeff 4 4 ${epsd} ${sigd}  6.0
+pair_coeff 4 5 ${epsdo} ${sigdo}  6.0
+pair_coeff 5 5 ${epso} ${sigo}  6.0
+pair_coeff * 6 0.0 0.0
+pair_coeff * 7 0.0 0.0
+pair_coeff 1 8 ${epsCCa} ${sigCCa} 6.0 
+pair_coeff 2 8 ${epsCCb} ${sigCCb} 6.0 
+pair_coeff 3 8 ${epsCCc} ${sigCCc} 6.0 
+pair_coeff 4 8 ${epsCCd} ${sigCCd} 6.0 
+pair_coeff 5 8 ${epsCCo} ${sigCCo} 6.0 
+pair_coeff 8 8 0.000001 0.2 1.0
+pair_modify shift yes
+

@@ -3,9 +3,9 @@
   trj_input_file='run.nc'
   ndim=3
   nsp=7
-  nthread=64
-  ncfs_from_to=1 1 1
-  rdf_sq_cl_dyn_sqw_conf_ord=T F F F F T F
+  nthread=128
+  ncfs_from_to=1000 1 1000
+  rdf_sq_cl_dyn_sqw_conf_ord=T T F F F T F
 /
 &INPUT_SP
   sp_types_selected= 1 2 3 4 5 6 7
@@ -13,7 +13,20 @@
 /
 &INPUT_RDF
   deltar=0.25
-  rcrdf=30.0
+  rcrdf=150.0
+/
+&INPUT_SQ
+  qmax=8.0
+  qmin=1.4
+/
+&INPUT_CL
+  rcl=5.25
+  dcl=20.0
+  minclsize=500
+/
+&INPUT_DYN
+nbuffer=6
+tmax=20
 /
 &INPUT_CONF
   idir=3

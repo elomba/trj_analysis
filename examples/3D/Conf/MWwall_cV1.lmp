@@ -1,0 +1,123 @@
+# Mixture: IL + Solvent
+
+
+units  real                      # Reduced units
+atom_style full
+#newton off
+kspace_style pppm/electrode    1.0e-4
+kspace_modify slab 3
+boundary p p f
+ 
+# Read data: Initial configuration
+
+#read_restart restart.beg
+
+read_data  data.atoms
+run_style verlet
+#
+# Parameters
+
+variable Nrun equal 1000000                 #2000000
+variable Nsnaps equal 500
+variable Nsnaps2 equal 1000
+variable Nequil equal 400000                 #1000000
+variable Nf equal 100
+variable Ne equal 1
+variable Nr equal ${Nf}/${Ne}
+variable Ndump equal ${Nrun}/${Nsnaps}
+variable Ndump2 equal ${Nrun}/${Nsnaps2}
+variable Nr_rdf equal 0.5*${Nrun}/${Ne}
+variable nAtoms equal atoms
+variable Text equal 275. #66666666              # Temperature
+variable Tinit equal 275.
+variable tstep equal 2.0                # Time step
+
+
+group A type 1
+group B type 2 3 4
+group h2o type 5 6 7
+group ele type 8
+group top id 38461:39420:1
+group pepe id 37501:38460:1
+group fluid type 1 2 3 4 5 6 7
+group ions type 1 2 3 4
+group mols type 2 3 4 5 6 7
+
+# set voltage
+variable Volt equal 1.00
+variable Vb equal -${Volt}/2
+variable Vt equal ${Volt}/2
+
+
+variable nA equal count(A)
+variable nB equal count(B)
+variable nC equal count(h2o)
+
+variable nMolecules equal count(fluid)
+variable myvol equal vol
+
+
+timestep ${tstep}
+
+#velocity fluid create ${Tinit} 1234  ####################
+
+# These quantities enter in the fix npt in time units, it is advisable that the first covers 100 timesteps and the second 1000
+variable Tdamp equal 100*${tstep}
+variable Pdamp equal 1000*${tstep}
+
+
+# Define force field
+
+include forcefield.electrode
+
+
+# Check neighbor least every time a molecule leaves a skin of 0.3 away from the neighbor radious
+
+neighbor 0.3 bin
+neigh_modify every 1 delay 0 check yes  
+velocity ele set 0.0 0.0 0.0
+fix 0 ele setforce 0.0 0.0 0.0
+compute T fluid temp
+fix removeMomentum fluid momentum 1 linear 1 1 1
+thermo_style custom step temp c_T pe ke evdwl  epair  ecoul etotal press pxx  pyy pzz
+thermo_modify flush yes
+thermo ${Nf}
+fix conp pepe electrode/conp ${Vb} 1.979 couple top ${Vt} symm on  write_inv mat.inv
+fix integrate mols rigid/nvt molecule temp ${Tinit} ${Text} ${Tdamp}
+fix_modify integrate temp T
+fix integrate_a A nvt temp ${Tinit} ${Text} ${Tdamp}
+fix_modify integrate_a temp T
+run ${Nequil}
+write_restart restart.equil
+#  Production run 
+unfix integrate
+unfix integrate_a
+
+fix integrate mols rigid/nvt molecule temp ${Text} ${Text} ${Tdamp} 
+fix integrate_a A nvt temp ${Text} ${Text} ${Tdamp} 
+fix_modify integrate temp T
+fix_modify integrate_a temp T
+
+thermo_style custom step temp c_T pe ke evdwl  ecoul epair  etotal press pxx pyy pzz
+thermo_modify flush yes
+
+dump trj fluid custom ${Ndump} mWP_T_${Text}.lammpstrj id    &
+type mol x y z vx vy vz
+dump elch ele custom ${Ndump} elq_T_${Text}.lammpstrj id    &
+type mol x y z q
+
+dump nc fluid netcdf ${Ndump2} run.nc id type mol x y z vx vy vz
+
+run ${Nrun}
+
+
+write_restart restart.fin
+run 0
+
+write_data data.conf
+dump conf all custom 1 lconf.conf id  mol type q x y z
+dump_modify conf sort id
+run 0
+
+
+
