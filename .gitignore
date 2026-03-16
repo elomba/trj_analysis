@@ -49,7 +49,6 @@ __init__.py
 __pycache__/
 
 # Result files
-*.dat
 *.rdf
 *.ref
 *.lammpstrj
