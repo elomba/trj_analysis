@@ -135,6 +135,35 @@ Three-dimensional SALR system showing cluster formation and dynamic heterogeneit
 
 ---
 
+## 3D/salr/dyn
+
+Three-dimensional SALR system evaluation of dynamic properties
+
+### Simulation input
+
+| File | Description |
+|-----|-------------|
+| `in.pysalr` | LAMMPS simulation input |
+| `py_pot.py` | SALR potential implementation |
+| `system.data` | Initial configuration |
+
+### Structural observables
+
+| File | Description |
+|-----|-------------|
+| `sq.dat` | Static structure factor |
+| `sqmix.dat` | Partial structure factor |
+| `sqcl.dat` | Cluster structure factor |
+
+### Dynamic correlation functions
+
+| File | Description |
+|-----|-------------|
+| `fkt.dat` | Intermediate scattering function |
+| `fskt.dat` | Self intermediate scattering function |
+| `dyn.dat`| Position and velocity self correlation functions |
+| `dynw.dat`| Position and velocity self correlation functions (fequency domain) |
+
 ## 3D/LJmix
 
 Example of a **binary Lennard-Jones mixture**.
