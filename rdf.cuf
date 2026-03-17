@@ -124,7 +124,7 @@ contains
       implicit none
       integer, intent(IN) :: Nmol, Iconf, nbcuda, nthread
       integer :: istart, i, ind, k, j, l, istat=0, ierrSync, rdfb, rdfth
-      real :: time_gpu, suma
+      real :: time_gpu, suma, deltaV
       ! Initialize histograms to zero for this configuration
       histomix_d(:, :) = 0
       if (nrandom>0) then
@@ -202,8 +202,8 @@ contains
       do i=1, lsmax
          write(1003,*) real(i)*deltar, gtot(i)
          end do
-      call find_first_minimum_interp(gtot, lsmax, deltar, rmin)
-      print *, ' rmin for cluster analysis: ', rmin
+      call find_first_minimum_interp(gtot, lsmax, deltar, rmingr)
+      print *, ' rmin for cluster analysis: ', rmingr
    end subroutine RDFcomp
 
    subroutine rdfcl(dim, members, nm, sidel, side2, g, lsmax, deltar, dens, minPts)
