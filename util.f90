@@ -74,6 +74,7 @@ contains
       istat = cudaEventCreate(startEvent)
       istat = cudaEventCreate(stopEvent)
       ! Print program header
+      write(*,'(A)') char(27)//'[33m'
       write(*,"(/80('*')/'*',78(' '),'*')")
       write(*,"('*    Program trj_analysis: analyzing LAMMPS trajectory in NETCDF format',t80,'*')")
       write(*,"('*',t80,'*')")
@@ -81,6 +82,7 @@ contains
       write(*,"('*',t80,'*')")
       write(*,"('*    Version 1.3 March, 2026',,t80,'*')")
       write(*,"('*',78(' '),'*'/80('*')/)")
+      write(*,'(A)') char(27)//'[0m'
       call printDevPropShort(gpu_properties, 0)
       ! Check that maximum number of threads is not surpassed
       if (nthread > maxthread/8) then
