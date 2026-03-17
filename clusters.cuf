@@ -161,7 +161,7 @@ contains
       & clsz, clussize, cmin, NP_lconf, icount, im, countlarge
       Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
       Real(myprec) :: denscl, rmcl, cdmax=0, factorv, ri, deltaV, rclcls
-c     Real(kind=8) ::  mcl, ekcls, suma, rgsum, averg, volcl
+      Real(kind=8) ::  mcl, ekcls, suma, rgsum, averg, volcl
       !
       ! Initialize cluster structures
       !
