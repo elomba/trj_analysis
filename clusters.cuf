@@ -160,8 +160,8 @@ contains
       integer :: i, j, k, cluster_id, icl, ip, ind, indr, &
       & clsz, clussize, cmin, NP_lconf, icount, im, countlarge
       Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
-      Real(myprec) :: denscl, rmcl, cdmax=0, factorv, ri, deltaV
-      Real(kind=8) ::  mcl, ekcls, suma, rgsum, averg, volcl
+      Real(myprec) :: denscl, rmcl, cdmax=0, factorv, ri, deltaV, rclcls
+c     Real(kind=8) ::  mcl, ekcls, suma, rgsum, averg, volcl
       !
       ! Initialize cluster structures
       !
@@ -354,8 +354,9 @@ contains
                   gclt(i) = 2*gclcl(i)/(deltaV)
                enddo
                ! Determine first minimum of g_cl-cl(r) for cluster analysis cutoff
-               call find_first_minimum_interp(gclt, lsmax, deltar, rclcl)
-               print *, ' rcl for cluster analysis: ', rclcl
+               call find_first_minimum_interp(gclt, lsmax, deltar, rclcls)
+               write(*,'(" *** Suggested rcl-cl for cluster analysis: ", f15.7)') rclcls
+               write(*,'(" *** Check g_cl-cl(r) to choose appropriate rcl-cl for cluster analysis (e.g. first minimum)")')
             endif
          endif
       endif
