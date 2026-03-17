@@ -191,7 +191,7 @@ contains
       ! Normalize histograms to get total g(r)
       do i=1, lsmax
          gtot(i) = 0
-         deltaV = 4.0*pi*(real(i**2)-real(i-1)**2)*deltar**3/3.0
+         deltaV = 4.0*pi*(real(i**3)-real(i-1)**3)*deltar**3/3.0
          do j=1, nsp
             do l = j, nsp
                gtot(i) = gtot(i) + (2-j/l)*histomix(i, j, l)
