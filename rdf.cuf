@@ -205,11 +205,14 @@ contains
          end do
          gtot(i) = 2*volumen*gtot(i)/(deltaV*natms*natms)
       end do
-      do i=1, lsmax
-         write(1003,*) real(i)*deltar, gtot(i)
-         end do
       call find_first_minimum_interp(gtot, lsmax, deltar, rmingr)
-      print *, ' rmin for cluster analysis: ', rmingr
+      if (iconf==1) then
+         if (units == 'lj') then
+            write(*,"(' *** Suggested rcl (NN and/or connectivity distance): ',f8.4,' σ')" ) rmingr
+         else
+            write(*,"(' *** Suggested rcl (NN and/or connectivity distance): ',f8.4,' Å')" ) rmingr
+         endif
+      end if
    end subroutine RDFcomp
 
    subroutine rdfcl(dim, members, nm, sidel, side2, g, lsmax, deltar, dens, minPts)
