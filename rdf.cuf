@@ -196,8 +196,8 @@ contains
             do l = j, nsp
                gtot(i) = gtot(i) + (1+j/l)*histomix(i, j, l)
             end do
-            gtot(i) = volumen*gtot(i)/(deltaV*natms*natms)
          end do
+         gtot(i) = volumen*gtot(i)/(deltaV*natms*natms)
       end do
       do i=1, lsmax
          write(1003,*) real(i)*deltar, gtot(i)
