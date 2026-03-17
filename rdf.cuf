@@ -532,11 +532,11 @@ else
 end if
 end function ind_ij
 
-subroutine find_first_minimum_interp(g, r, nrdf, rmin)
+subroutine find_first_minimum_interp(g, nrdf, deltar, rmin)
    ! Find the position of the first minimum in the radial distribution function g(r)
   implicit none
   integer, intent(in) :: nrdf
-  real(myprec), intent(in) :: g(0:nrdf), r(0:nrdf)
+  real(myprec), intent(in) :: g(0:nrdf), deltar
   real(myprec), intent(out) :: rmin
 
   integer :: i, imax, imin
@@ -576,9 +576,9 @@ subroutine find_first_minimum_interp(g, r, nrdf, rmin)
   ! --- Parabolic interpolation ---
   if (imin > 0 .and. imin < nrdf) then
 
-     x1 = r(imin-1)
-     x2 = r(imin)
-     x3 = r(imin+1)
+     x1 = deltar*(imin-1)
+     x2 = deltar*(imin)
+     x3 = deltar*(imin+1)
 
      y1 = g(imin-1)
      y2 = g(imin)
@@ -593,7 +593,7 @@ subroutine find_first_minimum_interp(g, r, nrdf, rmin)
      endif
 
   else
-     rmin = r(imin)
+     rmin = deltar*(imin)
   endif
 
 end subroutine find_first_minimum_interp
