@@ -640,7 +640,7 @@ contains
       if (maxval(neighbors(:)) > maxnbpp) then
          write (*, '(" *** Error: max number of neighbors is ", i5," > ",i3)') maxval(neighbors(:)), maxnbpp
          write (*, '(" *** Please increase maxnbpp and recompile or reduce rcl from ", f8.4)') rcl
-         write (*, '(" *** Recommended rcl is the first minimum of the RDF ")') 
+         write (*, '(" *** Recommended rcl is the first minimum of the RDF ", f8.4)'), rmingr 
          stop
       end if
       core(:) = gcore(:)
