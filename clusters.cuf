@@ -343,6 +343,11 @@ contains
          if (geometry) then
             call rdfclcl2(ndim, rclxyz(1:ndim, 1:cluster_id), cluster_id, maxcln, sidel&
             &, nrandom, side2, gclcl, gclr, gclr2, lsmax, deltar, volumen)
+            if (iconf == 1) then
+               ! Determine first minimum of g_cl-cl(r) for cluster analysis cutoff
+               call find_first_minimum_interp(2*gclcl(i)/(deltaV*iconf), lsmax, deltar, rclcl)
+               print *, ' rcl for cluster analysis: ', rclcl
+            endif
          endif
       endif
       NTclus = suma + NTclus
