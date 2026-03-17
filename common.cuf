@@ -80,7 +80,7 @@ module mod_common
    real(double), allocatable, dimension(:) :: engcls, gclr, gclr2
    real ::  qmin2, cpu0, cpu1
    real, dimension(3) :: fk
-   real, allocatable, dimension(:) :: sqf, sqfcl, gcluster, gclustav, gclcl, rhoclus, &
+   real, allocatable, dimension(:) :: sqf, sqfcl, gcluster, gclustav, gclcl, gclt, rhoclus, &
       rhoclusav, sqcl
    real, allocatable, dimension(:, :) :: sqfp
    real, allocatable, dimension(:, :, :) :: histomix

@@ -74,13 +74,14 @@ contains
       endif
       ! Allocate arrays for cluster analysis if active
       if (run_clusters.and.geometry) then
-         Allocate(gcluster(lsmax), gclustav(lsmax), gclcl(lsmax), rhoclus(0:ndrclus),&
+         Allocate(gcluster(lsmax), gclustav(lsmax), gclcl(lsmax), gclt(0:lsmax), rhoclus(0:ndrclus),&
          & rhoclusav(0:ndrclus))
          Allocate(gclr(0:lsmax),gclr2(0:lsmax))
          gclustav(:) = 0.0
          rhoclus(:) = 0.0
          rhoclusav(:) = 0.0
          gclcl(:) = 0
+         gclt(:) = 0
          gclr(:) = 0
          gclr2(:) = 0
       endif
@@ -109,6 +110,7 @@ contains
          deallocate (gcluster)
          deallocate (gclustav)
          deallocate (gclcl)
+         deallocate (gclt)
          deallocate (rhoclus)
          deallocate (rhoclusav)
          deallocate (gclr)
