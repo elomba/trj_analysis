@@ -53,7 +53,7 @@ module mod_common
    integer, save :: nstep = 0
    integer :: nbcuda, natms, nmol, width, nqmax, nqwmax, lmaxx, lmaxy, lmaxz, &
       lsmax, nqmin, ndr, shmsize, maxthread, nit, nconf, nmzero = 0, maxcln,&
-      voigt, nrandom=0, ndrclus=100
+      voigt, nrandom=0, ndrclus=100, maxnbpp=25
    integer :: cntch(100), ncharge
    real(double), dimension(100) :: chgh
    integer, allocatable, dimension(:) :: ntype, itype, lty, list, label, nq

@@ -179,7 +179,7 @@ contains
         allocate (neighbors(nmol))
         allocate (core(nmol))
         allocate (border(nmol))
-        allocate (adjacency(20*nmol))
+        allocate (adjacency(maxnbpp*nmol))
 
         ! Init variables
         core(:) = .false.
@@ -191,7 +191,7 @@ contains
         allocate (gneighbors(nmol))
         allocate (gcore(nmol))
         allocate (gborder(nmol))
-        allocate (gadjacency(20*nmol))
+        allocate (gadjacency(maxnbpp*nmol))
 
         ! Init variables
         gcore(:) = .false.

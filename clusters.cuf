@@ -638,6 +638,7 @@ contains
       tgraph = tgraph + time_gpu
       goffset(:) = gneighbors(:)
       neighbors(:) = gneighbors(:)
+      print *, 'Max number of neighbors: ', maxval(neighbors(:)), maxnbpp
       core(:) = gcore(:)
       istat = cudaEventRecord(startEvent, 0)
       ! Use thrust scan to build and efficient offset 1D array
