@@ -83,7 +83,7 @@ contains
       write(*,"('*    Version 1.3 March, 2026',,t80,'*')")
       write(*,"('*',78(' '),'*'/80('*')/)")
       write(*,'(A)') char(27)//'[0m'
-      call printDevPropShort(gpu_properties, 0)
+      call printDevPropShort(gpu_properties, gpudevice)
       ! Check that maximum number of threads is not surpassed
       if (nthread > maxthread/8) then
          nthread = maxthread/8
