@@ -629,7 +629,7 @@ contains
       !
       ! Neighbors are determined with and without a linked-cell method
       if (use_cell) then
-         print *, 'Using linked-cell method for neighbor search'
+         print *, 'Finding neighbors with linked-cell method'
          call gpu_graph_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, minPts)
       else
          call gpu_graf<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, minPts)
