@@ -117,12 +117,13 @@ contains
 
    end subroutine rdf_clear
 
-   subroutine RDFcomp(Nmol, Iconf, nbcuda, nthread)
+   subroutine RDFcomp(Nmol, Iconf, nbcuda, nthread, units)
       !
       ! Main call to compute pdfs and move data back and forth from device
       !
       implicit none
       integer, intent(IN) :: Nmol, Iconf, nbcuda, nthread
+      character(len=20), intent(IN) :: units
       integer :: istart, i, ind, k, j, l, istat=0, ierrSync, rdfb, rdfth
       real :: time_gpu, suma, deltaV, ri
       ! Initialize histograms to zero for this configuration
