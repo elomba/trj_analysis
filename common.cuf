@@ -68,7 +68,7 @@ module mod_common
    real(myprec), dimension(3) :: sidel, sidelv, rlow
    real, device, dimension(3) :: fk_d, sidel_d
    real(myprec), dimension(3, 3) :: cell
-   real(myprec), allocatable, dimension(:) :: masa, bscat, sig2n, gaver, u_p
+   real(myprec), allocatable, dimension(:) :: masa, bscat, sig2n, gaver, u_p, gtot
    real(kind=8), allocatable, dimension(:) :: gi, g2i, gii, g2ii, qcharge
    real, device, allocatable, dimension(:) :: sqf_d, sqfcl_d, bsc_d
    real(myprec), allocatable, dimension(:, :) :: r, vel, force, densprof

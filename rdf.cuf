@@ -64,7 +64,7 @@ contains
       endif
       ndr = lsmax
       ! Allocate RDF histogram arrays (host and device)
-      Allocate (histomix(lsmax, nsp, nsp), histomixi(nbcuda*lsmax, nit))
+      Allocate (histomix(lsmax, nsp, nsp), gtot(0:lsmax), histomixi(nbcuda*lsmax, nit))
       Allocate (histomix_d(nbcuda*lsmax, nit))
       dim_hist = nbcuda*lsmax
       ! Allocate arrays for number fluctuation analysis if requested
@@ -188,6 +188,22 @@ contains
             end do
          end do
       end do
+      ! Normalize histograms to get total g(r)
+      do i=1, lsmax
+         gtot(i) = 0
+         deltaV = 4.0*pi*(real(i**2)-real(i-1)**2)*deltar**3/3.0
+         do j=1, nsp
+            do l = j, nsp
+               gtot(i) = gtot(i) + (2-j/l)*histomix(i, j, l)
+            end do
+            gtot(i) = gtot(i)/(deltaV*natms*natms/volumen*Iconf)
+         end do
+      end do
+      do i=1, lsmax
+         write(1003,*) real(i)*deltar, gtot(i)
+         end do
+      call find_first_minimum_interp(gtot, lsmax, deltar, rmin)
+      print *, ' rmin for cluster analysis: ', rmin
    end subroutine RDFcomp
 
    subroutine rdfcl(dim, members, nm, sidel, side2, g, lsmax, deltar, dens, minPts)
@@ -488,7 +504,6 @@ if (i <= Nmol - 1) then
          ! Use atomics over shared memory to minimize collisions
          !
          ia = atomicadd(histomix_s(ind, ij), 1)
-         !   if (iti /= itj) ia = atomicadd(histomix_s(ind,ij),1)
       end if
    End do
    call syncthreads()
