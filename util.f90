@@ -258,8 +258,7 @@ contains
          call sq_transfer_gpu_cpu()  ! Transfer results from GPU to CPU
          call printSQ(Nmol)
       end if
-
-      write(*,"(/60('-'))")
+      write(*,"(a,90('_'),a)") char(27)//'[33m', char(27)//'[0m'
       ! Print summary of species information
       do i = 1, nsp
          if (ex_qc) then
