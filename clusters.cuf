@@ -629,6 +629,7 @@ contains
       !
       ! Neighbors are determined with and without a linked-cell method
       if (use_cell) then
+         print *, 'Using linked-cell method for neighbor search'
          call gpu_graph_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, minPts)
       else
          call gpu_graf<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, minPts)
@@ -640,6 +641,7 @@ contains
       core(:) = gcore(:)
       istat = cudaEventRecord(startEvent, 0)
       ! Use thrust scan to build and efficient offset 1D array
+      print *, 'Building neighbor list with thrust scan'
       call thrustscan(goffset, Nmol, 1)
       time_gpu = gptime(stopEvent, startEvent)
       tthrus = tthrus + time_gpu
@@ -650,6 +652,7 @@ contains
       ! Build adjacency list 
       !
       if (use_cell) then
+         print *, 'Building adjacency list with linked-cell method'
          call gpu_adj_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d)
       else
          call gpu_adj<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d)
@@ -657,6 +660,7 @@ contains
       time_gpu = gptime(stopEvent, startEvent)
       tadj = tadj + time_gpu
       adjacency(:) = gadjacency(:)
+      print *, 'Max number of neighbors: ', maxval(neighbors(:))
    end subroutine neighbor_search
 
    subroutine cluster_search()
