@@ -659,6 +659,7 @@ contains
       end if
       time_gpu = gptime(stopEvent, startEvent)
       tadj = tadj + time_gpu
+      print *, 'Building adjacency list with thrust scan'
       adjacency(:) = gadjacency(:)
       print *, 'Max number of neighbors: ', maxval(neighbors(:))
    end subroutine neighbor_search
