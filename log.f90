@@ -93,16 +93,16 @@ contains
       ! Print periodic progress update to console
       If (Mod(Iconf - 1, nprint) .Eq. 0) Then
          call cpu_time(cpu1)
-         write (*,"(80('_')/)")
+         write (*,"(a,90('_'),a)") char(27)//'[31mT', char(27)//'[0m' 
          if (tunits == 'lj') then
-               Write (*, "(/' ** Working on MD step no. ',i10,' time* =',f12.3,&
-               & ' cpu time per conf.=',f7.2,' s:'/&
+               Write (*, "(' ** Working on MD step no. ',i10,' time* =',f12.3,&
+               & ' cpu time per conf.=',f7.2,' s:'&
                & )") nstep, nstep*tstep, (cpu1 - cpu0)/nprint
          else
-               Write (*, "(/' ** Working on MD step no. ',i10,' time =',f10.5,&
-               & ' ns, cpu time per conf.=',f7.2,' s:'/)") nstep, nstep*tstep/1000.0, (cpu1 - cpu0)/nprint
+               Write (*, "(' ** Working on MD step no. ',i10,' time =',f10.5,&
+               & ' ns, cpu time per conf.=',f7.2,' s:')") nstep, nstep*tstep/1000.0, (cpu1 - cpu0)/nprint
          endif
-         write (*,"(80('_')/)")
+         write (*,"(90('_')/)")
          if (run_clusters) then
             if (outliers_purge) then
                Write (*, "( ' ** Clusters >= ',i3,' particles being analyzed. Outliers purged. '/)") minPts
