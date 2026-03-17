@@ -53,7 +53,7 @@ contains
         ! Initialize linked cell lists
         head(:) = 0
         lista(:) = 0
-
+        print *, " Building linked cell lists for neighbor searching... "
         ! Assign each particle to its cell and build linked lists
         do n = 1, natms
             ! Calculate cell index in x direction
@@ -89,6 +89,7 @@ contains
         ! Transfer cell lists to GPU device memory
         listad(1:natms) = lista(1:natms)
         headd(0:ncell - 1) = head(0:ncell - 1)
+        print *, " Linked cell lists built successfully. Total cells: ", ncell
     end subroutine cells_build
 
     Subroutine cells_init_post_nc_read()
