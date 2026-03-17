@@ -204,7 +204,7 @@ program trj_analysis
         call transfer_cpu_gpu(ndim)
 
         ! Run RDF
-        if (run_rdf) call RDFcomp(Nmol, i, nbcuda, nthread, units)
+        if (run_rdf) call RDFcomp(Nmol, i, nbcuda, nthread, conf(4)%units)
 
         ! BFS cluster search
         if (run_clusters) call cluster_search()
