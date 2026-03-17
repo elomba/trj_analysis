@@ -559,7 +559,7 @@ subroutine find_first_minimum_interp(g, nrdf, deltar, rmin)
   imax = 1
   do i = 2, nrdf-1
    ! Only consider peaks above a certain threshold to avoid noise
-   if (gi) > 0.1) then
+   if (g(i) > 0.1) then
      if (g(i) > g(i-1) .and. g(i) > g(i+1)) then
         imax = i
         exit
