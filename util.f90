@@ -48,6 +48,8 @@ module mod_util
    use mod_thermo, only : thermo_clear
    use mod_nc_conf, only : wtypes, nmconf, orgty, wtypes, natoms
    use mod_order, only : order_init, order_clear, compute_order, norder
+   use mod_precision
+   implicit none
 contains
    subroutine gpu_and_header(startEvent,stopEvent,gpudevice)
       use cudafor
