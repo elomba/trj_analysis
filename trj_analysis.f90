@@ -193,6 +193,7 @@ program trj_analysis
             cycle
         endif
         tread = tread + t1 - t0
+        
         ! Linked cells for cluster analysis
         if (use_cell) then
             call cells_build()
@@ -201,6 +202,9 @@ program trj_analysis
         !
         ! Transfer data to GPU
         call transfer_cpu_gpu(ndim)
+
+        ! Run RDF
+        if (run_rdf) call RDFcomp(Nmol, i, nbcuda, nthread)
 
         ! BFS cluster search
         if (run_clusters) call cluster_search()
@@ -213,9 +217,6 @@ program trj_analysis
         
         ! kinetic energy (if velocities available) 
         if (ex_vel) call thermo_kin(i, ndim)
-        ! Run RDF
-
-        if (run_rdf) call RDFcomp(Nmol, i, nbcuda, nthread)
 
         ! Compute density profile along idir direction
         if (confined) call profile_comp(nthread, ndim, idir, pwall, deltar)
