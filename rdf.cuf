@@ -43,7 +43,6 @@ module mod_rdf
    use mod_precision
    use mod_common
    use mod_input
-   use mod_util, only : find_first_minimum_interp
    use cudafor
    implicit none
    integer, device :: dim_hist
@@ -532,5 +531,72 @@ else
    ind_ij = (j - 1)*(nsp - 1) - (j - 1)*(j - 2)/2 + i
 end if
 end function ind_ij
+
+subroutine find_first_minimum_interp(g, r, nrdf, rmin)
+   ! Find the position of the first minimum in the radial distribution function g(r)
+  implicit none
+  integer, intent(in) :: nrdf
+  real(myprec), intent(in) :: g(0:nrdf), r(0:nrdf)
+  real(myprec), intent(out) :: rmin
+
+  integer :: i, imax, imin
+  real(myprec) :: gmax
+  real(myprec) :: x1,x2,x3,y1,y2,y3,denom
+
+  ! --- Find first peak ---
+  imax = 1
+  do i = 2, nrdf-1
+     if (g(i) > g(i-1) .and. g(i) > g(i+1)) then
+        imax = i
+        exit
+     endif
+  end do
+
+  ! fallback
+  if (imax == 1) then
+     gmax = g(1)
+     do i = 2, nrdf
+        if (g(i) > gmax) then
+           gmax = g(i)
+           imax = i
+        endif
+     end do
+  endif
+
+  ! --- Find minimum after peak ---
+  imin = imax + 1
+
+  do i = imax+1, nrdf-1
+     if (g(i) < g(i-1) .and. g(i) < g(i+1)) then
+        imin = i
+        exit
+     endif
+  end do
+
+  ! --- Parabolic interpolation ---
+  if (imin > 0 .and. imin < nrdf) then
+
+     x1 = r(imin-1)
+     x2 = r(imin)
+     x3 = r(imin+1)
+
+     y1 = g(imin-1)
+     y2 = g(imin)
+     y3 = g(imin+1)
+
+     denom = (y1 - 2.0d0*y2 + y3)
+
+     if (abs(denom) > 1e-12) then
+        rmin = x2 + 0.5d0 * (y1 - y3) / denom * (x3 - x1) / 2.0d0
+     else
+        rmin = x2
+     endif
+
+  else
+     rmin = r(imin)
+  endif
+
+end subroutine find_first_minimum_interp
+
 
 end module mod_rdf
