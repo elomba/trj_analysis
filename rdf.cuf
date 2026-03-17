@@ -43,6 +43,7 @@ module mod_rdf
    use mod_precision
    use mod_common
    use mod_input
+   use mod_util, only : find_first_minimum_interp
    use cudafor
    implicit none
    integer, device :: dim_hist
