@@ -124,7 +124,7 @@ contains
       implicit none
       integer, intent(IN) :: Nmol, Iconf, nbcuda, nthread
       integer :: istart, i, ind, k, j, l, istat=0, ierrSync, rdfb, rdfth
-      real :: time_gpu, suma, deltaV
+      real :: time_gpu, suma, deltaV, ri
       ! Initialize histograms to zero for this configuration
       histomix_d(:, :) = 0
       if (nrandom>0) then
@@ -191,7 +191,13 @@ contains
       ! Normalize histograms to get total g(r)
       do i=1, lsmax
          gtot(i) = 0
-         deltaV = 4.0*pi*(real(i**3)-real(i-1)**3)*deltar**3/3.0
+         ri = real(i)*deltar
+         if (ndim == 3) then
+            deltaV = 4*pi*((ri + deltar/2)**3 - (ri - deltar/2)**3)/3.0
+         else
+            deltaV = pi*((ri + deltar/2)**2 - (ri - deltar/2)**2)
+         end if
+         !
          do j=1, nsp
             do l = j, nsp
                gtot(i) = gtot(i) + histomix(i, j, l)
