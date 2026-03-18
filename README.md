@@ -163,6 +163,7 @@ The input file uses Fortran namelist format. Sample configurations are provided 
 | `potnbins` | integer | Bins for energy histograms (default: 100) |
 | `potengmargin` | real | Energy histogram margin (default: 0) |
 | `periodic(ndim)` | logical | Periodic boundary conditions per dimension (default: `.true.`) |
+| `nprint`| Printout frequency (defaults to 10)
 
 #### `/INPUT_SP/` - Species Selection
 | Parameter | Type | Description |
