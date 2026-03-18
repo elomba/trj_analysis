@@ -395,6 +395,7 @@ contains
       averg = 0
       im = 0
       rclus = 0
+      denscl = 0.0
       do i = 1, cluster_id
             clussize = cluster(i)%clsize
             clcent(:) = cluster(i)%center(1:ndim)

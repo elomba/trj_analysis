@@ -58,7 +58,7 @@ contains
    end subroutine log_clear
 
    subroutine print_output(iconf)
-      integer, parameter :: nther=10, nprint=10
+      integer, parameter :: nther=10
       integer, intent(in) :: iconf
       logical, dimension(nther) :: mascara
       character*15, dimension(nther) :: title =(/"     T(K)","KE (Kcal/mol)","PE Kcal/mol",&

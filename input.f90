@@ -49,7 +49,7 @@ module mod_input
    ! nthread : number of threads for CUDA kernels is preset to 64 by default, beware of larger values for big systems
    !
    integer :: nthread=128, ndim, minPts,  idir=0, nsp, nbuffer=2, potnbins=100, nqw=0, &
-            & jump=1, norder=1, nnbond=0, cl_thresh=10
+            & jump=1, norder=1, nnbond=0, cl_thresh=10, nprint=10
    logical :: use_cell = .true., run_order = .false., print_orderp=.false., &
                geometry=.true., outliers_purge=.false.
    logical, dimension(7) :: rdf_sq_cl_dyn_sqw_conf_ord
@@ -62,7 +62,7 @@ module mod_input
    ! Input namelists
    namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread,  &
       & ncfs_from_to,  rdf_sq_cl_dyn_sqw_conf_ord, nqw, norder, ener_name, &
-      & press_name, potnbins, potengmargin, rcl, periodic
+      & press_name, potnbins, potengmargin, rcl, periodic, nprint
    namelist /INPUT_SP/ sp_types_selected, mat
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
    namelist /INPUT_SQ/ qmax, qmin, bsc
