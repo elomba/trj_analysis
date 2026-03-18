@@ -89,7 +89,13 @@ contains
          endif
          write(1000,"(i9,12f15.5)")nstep, pack(thermo_q(1:nther),mascara)
       endif
-
+       if (run_clusters.and.Iconf==1) then
+            if (outliers_purge) then
+               Write (*, "(/' **i* Clusters >= ',i3,' particles being analyzed. Outliers purged. '/)") minPts
+            else
+               Write (*, "(/ ' *** Clusters >= ',i3,' particles being analyzed. Outliers kept. '/)") minPts
+            endif
+         endif
       ! Print periodic progress update to console
       If (Mod(Iconf - 1, nprint) .Eq. 0) Then
          call cpu_time(cpu1)
@@ -103,13 +109,7 @@ contains
                & ' ns, cpu time per conf.=',f7.2,' s:')") nstep, nstep*tstep/1000.0, (cpu1 - cpu0)/nprint
          endif
          write (*,"(a,90('_'),a)") char(27)//'[31m', char(27)//'[0m' 
-         if (run_clusters) then
-            if (outliers_purge) then
-               Write (*, "( ' ** Clusters >= ',i3,' particles being analyzed. Outliers purged. '/)") minPts
-            else
-               Write (*, "( ' ** Clusters >= ',i3,' particles being analyzed. Outliers kept. '/)") minPts
-            endif
-         endif
+  
          cpu0 = cpu1
          if (run_thermo) then
             if (tunits == 'lj') then

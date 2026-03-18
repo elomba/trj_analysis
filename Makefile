@@ -14,7 +14,7 @@
 PATH := $(NVBIN):$(PATH)
 
 FC = nvfortran
-FCOPTS = -O3 -gpu=cc70,cc80 -cudalib=curand
+FCOPTS = -O3 -gpu=cc75,cc80 -cudalib=curand
 FCINC = -I$(NETCDFINC) -I$(NVINCLUDE) $(if $(FFTWINC),-I$(FFTWINC))
 
 F90 = $(FC)
@@ -22,12 +22,12 @@ F90OPTS = -O3
 F90INC = $(FCINC)
 F90LIBS = $(FCLIBS)
 
-LKOPTS =  -cuda -gpu=cc70,cc80 -c++libs -lnetcdff -lfftw3 -llapack -lblas 
+LKOPTS =  -cuda -gpu=cc75,cc80 -c++libs -lnetcdff -lfftw3 -llapack -lblas 
 LKLIBS = -L$(NETCDFLIB) -L$(NVLIBS) $(if $(FFTWLIB),-L$(FFTWLIB))
 
 CC = nvcc
 
-EXE = -o trj_analysis.exe
+EXE = -o trj_analysis
 
 OBJ = precision.o thrust.o common.o sorts.o input.o netcdf.o cells.o \
 	sq.o rdf.o densprof.o thermo.o clusters.o order.o log.o fftwlib.o dynamics.o\
