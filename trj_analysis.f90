@@ -149,8 +149,12 @@ program trj_analysis
     ! First load from netcdf input file. Load global attributes of the simulation trajectory
     ! Read header and details of the NETCDF trajectory files: check consistency with input data
     !
-    call read_nc_cfg(ncid_in, 1, io, io_log_file)
-
+    call read_nc_cfg(ncid_in, ncfs_from_to(2), io, io_log_file)
+    if (io < 0) then
+        write(*,"('** UNRECOVERABLE ERROR:  read NetCDF trajectory file  beyond end of file !')")
+        write(*,"('** Check ncfs_from_to in input file and consistency with NetCDF file (ncdump -h <file.nc> )!')")
+        stop
+    endif
     ! Set number of species from netcdf file or from selected species from namelist
     call select_species(nsp, ntypes, nmol, natoms)
     if (nstep == 0) then

@@ -113,7 +113,7 @@ end module mod_nc
 !   System Properties:
 !     natoms         - Number of atoms
 !     ntypes         - Number of atom types
-!     nmconf         - Number of molecules/particles
+!     nmconf         - Running number of configurations
 !     nconf_i        - Number of configurations in file
 !     cell           - Simulation cell vectors
 !     org            - Cell origin
