@@ -74,7 +74,7 @@ contains
       istat = cudaEventCreate(startEvent)
       istat = cudaEventCreate(stopEvent)
       ! Print program header
-      write(*,'(A)') char(27)//'[33m'
+      write(*,'(A)')char(27)//'[33m'
       write(*,"(/80('*')/'*',78(' '),'*')")
       write(*,"('*    Program trj_analysis: analyzing LAMMPS trajectory in NETCDF format',t80,'*')")
       write(*,"('*',t80,'*')")

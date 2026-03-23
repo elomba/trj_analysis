@@ -44,7 +44,7 @@ module mod_input
    use sorts
    implicit none
    integer, allocatable, dimension(:) :: sp_types_selected, nw
-   integer, dimension(3) :: ncfs_from_to
+   integer, dimension(3) :: ncfs_from_to=3*0
    !
    ! nthread : number of threads for CUDA kernels is preset to 64 by default, beware of larger values for big systems
    !
@@ -75,6 +75,7 @@ contains
 
    subroutine read_input_file()
       integer :: io_input_file, i
+      logical :: trj_file_exists=.true.
 
       ! Initialize all module flags to false
       rdf_sq_cl_dyn_sqw_conf_ord(:) = .false.
@@ -95,10 +96,23 @@ contains
       bsc(:) = 1.0
       ! Read species-specific parameters
       read (unit=io_input_file, nml=INPUT_SP)
+      ! Check existence of trajectory file
+      inquire (file=trj_input_file, exist=trj_file_exists)
+      if (.not. trj_file_exists) then
+         write(*,'("*** Error: trajectory file specified in trj_input_file ",A, " does not exist !")') char(27)//'[33m'//trim(trj_input_file)//char(27)//'[0m'
+         stop 
+      endif
       if (sp_types_selected(1) == 0) then
          write(*,'("*** Error: atom IDs must be specified in sp_types_selected !")')
          stop
       endif
+      !
+      ! Define defaults for configuration file parameters if not set by user
+      if (ncfs_from_to(2) == 0) then
+         ncfs_from_to(2) = 1
+         write(*,'(" ** Warning: ncfs_from_to(2) (starting configuration index) reset to 1 !")')
+      endif
+
       ! Read RDF parameters if needed (RDF, cluster analysis, or confinement)
       deltar = -1.0
       if (rdf_sq_cl_dyn_sqw_conf_ord(1) == .true. .or. rdf_sq_cl_dyn_sqw_conf_ord(3) == .true. &

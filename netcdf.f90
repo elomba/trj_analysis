@@ -156,7 +156,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
    use mod_nc
    use netcdf
    use mod_nc_conf
-   use mod_input, only : nsp
+   use mod_input, only : nsp, ncfs_from_to
    implicit none
    integer, intent(in) :: ncid, ncstart
    integer, intent(in), optional :: unit
@@ -225,7 +225,13 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
       end do
       write (iunit, "(/' ** Readings vars, type, no. dimensions, no. a&
       &ttrs ',/)")
-   end if
+      if (ncfs_from_to(1) == 0) then
+         write (*, "(' ** Warning: ncfs_from_to(1) (number of configurations) ',i1,' reset to ',i )") ncfs_from_to(1), nmconf
+         ncfs_from_to(1) = nmconf
+         write(*,'("    Processing whole trajectory by default, set ncfs_from_to(1) and ncfs_from_to(2) to process a subset of configurations !")')
+         ncfs_from_to(3) = nmconf 
+      endif
+   endif 
    if (ncstart > nmconf) then
       write (*, "(' ** Warning : trying to read past last configuration no. ',i7 )") nmconf
       io = -1
@@ -303,6 +309,14 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
                      pwall = minval(r(k,1:natoms,1)) - 6.0
                      pwallp = pwall + cell(k,1)
                   endif
+               endif
+               if (minval(r(k, 1:natoms, 1)) < pwall) then
+                  write(*,'(///"*** Error: some particles have coodinates ",f8.2," left of  ",f8.2," !")') minval(r(k, 1:natoms, 1)), pwall
+                  stop(" Out of box coordinates detected, check your trajectory file and input parameters, or equilibration !")
+               endif
+               if (maxval(r(k, 1:natoms, 1)) > pwallp) then
+                  write(*,'(///"*** Error: some particles have coodinates ",f8.2," right of ",f8.2," !")') maxval(r(k, 1:natoms, 1)), pwallp
+                  stop(" Out of box coordinates detected, check your trajectory file and input parameters, or equilibration !")
                endif
             end if
          end do
