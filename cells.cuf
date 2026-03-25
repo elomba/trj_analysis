@@ -341,6 +341,9 @@ contains
             end do
             ! determine number of neighbors and core status
             gneighbors(i) = counter
+            if (i== 83035) then
+                print *, 'Debug: particle 83085, neighbors=', counter, minPts-1
+            end if
             ! If number of neighbors >= minPts - 1 then mark as core node
             if (counter >= minPts - 1) gcore(i) = .true.
         end if

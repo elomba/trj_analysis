@@ -491,6 +491,9 @@ contains
       mapcl(:) = 0
       do i = 1, maxclni
          clsz = count(label == i)
+         if (clsz < 3) then
+         print *, 'Cluster ', i, ' size: ', clsz
+         end if
          !
          ! Eliminate clusters smaller than minPts if purge is true, otherwise keep all clusters
          !
@@ -658,6 +661,7 @@ contains
       tgraph = tgraph + time_gpu
       goffset(:) = gneighbors(:)
       neighbors(:) = gneighbors(:)
+      print *, neighbors(83035)
       if (maxval(neighbors(:)) > maxnbpp) then
          write (*, '(" *** Error: max number of neighbors is ", i5," > ",i3)') maxval(neighbors(:)), maxnbpp
          write (*, '(" *** Please increase maxnbpp and recompile or reduce rcl from ", f8.4)') rcl
@@ -702,8 +706,8 @@ contains
       integer :: cluster_id, i, j, istat
       real :: time_gpu
       Character :: error_msg*64
-      logical :: active
-      logical, device :: active_d
+      integer :: active
+      integer, device :: active_d
       !
       ! Search for neighbors and build graph
       !
@@ -719,15 +723,18 @@ contains
       do i = 1, nmol
          ! If i is a core particle and not yet assigned to a cluster, start a new cluster and expand it with BFS
          if (core(i) .and. label(i) == 0) then
+            if (i==83035) then
+               print *, 'Debug: core particle 83035 found, neighbors: ',neighbors(i), ' core: ', core(i), ' label: ', label(i) 
+            end if
             cluster_id = cluster_id + 1
             gborder(i) = .true.
             ! active is a flag to check if BFS expansion is still active, i.e. if new border nodes are being
             ! found. When no more border nodes are found, BFS is finished and we move to the next cluster.
-            active = .true.
+            active = 1
             ! Expand cluster with GPU BFS, starting from border nodes and
             ! expanding until no more border nodes found.
             do while (active)
-               active_d = .false.
+               active_d = 0
                call gbfs<<<nbcuda, nthread>>>(Nmol, gborder, gcore, glabel, cluster_id, minPts, active_d)
                istat = cudaDeviceSynchronize()
                active = active_d
@@ -735,6 +742,16 @@ contains
             ! After BFS is finished, cluster_id is assigned to all particles in the cluster (label(:))
             ! and we move to the next unvisited core particle
             label(:) = glabel(:)
+            
+         end if
+            if (i==83035) then
+               print *, 'Debug: core particle 83035 found, neighbors: ',neighbors(i), ' core: ', core(i), ' label: ', label(i), count(label(:) == 548) 
+            end if
+      end do
+      do i=1, cluster_id
+         j = count(label(:) == i)
+         if (j < 3) then
+            write (*, '(" *** Warning: cluster ", i, " has only ", i5, " particles")') i, j
          end if
       end do
       time_gpu = gptime(stopEvent, startEvent)
@@ -751,10 +768,10 @@ contains
    ! GPU BFS routine, uses neighbor lists to run through adjacent nodes, marks visited nodes and border nodes.
    ! Starts from border nodes and border is being expanded. Completely parallel implementation.
    integer, value, intent(IN) :: Nmol, cluster_id, minPts
-   logical, intent(INOUT) :: active
+   integer, intent(INOUT) :: active
    logical(kind=1), intent(INOUT) ::  border(Nmol), core(Nmol)
    integer, intent(INOUT) ::  label(Nmol)
-   integer :: i, j, k
+   integer :: i, j, k, active_old, nb 
    j = (blockidx%x - 1)*blockdim%x + threadidx%x
    if (j <= Nmol) then
       if (border(j).and.label(j) == 0) then
@@ -765,9 +782,15 @@ contains
          label(j) = cluster_id
          if (core(j)) then
             ! Set flag to continue BFS expansion
-            active = .true.
+            active_old=atomicOr(active, 1)
             ! Active cluster expansion: mark neighbors of j as border if not visited
-            border(gadjacency(goffset(j):goffset(j)+gneighbors(j)-1)) = .true.
+             do k = goffset(j), goffset(j)+gneighbors(j)-1
+               nb = gadjacency(k)
+               if (label(nb) == 0) then
+                  border(nb) = .true.
+               endif 
+            end do
+            !border(gadjacency(goffset(j):goffset(j)+gneighbors(j)-1)) = .true.
          end if
       end if
    end if
