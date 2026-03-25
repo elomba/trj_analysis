@@ -786,6 +786,9 @@ contains
             ! Active cluster expansion: mark neighbors of j as border if not visited
              do k = goffset(j), goffset(j)+gneighbors(j)-1
                nb = gadjacency(k)
+               if (cluster_id==548) then
+                  print *, 'Debug: core particle 83035 found, neighbor: ', nb, ' core: ', core(nb), ' label: ', label(nb) 
+               end if
                if (label(nb) == 0) then
                   border(nb) = .true.
                endif 
