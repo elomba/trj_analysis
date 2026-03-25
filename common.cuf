@@ -412,4 +412,3 @@ contains
    end subroutine common_clear
 
 end module mod_common
-'
