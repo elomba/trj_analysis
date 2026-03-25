@@ -34,14 +34,14 @@
 !===============================================================================
 module mod_util
    use mod_common, only : shmsize, maxthread,  run_thermo, ex_stress, &
-      printDevPropShort, common_clear, nit, ener_name, press_name, &
+      printDevPropShort, printDeviceProperties, common_clear, nit, ener_name, press_name, &
       run_sq, run_sqw, run_rdf, run_clusters, run_dyn, &
       printcudaerror, ex_qc, nconf, qcharge, lsmax, maxcln
    use mod_densprof, only : prof_init, prof_clear
    use mod_sq, only : sq_init, printsq, sq_clear, sq_transfer_gpu_cpu
    use mod_rdf, only : rdf_init, printrdf, rdf_clear
    use mod_dyn, only : print_rtcor, dyn_clear, dyn_init
-   use mod_log, only : log_clear, log_init, printPotEngCl, print_clusinfo, print_order
+   use mod_log, only : log_close, log_init, printPotEngCl, print_clusinfo, print_order, header, io_log_file
    use mod_clusters, only : clusters_clear, clusters_init, clusters_sq_init
    use mod_input, only : input_clear, sp_types_selected, ncfs_from_to, rdf_sq_cl_dyn_sqw_conf_ord, rcl, run_order
    use mod_cells, only : cells_init_post_nc_read, cells_init_pre_nc_read, cells_clear, use_cell
@@ -73,17 +73,10 @@ contains
       ! Initialize CUDA timing
       istat = cudaEventCreate(startEvent)
       istat = cudaEventCreate(stopEvent)
-      ! Print program header
-      write(*,'(A)')char(27)//'[33m'
-      write(*,"(/80('*')/'*',78(' '),'*')")
-      write(*,"('*    Program trj_analysis: analyzing LAMMPS trajectory in NETCDF format',t80,'*')")
-      write(*,"('*',t80,'*')")
-      write(*,"('*    Using GPU with CUDA nvfortran/nvcc >= 25.9/13.0',t80,'*')")
-      write(*,"('*',t80,'*')")
-      write(*,"('*    Version 1.3 March, 2026',,t80,'*')")
-      write(*,"('*',78(' '),'*'/80('*')/)")
-      write(*,'(A)') char(27)//'[0m'
-      call printDevPropShort(gpu_properties, gpudevice)
+      
+      ! Print GPU properties
+      call printDevPropShort(gpu_properties, gpudevice,6)
+      call printDevPropShort(gpu_properties, gpudevice,io_log_file)
       ! Check that maximum number of threads is not surpassed
       if (nthread > maxthread/8) then
          nthread = maxthread/8
@@ -91,6 +84,7 @@ contains
       endif
    end subroutine gpu_and_header
 
+   
    subroutine select_species(nsp,ntypes,nmol,natoms)
       implicit none
       integer, intent(in) :: nsp, ntypes, natoms
@@ -239,9 +233,26 @@ contains
          print *, ' ··· prof_clear done'
       endif
       call common_clear()
-      call log_clear()
       call input_clear()
    end subroutine clean_memory
+
+   subroutine print_total_time(time_total, time_gput, nconf, iunit)
+      implicit none
+      real(myprec), intent(in) :: time_total, time_gput
+      integer, intent(in) :: nconf, iunit
+      if (iunit == 6) then
+         write(*,"(a,90('_'),a)") char(27)//'[33m', char(27)//'[0m'
+      else
+         write(iunit,"(a,90('_'))") 
+      endif
+      write (iunit, '(/,A,F15.7,A,f6.3,"s/frame")') '**** Total time:     ', time_total, ' s;  ', time_total/nconf
+      write (iunit, '(A,F15.7,A,f6.3,"s/frame")') '**** Total GPU time: ', time_gput, ' s;  ', time_gput/nconf
+      if (iunit == 6) then
+         write(*,"(a,90('_'),a)") char(27)//'[33m', char(27)//'[0m'
+      else
+         write(iunit,"(a,90('_'))") 
+      endif
+   end subroutine print_total_time 
 
    subroutine print_results(run_sq,  run_rdf, run_dyn, run_clusters, run_thermo, ntype, nsp, lsmax, nmol, nqmin, rcl)
       use mod_precision

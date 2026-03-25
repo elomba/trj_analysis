@@ -187,6 +187,8 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
 
    if (first) then
       Write (iunit, "(//'**** Using NetCDF library version ',A)") trim(nf90_inq_libvers())
+      Write (iunit, "(//'**** Opening NetCDF file with id ',i5)") ncid
+      Write (iunit, "(//'**** NetCDF file opened successfully, reading and printing global attributes and dimensions...')")
       !
       ! Inquire dimensions and number of vars
       !
@@ -444,7 +446,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
             atypes(ity(i, 1)) = atypes(ity(i, 1)) + 1
          end do
          do i = 1, ntypes
-            write (iunit, "(/'       Number of atoms of types ',i2,' (',i2,')=',i8)") i, orgty(i),atypes(i)
+            write (iunit, "(/'  ··Number of atoms of types ',i2,' (',i2,')=',i8)") i, orgty(i),atypes(i)
          end do
       else
          !
@@ -458,7 +460,6 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
    else
       print *, " **** Warning no atom types defined in trajectory file"
    end if
-   ! if (iunit .ne. 6 .and. first) close (iunit)
    first = .false.
 end subroutine read_nc_cfg
 

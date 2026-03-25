@@ -101,12 +101,12 @@ program trj_analysis
     use mod_thermo
     use mod_dyn, only : dyn_init, dyn_clear, rtcorr, print_rtcor
     use mod_util, only : gpu_and_header, clean_memory, init_modules, reformat_input_conf, &
-                         basic_init, print_results, select_species, reset_confs, form_dependencies
+                         basic_init, print_results, select_species, reset_confs, form_dependencies, print_total_time
     use cudafor
     implicit none
 
     integer :: io = 0, ioerr, istat, ncid_in
-    integer :: argc, ncstart, i, devnum
+    integer :: argc, ncstart, i, devnum, Nccount
     logical :: first_configuration=.true., nstepi0 = .false. 
     real :: t0 = 0, t1 = 0
     character(len=2) :: deviceNumber
@@ -133,12 +133,12 @@ program trj_analysis
     call cpu_time(cpu0)
 
     ! Get CUDA properties from device devNum 
-    call gpu_and_header(startEvent,stopEvent,devNum)
    
   
     ! Load namelist input file & init log system
     call read_input_file()
     call log_init()
+    call gpu_and_header(startEvent,stopEvent,devNum)
     !
     ! Open netcdf trajectory file, get the file identificator ncid_in
     call check(nf90_open(path=trj_input_file, mode=NF90_WRITE, ncid=ncid_in), ioerr)
@@ -170,6 +170,7 @@ program trj_analysis
     ! Init common variables & print outs
     call common_init(nmol, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)
     ! Analysis begins from first configuration selected
+    Nccount = 0
     do i = 1, ncfs_from_to(1)
         ! In the first configuration basic initialization 
         if (first_configuration) call basic_init(use_cell,run_clusters,run_dyn,confined,nmol)
@@ -238,6 +239,7 @@ program trj_analysis
         if (run_order) call compute_order(nmol, ndim, rcl, sidel)
         ! Print periodic output
         call print_output(i)
+        Nccount = Nccount + 1
     end do
     ! Normalize density profiles computed along the non-periodic dimension
     if (confined) call normdenspr(nconf)
@@ -252,5 +254,7 @@ program trj_analysis
 
     ! Print simulation time
     time_total = time_total + (time_cpu_stop - time_cpu_start)
-    write (*, '(/,A,F15.7,A,/)') '**** Total time: ', time_total, ' seconds'
+    call print_total_time(time_total, time_gput, Nccount, 6)
+    call print_total_time(time_total, time_gput, Nccount, io_log_file)
+    call log_close()
 end program trj_analysis

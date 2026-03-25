@@ -46,16 +46,60 @@ module mod_log
    use cudafor
    use mod_thermo, only : engclus, engclpa
    implicit none
-   integer :: io_log_file=55
+   integer :: io_log_file=777
 contains
    subroutine log_init()
       use mod_input
       open (unit=io_log_file, file=log_output_file)
+      call header(io_log_file)
+      call header(6)
+      call print_active_modules(io_log_file)
+      call print_active_modules(6)
    end subroutine log_init
 
-   subroutine log_clear()
+   subroutine log_close()
       close (io_log_file)
-   end subroutine log_clear
+   end subroutine log_close
+  
+   subroutine print_active_modules(unit)
+      integer, intent(in) :: unit
+      integer :: i
+      do i = 1, 7
+         if (rdf_sq_cl_dyn_sqw_conf_ord(i) == .true.) then
+         select case (i)
+            case (1)
+               write(unit,'(//" ··· Flow control:",A," module will be executed !")') "RDF"
+            case (2)
+               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "S(q)"
+            case (3)
+               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "Cluster analysis"
+            case (4)
+               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "Dynamics/Z(w)"
+            case (5)
+               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "F(q,t)/S(q,w)"
+            case (6)
+               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "Confinement"
+            case (7)
+               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "Order parameters"
+         end select
+         endif
+      end do
+   end subroutine print_active_modules
+   
+   subroutine header(unit)
+      implicit none
+      integer, intent(in) :: unit
+      if(unit == 6) write(unit,'(A)')char(27)//'[33m'
+      write(unit,"(/80('*')/'*',78(' '),'*')")
+      write(unit,"('*    Program trj_analysis: analyzing LAMMPS trajectory in NETCDF format',t80,'*')")
+      write(unit,"('*',t80,'*')")
+      write(unit,"('*    Using GPU with CUDA nvfortran/nvcc >= 25.9/13.0',t80,'*')")
+      write(unit,"('*',t80,'*')")
+      write(unit,"('*    Version 1.3 March, 2026',,t80,'*')")
+      write(unit,"('*',78(' '),'*'/80('*')/)")
+      if(unit == 6) write(unit,'(A)') char(27)//'[0m'   
+   end subroutine header
+
 
    subroutine print_output(iconf)
       integer, parameter :: nther=10
@@ -91,9 +135,9 @@ contains
       endif
        if (run_clusters.and.Iconf==1) then
             if (outliers_purge) then
-               Write (*, "(/' **i* Clusters >= ',i3,' particles being analyzed. Outliers purged. '/)") minPts
+               Write (*, "(/' **i* Clusters >= minPts=',i3,' particles being analyzed. Outliers purged. '/)") minPts
             else
-               Write (*, "(/ ' *** Clusters >= ',i3,' particles being analyzed. Outliers kept. '/)") minPts
+               Write (*, "(/ ' *** Clusters >= minPts=',i3,' particles being analyzed. Outliers kept. '/)") minPts
             endif
          endif
       ! Print periodic progress update to console
@@ -102,11 +146,11 @@ contains
          write (*,"(a,90('_'),a)") char(27)//'[31m', char(27)//'[0m' 
          if (tunits == 'lj') then
                Write (*, "(' ** Working on MD step no. ',i10,' time* =',f12.3,&
-               & ' cpu time per conf.=',f7.2,' s:'&
+               & ' compute time per conf.=',f7.2,' s:'&
                & )") nstep, nstep*tstep, (cpu1 - cpu0)/nprint
          else
                Write (*, "(' ** Working on MD step no. ',i10,' time =',f10.5,&
-               & ' ns, cpu time per conf.=',f7.2,' s:')") nstep, nstep*tstep/1000.0, (cpu1 - cpu0)/nprint
+               & ' ns, compute time per conf.=',f7.2,' s:')") nstep, nstep*tstep/1000.0, (cpu1 - cpu0)/nprint
          endif
          write (*,"(a,90('_'),a)") char(27)//'[31m', char(27)//'[0m' 
   
@@ -199,13 +243,14 @@ contains
             write (*, "(' ** No. of clusters for this configuration :',i5)") maxcln
             print *, " ··Time for graph construction", tgraph/iconf
             print *, " ··Thrust time ", tthrus/iconf
-            print *, " ··Time adjacency list construction =", tadj/iconf
+            print *, " ··Time for adjacency list construction =", tadj/iconf
             print *, " ··Time for BFS cluster search =", tbfs/iconf
          end if
          if (run_rdf) print *, " ··Time for rdf ", trdf/iconf
          if (run_sq) print *, " ··Time for S(Q) ", tsQ/iconf
          if (run_order) print *, " ··Time for order parameter ", tord/iconf
          if (run_dyn) print *, " ··Time for dynamics ", tdyn/iconf
+         time_gput = tthrus + tadj + tbfs + tgraph + trdf + tsQ + tord + tdyn
          print *, " ··Time config in/out  ", tread/iconf
       End if
 

@@ -355,8 +355,13 @@ contains
                enddo
                ! Determine first minimum of g_cl-cl(r) for cluster analysis cutoff
                call find_first_minimum_interp(gclt, lsmax, deltar, rclcls)
-               write(*,'(/" *** Suggested rcl-cl for cluster analysis: ", f15.7/"     using rcl-cl: ", f15.7)') rclcls, rclcl 
-               write(*,'(" *** Check g_cl-cl(r) to choose appropriate rcl-cl for cluster analysis (e.g. first minimum)")')
+               if (conf(4)%units == 'lj') then
+                  write(*,'(/" *** Suggested rcl-cl for cluster-cluster correlation analysis: ", f15.7,"σ"/"     using rcl-cl: ", f15.7,"σ")') rclcls, rclcl 
+                  write(*,'(" *** Check g_cl-cl(r) to choose appropriate rcl-cl e.g. (first minimum)")')
+               else
+                  write(*,'(/" *** Suggested rcl-cl for cluster-cluster correlation analysis: ", f15.7,"Å"/"     using rcl-cl: ", f15.7,"Å")') rclcls, rclcl 
+                  write(*,'(" *** Check g_cl-cl(r) to choose appropriate rcl-cl e.g. (first minimum)")')
+               endif
             endif
          endif
       endif
