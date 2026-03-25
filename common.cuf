@@ -46,7 +46,7 @@ module mod_common
       kelvintokcal = 0.00198717, c_nktv=1.380649d2, &
       kcal_a3_to_bar=69476.954109
 
-   real(myprec) :: time_cpu_start, time_cpu_stop, time_total = 0_sp
+   real(myprec) :: time_cpu_start, time_cpu_stop, time_total = 0_sp, time_gput=0.0
    real(double) :: ekin, suma
    type(cudaEvent) :: startEvent, stopEvent
    type(dim3) :: bl2, thr2, grid, tBlock
@@ -238,7 +238,7 @@ contains
 100   continue
       close(unit)
       write(iounit,"(80('_')/)")
-      write(iounit,"(10x,a,10x)") " *** Running on CPU: " // trim(line) // " ***  "
+      write(iounit,"(7x,a,10x)") " *** Running on CPU" // trim(line) // " ***  "
       ilen = verify(prop%name, ' ', .true.)
       write (iounit,"(80('_')/)")
       write (iounit,900) "-Running on GPU Device Number: "      ,num

@@ -73,8 +73,7 @@ contains
       ! Initialize CUDA timing
       istat = cudaEventCreate(startEvent)
       istat = cudaEventCreate(stopEvent)
-      ! Print program header
-      call header(6)
+      
       ! Print GPU properties
       call printDevPropShort(gpu_properties, gpudevice,6)
       call printDevPropShort(gpu_properties, gpudevice,io_log_file)
@@ -234,9 +233,26 @@ contains
          print *, ' ··· prof_clear done'
       endif
       call common_clear()
-      call log_close()
       call input_clear()
    end subroutine clean_memory
+
+   subroutine print_total_time(time_total, time_gput, nconf, iunit)
+      implicit none
+      real(myprec), intent(in) :: time_total, time_gput
+      integer, intent(in) :: nconf, iunit
+      if (iunit == 6) then
+         write(*,"(a,90('_'),a)") char(27)//'[33m', char(27)//'[0m'
+      else
+         write(iunit,"(a,90('_'))") 
+      endif
+      write (iunit, '(/,A,F15.7,A,f6.3,"s/frame")') '**** Total time:     ', time_total, ' s;  ', time_total/nconf
+      write (iunit, '(A,F15.7,A,f6.3,"s/frame")') '**** Total GPU time: ', time_gput, ' s;  ', time_gput/nconf
+      if (iunit == 6) then
+         write(*,"(a,90('_'),a)") char(27)//'[33m', char(27)//'[0m'
+      else
+         write(iunit,"(a,90('_'))") 
+      endif
+   end subroutine print_total_time 
 
    subroutine print_results(run_sq,  run_rdf, run_dyn, run_clusters, run_thermo, ntype, nsp, lsmax, nmol, nqmin, rcl)
       use mod_precision

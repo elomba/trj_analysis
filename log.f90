@@ -52,6 +52,7 @@ contains
       use mod_input
       open (unit=io_log_file, file=log_output_file)
       call header(io_log_file)
+      call header(6)
       call print_active_modules(io_log_file)
       call print_active_modules(6)
    end subroutine log_init
@@ -134,9 +135,9 @@ contains
       endif
        if (run_clusters.and.Iconf==1) then
             if (outliers_purge) then
-               Write (*, "(/' **i* Clusters >= ',i3,' particles being analyzed. Outliers purged. '/)") minPts
+               Write (*, "(/' **i* Clusters >= minPts=',i3,' particles being analyzed. Outliers purged. '/)") minPts
             else
-               Write (*, "(/ ' *** Clusters >= ',i3,' particles being analyzed. Outliers kept. '/)") minPts
+               Write (*, "(/ ' *** Clusters >= minPts=',i3,' particles being analyzed. Outliers kept. '/)") minPts
             endif
          endif
       ! Print periodic progress update to console
@@ -145,11 +146,11 @@ contains
          write (*,"(a,90('_'),a)") char(27)//'[31m', char(27)//'[0m' 
          if (tunits == 'lj') then
                Write (*, "(' ** Working on MD step no. ',i10,' time* =',f12.3,&
-               & ' cpu time per conf.=',f7.2,' s:'&
+               & ' compute time per conf.=',f7.2,' s:'&
                & )") nstep, nstep*tstep, (cpu1 - cpu0)/nprint
          else
                Write (*, "(' ** Working on MD step no. ',i10,' time =',f10.5,&
-               & ' ns, cpu time per conf.=',f7.2,' s:')") nstep, nstep*tstep/1000.0, (cpu1 - cpu0)/nprint
+               & ' ns, compute time per conf.=',f7.2,' s:')") nstep, nstep*tstep/1000.0, (cpu1 - cpu0)/nprint
          endif
          write (*,"(a,90('_'),a)") char(27)//'[31m', char(27)//'[0m' 
   
@@ -242,13 +243,14 @@ contains
             write (*, "(' ** No. of clusters for this configuration :',i5)") maxcln
             print *, " ··Time for graph construction", tgraph/iconf
             print *, " ··Thrust time ", tthrus/iconf
-            print *, " ··Time adjacency list construction =", tadj/iconf
+            print *, " ··Time for adjacency list construction =", tadj/iconf
             print *, " ··Time for BFS cluster search =", tbfs/iconf
          end if
          if (run_rdf) print *, " ··Time for rdf ", trdf/iconf
          if (run_sq) print *, " ··Time for S(Q) ", tsQ/iconf
          if (run_order) print *, " ··Time for order parameter ", tord/iconf
          if (run_dyn) print *, " ··Time for dynamics ", tdyn/iconf
+         time_gput = tthrus + tadj + tbfs + tgraph + trdf + tsQ + tord + tdyn
          print *, " ··Time config in/out  ", tread/iconf
       End if
 

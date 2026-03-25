@@ -129,7 +129,6 @@ contains
             write(*,'("*** Error: rcl (cluster distance) must be positive to compute clusters !")')
             stop
          endif
-        write(*,"(' *** Note: minPts (minimum number of points for cluster formation) set to ',i3)" ) minPts
       endif
       if (rdf_sq_cl_dyn_sqw_conf_ord(4) == .true. &
       &  .or. rdf_sq_cl_dyn_sqw_conf_ord(5) == .true. ) then 
