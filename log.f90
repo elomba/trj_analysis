@@ -46,16 +46,59 @@ module mod_log
    use cudafor
    use mod_thermo, only : engclus, engclpa
    implicit none
-   integer :: io_log_file=55
+   integer :: io_log_file=777
 contains
    subroutine log_init()
       use mod_input
       open (unit=io_log_file, file=log_output_file)
+      call header(io_log_file)
+      call print_active_modules(io_log_file)
+      call print_active_modules(6)
    end subroutine log_init
 
-   subroutine log_clear()
+   subroutine log_close()
       close (io_log_file)
-   end subroutine log_clear
+   end subroutine log_close
+  
+   subroutine print_active_modules(unit)
+      integer, intent(in) :: unit
+      integer :: i
+      do i = 1, 7
+         if (rdf_sq_cl_dyn_sqw_conf_ord(i) == .true.) then
+         select case (i)
+            case (1)
+               write(unit,'(//" ··· Flow control:",A," module will be executed !")') "RDF"
+            case (2)
+               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "S(q)"
+            case (3)
+               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "Cluster analysis"
+            case (4)
+               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "Dynamics/Z(w)"
+            case (5)
+               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "F(q,t)/S(q,w)"
+            case (6)
+               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "Confinement"
+            case (7)
+               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "Order parameters"
+         end select
+         endif
+      end do
+   end subroutine print_active_modules
+   
+   subroutine header(unit)
+      implicit none
+      integer, intent(in) :: unit
+      if(unit == 6) write(unit,'(A)')char(27)//'[33m'
+      write(unit,"(/80('*')/'*',78(' '),'*')")
+      write(unit,"('*    Program trj_analysis: analyzing LAMMPS trajectory in NETCDF format',t80,'*')")
+      write(unit,"('*',t80,'*')")
+      write(unit,"('*    Using GPU with CUDA nvfortran/nvcc >= 25.9/13.0',t80,'*')")
+      write(unit,"('*',t80,'*')")
+      write(unit,"('*    Version 1.3 March, 2026',,t80,'*')")
+      write(unit,"('*',78(' '),'*'/80('*')/)")
+      if(unit == 6) write(unit,'(A)') char(27)//'[0m'   
+   end subroutine header
+
 
    subroutine print_output(iconf)
       integer, parameter :: nther=10

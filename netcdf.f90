@@ -458,7 +458,6 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
    else
       print *, " **** Warning no atom types defined in trajectory file"
    end if
-   ! if (iunit .ne. 6 .and. first) close (iunit)
    first = .false.
 end subroutine read_nc_cfg
 

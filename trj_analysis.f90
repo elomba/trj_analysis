@@ -133,12 +133,12 @@ program trj_analysis
     call cpu_time(cpu0)
 
     ! Get CUDA properties from device devNum 
-    call gpu_and_header(startEvent,stopEvent,devNum)
    
   
     ! Load namelist input file & init log system
     call read_input_file()
     call log_init()
+    call gpu_and_header(startEvent,stopEvent,devNum)
     !
     ! Open netcdf trajectory file, get the file identificator ncid_in
     call check(nf90_open(path=trj_input_file, mode=NF90_WRITE, ncid=ncid_in), ioerr)
@@ -182,6 +182,7 @@ program trj_analysis
             ncstart = ncfs_from_to(2) + (i - 1)*(ncfs_from_to(3) - ncfs_from_to(2))/ncfs_from_to(1)
         endif
         ! Read-in a full configuration
+        write(io_log_file, "(/' ** Reading configuration no. ',i7)") ncstart
         call read_nc_cfg(ncid_in, ncstart, io, io_log_file)
         ! Pre configuration analysis data transformations, corrections and format
         call reformat_input_conf(io,ncfs_from_to(1),i,ntypes,nsp)
