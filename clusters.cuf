@@ -738,6 +738,8 @@ contains
       integer :: active
       integer, device :: active_d(1)
       integer :: border_next(Nmol)
+      logical :: iactive
+      logical, device :: iactive_d
       !
       ! Search for neighbors and build graph
       !
@@ -780,15 +782,18 @@ contains
             ! Expand cluster with GPU BFS, starting from border nodes and
             ! expanding until no more border nodes found.
             iter = 0
-            do while (active)
+            do while (iactive)
                iter = iter + 1
                gborder_next(:) = 0
                active_d(1) = 0
-               call gbfs<<<nbcuda, nthread>>>(Nmol, cluster_id_local, minPts, active_d)
+               iactive_d = .false.
+!               call gbfs<<<nbcuda, nthread>>>(Nmol, cluster_id_local, minPts, active_d)
+               call gbfs_old<<<nbcuda, nthread>>>(Nmol, cluster_id_local, minPts, iactive_d)
                istat = cudaDeviceSynchronize()
                border_next(:) = gborder_next(:)
                gborder(:) = gborder_next(:)
                active = active_d(1)
+               iactive = iactive_d
             end do
             ! After BFS is finished, cluster_id is assigned to all particles in the cluster (label(:))
             ! and we move to the next unvisited core particle
@@ -841,6 +846,33 @@ contains
          end if
    end if
 end subroutine gbfs
+
+   attributes(global) subroutine gbfs_old(Nmol, cluster_id, minPts, active)
+   ! GPU BFS routine, uses neighbor lists to run through adjacent nodes, marks visited nodes and border nodes.
+   ! Starts from border nodes and border is being expanded. Completely parallel implementation.
+   integer, value, intent(IN) :: Nmol, cluster_id, minPts
+   logical, intent(INOUT) :: active
+   integer :: i, j, k, nbj, offj
+   j = (blockidx%x - 1)*blockdim%x + threadidx%x
+   if (j <= Nmol) then
+      if (border(j)==0.and.label(j) == 0) then
+         ! Mark cluster id for j, which is a border node, and if it is a core node,
+         ! mark its neighbors as border for the next iteration
+         ! label(j) marks node as visited and assigns cluster id to it,
+         ! so that it is not visited again in the next BFS iterations
+         label(j) = cluster_id
+         nbj = gneighbors(j)
+         offj = goffset(j)
+         if (nbj >= minPts-1) then
+            ! Set flag to continue BFS expansion
+            active = .true.
+            ! Active cluster expansion: mark neighbors of j as border if not visited
+            border(gadjacency(offj:offj+nbj-1)) = .true.
+         end if
+      end if
+   end if
+end subroutine gbfs_old
+
 
 
 subroutine denspcl(dim, members, nm, sidel, side2, rho, lsmax, deltar, center)
