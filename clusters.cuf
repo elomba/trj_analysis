@@ -783,6 +783,7 @@ contains
             ! After BFS is finished, cluster_id is assigned to all particles in the cluster (label(:))
             ! and we move to the next unvisited core particle
             label(:) = glabel(:)
+            print *, "Cluster", cluster_id, "- particles labeled:", count(label(:) == cluster_id)
          end if
       end do
       do i = 1, cluster_id
