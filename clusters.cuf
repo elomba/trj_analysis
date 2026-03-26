@@ -717,7 +717,7 @@ contains
       ! Main loop over all particles
       do i = 1, nmol
          ! If i is a core particle and not yet assigned to a cluster, start a new cluster and expand it with BFS
-         if (neighbors(i)>=minPts-1 .and. label(i) == 0) then
+         if (neighbors(i)>minPts-1 .and. label(i) == 0) then
             gborder(:) = .false.
             gborder_next(:) = .false.
             cluster_id = cluster_id + 1
@@ -777,7 +777,7 @@ contains
          nbj = gneighbors(j)
          offj = goffset(j)
          ! If j is a core node, mark its neighbors as border for the next iteration
-         if (nbj>=minPts-1) then
+         if (nbj>minPts-1) then
             ! Set flag to continue BFS expansion
             active_old=atomicOr(active, 1)
             ! Active cluster expansion: mark neighbors of j as border if not visited
