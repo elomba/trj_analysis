@@ -687,7 +687,7 @@ contains
       adjacency(:) = gadjacency(:)
       do i=1,Nmol
       if (neighbors(i) > 0) then
-         if (adjacency(goffset(i)) == 0) then
+         if (adjacency(offset(i)) == 0) then
             print *, "BAD OFFSET:", i
          endif
       endif
