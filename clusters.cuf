@@ -807,8 +807,6 @@ contains
    ! Starts from border nodes and border is being expanded. Completely parallel implementation.
    integer, value, intent(IN) :: Nmol, cluster_id, minPts
    integer, intent(INOUT) :: active(1)
-   integer, intent(INOUT) ::  border(Nmol), border_next(Nmol)
-   integer, intent(INOUT) ::  label(Nmol)
    integer :: i, j, k, iold, active_old, nbj, offj, nb
    j = (blockidx%x - 1)*blockdim%x + threadidx%x
    if (j <= Nmol) then
