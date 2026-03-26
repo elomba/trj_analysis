@@ -656,7 +656,6 @@ contains
       end if
       time_gpu = gptime(stopEvent, startEvent)
       tgraph = tgraph + time_gpu
-      goffset(:) = gneighbors(:)
       neighbors(:) = gneighbors(:)
       if (maxval(neighbors(:)) > maxnbpp) then
          write (*, '(" *** Error: max number of neighbors is ", i5," > ",i3)') maxval(neighbors(:)), maxnbpp
@@ -666,11 +665,10 @@ contains
       end if
       istat = cudaEventRecord(startEvent, 0)
       ! Use thrust scan to build and efficient offset 1D array
-      ! call thrustscan(goffset, Nmol, 1)
+      goffset(:) = gneighbors(:)
+      call thrustscan(goffset, Nmol, 1)
+      goffset(2:Nmol) = goffset(1:Nmol-1)
       goffset(1) = 0
-      do i = 2, Nmol
-         goffset(i) = goffset(i-1) + gneighbors(i-1)
-      end do
       time_gpu = gptime(stopEvent, startEvent)
       tthrus = tthrus + time_gpu
       ! Offset determines the origins of the list of neighbors
