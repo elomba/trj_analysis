@@ -709,6 +709,7 @@ contains
       call neighbor_search()
       ! !
       glabel(:) = 0
+      label(:) = 0
       cluster_id = 0
       istat = cudaEventRecord(startEvent, 0)
       gborder(:) = .false.
@@ -717,7 +718,7 @@ contains
       ! Main loop over all particles
       do i = 1, nmol
          ! If i is a core particle and not yet assigned to a cluster, start a new cluster and expand it with BFS
-         if (gneighbors(i)>=minPts-1 .and. glabel(i) == 0) then
+         if (neighbors(i)>=minPts-1 .and. label(i) == 0) then
             print *, "Starting new cluster with core particle ", i, " and ", neighbors(i), " neighbors"
             cluster_id = cluster_id + 1
             gborder(i) = .true.
@@ -734,10 +735,9 @@ contains
             end do
             ! After BFS is finished, cluster_id is assigned to all particles in the cluster (label(:))
             ! and we move to the next unvisited core particle
-            
+            label(:) = glabel(:)
          end if
       end do
-      label(:) = glabel(:)
       do i = 1, cluster_id
          j = count(label(:) == i)
          if (j < 7) then
