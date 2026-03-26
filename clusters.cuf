@@ -747,6 +747,12 @@ contains
       label(:) = 0
       cluster_id = 0
       istat = cudaEventRecord(startEvent, 0)
+      do i=1,nmol
+      if (neighbors(i) /= &
+          count(adjacency(offset(i):offset(i)+neighbors(i)-1) > 0)) then
+         print *, "ROW CORRUPTED:", i
+      endif
+      enddo
       !
       ! Recursive BFS search of connected clusters
       ! Main loop over all particles
