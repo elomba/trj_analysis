@@ -801,7 +801,7 @@ contains
    integer :: i, j, k, active_old, nb, nbj, offj 
    j = (blockidx%x - 1)*blockdim%x + threadidx%x
    if (j <= Nmol) then
-      if (border(j).and.label(j) == 0) then
+         if (.not. border(j)) return
          ! Mark cluster id for j, which is a border node, and if it is a core node,
          ! mark its neighbors as border for the next iteration
          ! label(j) marks node as visited and assigns cluster id to it,
@@ -823,7 +823,6 @@ contains
                endif
             end do
          end if
-      end if
    end if
 end subroutine gbfs
 
