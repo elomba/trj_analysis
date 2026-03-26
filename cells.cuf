@@ -326,7 +326,7 @@ contains
                         rv = rv - sidel*nint(rv/sidel)
                         rr2 = Dot_product(rv, rv)
 
-                        if (rr2 < rcl2) then
+                        if (rr2 <= rcl2) then
                             counter = counter + 1
                         end if
                     end if
@@ -356,7 +356,7 @@ contains
                     ! PBC
                     rv = rv - sidel*nint(rv/sidel)
                     rr2 = Dot_product(rv, rv)
-                    if (rr2 < rcl2) then
+                    if (rr2 <= rcl2) then
                         counter = counter + 1
                     end if
                 end if
@@ -395,7 +395,7 @@ contains
                         rv(1:dim) = r(1:dim, i) - r(1:dim, j)
                         rv = rv - sidel*nint(rv/sidel)
                         rr2 = Dot_product(rv, rv)
-                        if (rr2 < rcl2) then
+                        if (rr2 <= rcl2) then
                             gadjacency(goffset(i) + counter) = j
                             counter = counter + 1
                         end if
@@ -422,7 +422,7 @@ contains
                     ! PBC
                     rv = rv - sidel*nint(rv/sidel)
                     rr2 = Dot_product(rv, rv)
-                    if (rr2 < rcl2) then
+                    if (rr2 <= rcl2) then
                         gadjacency(goffset(i) + counter) = j
                         counter = counter + 1
                     end if
