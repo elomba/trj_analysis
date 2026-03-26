@@ -732,7 +732,7 @@ contains
       use mod_input
       use mod_cells
       implicit none
-      integer :: cluster_id, i, j, istat, iter, cluster_id_local, inherited_cluster, nb
+      integer :: cluster_id, i, j, k, istat, iter, cluster_id_local, inherited_cluster, nb
       real :: time_gpu
       Character :: error_msg*64
       integer :: active
