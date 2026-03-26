@@ -403,6 +403,9 @@ contains
                     j = listad(j)
                 end do
             end do
+            if (counter /= gneighbors(i)) then
+                print *, "COUNT MISMATCH:", i, counter, gneighbors(i)
+            endif
         end if
     end subroutine gpu_adj_cell
 
