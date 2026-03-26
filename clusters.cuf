@@ -737,7 +737,7 @@ contains
       real :: time_gpu
       Character :: error_msg*64
       integer :: active
-      integer, device :: active_d
+      integer, device :: active_d(1)
       !
       ! Search for neighbors and build graph
       !
@@ -764,11 +764,11 @@ contains
             ! expanding until no more border nodes found.
             do while (active)
                gborder_next(:) = .false.
-               active_d = 0
+               active_d(1) = 0
                call gbfs<<<nbcuda, nthread>>>(Nmol, gborder, gborder_next, glabel,cluster_id, minPts, active_d)
                istat = cudaDeviceSynchronize()
                gborder(:) = gborder_next(:)
-               active = active_d
+               active = active_d(1)
             end do
             ! After BFS is finished, cluster_id is assigned to all particles in the cluster (label(:))
             ! and we move to the next unvisited core particle
@@ -795,7 +795,7 @@ contains
    ! GPU BFS routine, uses neighbor lists to run through adjacent nodes, marks visited nodes and border nodes.
    ! Starts from border nodes and border is being expanded. Completely parallel implementation.
    integer, value, intent(IN) :: Nmol, cluster_id, minPts
-   integer, intent(INOUT) :: active
+   integer, intent(INOUT) :: active(1)
    logical(kind=1), intent(INOUT) ::  border(Nmol), border_next(Nmol)
    integer, intent(INOUT) ::  label(Nmol)
    integer :: i, j, k, active_old, nb, nbj, offj 
@@ -814,7 +814,7 @@ contains
          ! If j is a core node, mark its neighbors as border for the next iteration
          if (nbj>=minPts-1) then
             ! Set flag to continue BFS expansion
-            active_old=atomicOr(active, 1)
+            active_old=atomicOr(active(1), 1)
             ! Active cluster expansion: mark neighbors of j as border if not visited
              do k = offj, offj+nbj-1
                nb = gadjacency(k)
