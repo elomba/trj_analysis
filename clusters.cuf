@@ -148,7 +148,6 @@ module mod_clusters
       end function radiusRg
    end interface
 contains
-
    subroutine cluster_analysis(Iconf)
       !
       ! Compute cluster properties
