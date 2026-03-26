@@ -779,10 +779,10 @@ contains
                print *, "Cluster", cluster_id, "- border_next count:", count(border_next(:)==1), ' iteration:', iter
                gborder(:) = gborder_next(:)
                active = active_d(1)
+               label(:) = glabel(:)
             end do
             ! After BFS is finished, cluster_id is assigned to all particles in the cluster (label(:))
             ! and we move to the next unvisited core particle
-            label(:) = glabel(:)
             print *, "Cluster", cluster_id, "- particles labeled:", count(label(:) == cluster_id)
          end if
       end do
