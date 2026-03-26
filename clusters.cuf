@@ -730,7 +730,7 @@ contains
             do while (active)
                gborder_next(:) = .false.
                active_d = 0
-               call gbfs<<<nbcuda, nthread>>>(Nmol, gborder, gborder_next, cluster_id, minPts, active_d)
+               call gbfs<<<nbcuda, nthread>>>(Nmol, gborder, gborder_next, glabel,cluster_id, minPts, active_d)
                istat = cudaDeviceSynchronize()
                gborder(:) = gborder_next(:)
                active = active_d
@@ -756,7 +756,7 @@ contains
       maxcln = cluster_id
    end subroutine cluster_search
 
-   attributes(global) subroutine gbfs(Nmol, border, border_next, cluster_id, minPts, active)
+   attributes(global) subroutine gbfs(Nmol, border, border_next, label, cluster_id, minPts, active)
    ! GPU BFS routine, uses neighbor lists to run through adjacent nodes, marks visited nodes and border nodes.
    ! Starts from border nodes and border is being expanded. Completely parallel implementation.
    integer, value, intent(IN) :: Nmol, cluster_id, minPts
