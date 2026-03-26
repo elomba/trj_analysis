@@ -809,7 +809,7 @@ contains
    integer, intent(INOUT) :: active(1)
    integer, intent(INOUT) ::  border(Nmol), border_next(Nmol)
    integer, intent(INOUT) ::  label(Nmol)
-   integer :: i, j, k, iold, active_old, nbj, offj 
+   integer :: i, j, k, iold, active_old, nbj, offj, nb
    j = (blockidx%x - 1)*blockdim%x + threadidx%x
    if (j <= Nmol) then
          if (border(j)/=1) return
@@ -822,16 +822,6 @@ contains
          nbj = gneighbors(j)
          offj = goffset(j)
          ! Check if already labeled
-if (label(j) /= 0) then
-   ! Already labeled, but still expand if core point
-   if (nbj>=minPts-1) then
-      active_old=atomicOr(active(1), 1)
-      do k = offj, offj + nbj - 1
-         iold=atomicOr(border_next(gadjacency(k)), 1)
-      end do
-   end if
-   return
-end if
 
          if (atomicCAS(label(j), 0, cluster_id) /= 0) return
          ! If j is a core node, mark its neighbors as border for the next iteration
@@ -840,9 +830,11 @@ end if
             ! Set flag to continue BFS expansion
             ! Active cluster expansion: mark neighbors of j as border if not visited
             do k = offj, offj + nbj - 1
-               iold=atomicOr(border_next(gadjacency(k)), 1)
+               nb = gadjacency(k)
+               if (label(nb) == 0) then
+                  iold=atomicOr(border_next(nb), 1)
+               end if
             end do
-            !border_next(gadjacency(offj:offj+nbj-1)) = 1
          end if
    end if
 end subroutine gbfs
