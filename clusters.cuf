@@ -649,11 +649,11 @@ contains
       istat = cudaEventRecord(startEvent, 0)
       !
       ! Neighbors are determined with and without a linked-cell method
-      if (use_cell) then
-         call gpu_graph_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, minPts)
-      else
+      !if (use_cell) then
+      !   call gpu_graph_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, minPts)
+      !else
          call gpu_graf<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, minPts)
-      end if
+      !end if
       time_gpu = gptime(stopEvent, startEvent)
       tgraph = tgraph + time_gpu
       goffset(:) = gneighbors(:)
