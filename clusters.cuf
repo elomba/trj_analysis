@@ -766,8 +766,8 @@ contains
 
             do k = offset(i), offset(i) + neighbors(i) - 1
                nb = adjacency(k)
-               if (glabel(nb) /= 0) then
-                  inherited_cluster = glabel(nb)
+               if (label(nb) /= 0) then
+                  inherited_cluster = label(nb)
                   exit
                endif
             enddo
