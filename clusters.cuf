@@ -838,9 +838,7 @@ contains
             ! Active cluster expansion: mark neighbors of j as border if not visited
             do k = offj, offj + nbj - 1
                nb = gadjacency(k)
-               if (glabel(nb) == 0) then
-                  iold=atomicOr(gborder_next(nb), 1)
-               end if
+               iold=atomicOr(gborder_next(nb), 1)
             end do
          end if
    end if
