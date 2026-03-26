@@ -758,6 +758,7 @@ contains
       ! Main loop over all particles
       do i = 1, nmol
          ! If i is a core particle and not yet assigned to a cluster, start a new cluster and expand it with BFS
+         label(:) = glabel(:)
          if (neighbors(i)>=minPts-1 .and. label(i) == 0) then
             gborder(:) = 0
             gborder_next(:) = 0
@@ -779,7 +780,6 @@ contains
                print *, "Cluster", cluster_id, "- border_next count:", count(border_next(:)==1), ' iteration:', iter
                gborder(:) = gborder_next(:)
                active = active_d(1)
-               label(:) = glabel(:)
             end do
             ! After BFS is finished, cluster_id is assigned to all particles in the cluster (label(:))
             ! and we move to the next unvisited core particle
