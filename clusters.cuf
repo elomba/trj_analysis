@@ -685,6 +685,13 @@ contains
       time_gpu = gptime(stopEvent, startEvent)
       tadj = tadj + time_gpu
       adjacency(:) = gadjacency(:)
+      do i=1,Nmol
+      if (neighbors(i) > 0) then
+         if (adjacency(goffset(i)) == 0) then
+            print *, "BAD OFFSET:", i
+         endif
+      endif
+   enddo
    end subroutine neighbor_search
 
    subroutine cluster_search()
