@@ -668,7 +668,6 @@ contains
          write (*, '(" *** Recommended rcl is the first minimum of the RDF ", f8.4)'), rmingr 
          stop
       end if
-      core(:) = gcore(:)
       istat = cudaEventRecord(startEvent, 0)
       ! Use thrust scan to build and efficient offset 1D array
       call thrustscan(goffset, Nmol, 1)
@@ -722,10 +721,7 @@ contains
       ! Main loop over all particles
       do i = 1, nmol
          ! If i is a core particle and not yet assigned to a cluster, start a new cluster and expand it with BFS
-         if (core(i) .and. label(i) == 0) then
-            if (i==83035) then
-               print *, 'Debug: core particle 83035 found, neighbors: ',neighbors(i), ' core: ', core(i), ' label: ', label(i) 
-            end if
+         if (neighbors(i)>=minPts-1 .and. label(i) == 0) then
             cluster_id = cluster_id + 1
             gborder(i) = .true.
             ! active is a flag to check if BFS expansion is still active, i.e. if new border nodes are being
@@ -735,7 +731,7 @@ contains
             ! expanding until no more border nodes found.
             do while (active)
                active_d = 0
-               call gbfs<<<nbcuda, nthread>>>(Nmol, gborder, gcore, glabel, cluster_id, minPts, active_d)
+               call gbfs<<<nbcuda, nthread>>>(Nmol, gborder, glabel, cluster_id, minPts, active_d)
                istat = cudaDeviceSynchronize()
                active = active_d
             end do
@@ -743,15 +739,6 @@ contains
             ! and we move to the next unvisited core particle
             label(:) = glabel(:)
             
-         end if
-            if (i==83035) then
-               print *, 'Debug: core particle 83035 found, neighbors: ',neighbors(i), ' core: ', core(i), ' label: ', label(i), count(label(:) == 548) 
-            end if
-      end do
-      do i=1, cluster_id
-         j = count(label(:) == i)
-         if (j < 3) then
-            write (*, '(" *** Warning: cluster ", i, " has only ", i5, " particles")') i, j
          end if
       end do
       time_gpu = gptime(stopEvent, startEvent)
@@ -764,12 +751,12 @@ contains
       maxcln = cluster_id
    end subroutine cluster_search
 
-   attributes(global) subroutine gbfs(Nmol, border, core, label, cluster_id, minPts, active)
+   attributes(global) subroutine gbfs(Nmol, border, label, cluster_id, minPts, active)
    ! GPU BFS routine, uses neighbor lists to run through adjacent nodes, marks visited nodes and border nodes.
    ! Starts from border nodes and border is being expanded. Completely parallel implementation.
    integer, value, intent(IN) :: Nmol, cluster_id, minPts
    integer, intent(INOUT) :: active
-   logical(kind=1), intent(INOUT) ::  border(Nmol), core(Nmol)
+   logical(kind=1), intent(INOUT) ::  border(Nmol)
    integer, intent(INOUT) ::  label(Nmol)
    integer :: i, j, k, active_old, nb, nbj, offj 
    j = (blockidx%x - 1)*blockdim%x + threadidx%x
@@ -789,14 +776,10 @@ contains
             ! Active cluster expansion: mark neighbors of j as border if not visited
              do k = offj, offj+nbj-1
                nb = gadjacency(k)
-               if (cluster_id==548) then
-                  print *, 'Debug: core particle 83035 found, neighbor: ', nb, ' core: ', core(nb), ' label: ', label(nb) 
-               end if
                if (label(nb) == 0) then
                   border(nb) = .true.
                endif 
             end do
-            !border(gadjacency(goffset(j):goffset(j)+gneighbors(j)-1)) = .true.
          end if
       end if
    end if

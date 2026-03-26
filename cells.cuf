@@ -177,24 +177,20 @@ contains
         ! Allocate CPU memory
         allocate (offset(nmol))
         allocate (neighbors(nmol))
-        allocate (core(nmol))
         allocate (border(nmol))
         allocate (adjacency(maxnbpp*nmol))
 
         ! Init variables
-        core(:) = .false.
         border(:) = .false.
         neighbors(:) = 0
 
         ! Allocate GPU memory
         allocate (goffset(nmol))
         allocate (gneighbors(nmol))
-        allocate (gcore(nmol))
         allocate (gborder(nmol))
         allocate (gadjacency(maxnbpp*nmol))
 
         ! Init variables
-        gcore(:) = .false.
         gborder(:) = .false.
         gneighbors(:) = 0
 
@@ -206,7 +202,6 @@ contains
         ! Clean house
         deallocate (offset)
         deallocate (neighbors)
-        deallocate (core)
         deallocate (border)
         deallocate (adjacency)
         deallocate (neigh)
@@ -215,7 +210,6 @@ contains
 
         deallocate (goffset)
         deallocate (gneighbors)
-        deallocate (gcore)
         deallocate (gborder)
         deallocate (gadjacency)
         deallocate (neighd)
@@ -226,10 +220,8 @@ contains
 
     subroutine cells_reset_struct()
         implicit none
-        gcore(:) = .false.
         gborder(:) = .false.
         gneighbors(:) = 0
-        core(:) = .false.
         border(:) = .false.
         neighbors(:) = 0
     end subroutine cells_reset_struct
@@ -341,11 +333,6 @@ contains
             end do
             ! determine number of neighbors and core status
             gneighbors(i) = counter
-            if (i== 83035) then
-                print *, 'Debug: particle 83085, neighbors=', counter, minPts-1
-            end if
-            ! If number of neighbors >= minPts - 1 then mark as core node
-            if (counter >= minPts - 1) gcore(i) = .true.
         end if
     end subroutine gpu_graph_cell
 
@@ -373,7 +360,6 @@ contains
                 end if
             end do
             gneighbors(i) = counter
-            if (counter >= minPts - 1) gcore(i) = .true.
         end if
     end subroutine gpu_graf
 
