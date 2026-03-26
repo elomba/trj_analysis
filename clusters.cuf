@@ -823,9 +823,9 @@ contains
          offj = goffset(j)
          if (atomicCAS(label(j), 0, cluster_id) /= 0) return
          ! If j is a core node, mark its neighbors as border for the next iteration
+         active_old=atomicOr(active(1), 1)
          if (nbj>=minPts-1) then
             ! Set flag to continue BFS expansion
-            active_old=atomicOr(active(1), 1)
             ! Active cluster expansion: mark neighbors of j as border if not visited
             do k = offj, offj + nbj - 1
                iold=atomicOr(border_next(gadjacency(k)), 1)
