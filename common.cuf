@@ -133,7 +133,7 @@ module mod_common
    integer, allocatable, dimension(:) :: offset, neighbors, adjacency
    integer, device, allocatable, dimension(:) :: goffset, gneighbors, gadjacency
    logical(kind=1), allocatable, dimension(:) :: border
-   logical(kind=1), device, allocatable, dimension(:) :: gborder
+   logical(kind=1), device, allocatable, dimension(:) :: gborder, gborder_next
 
    Real(double) :: cellx, celly, cellz
    Integer, Dimension(:), Allocatable :: head, lista

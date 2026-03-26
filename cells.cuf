@@ -187,11 +187,12 @@ contains
         ! Allocate GPU memory
         allocate (goffset(nmol))
         allocate (gneighbors(nmol))
-        allocate (gborder(nmol))
+        allocate (gborder(nmol),gborder_next(nmol))
         allocate (gadjacency(maxnbpp*nmol))
 
         ! Init variables
         gborder(:) = .false.
+        gborder_next(:) = .false.
         gneighbors(:) = 0
 
     end subroutine cells_init_pre_nc_read
@@ -210,7 +211,7 @@ contains
 
         deallocate (goffset)
         deallocate (gneighbors)
-        deallocate (gborder)
+        deallocate (gborder,gborder_next)
         deallocate (gadjacency)
         deallocate (neighd)
         deallocate (headd)
@@ -221,6 +222,7 @@ contains
     subroutine cells_reset_struct()
         implicit none
         gborder(:) = .false.
+        gborder_next(:) = .false.
         gneighbors(:) = 0
         border(:) = .false.
         neighbors(:) = 0
