@@ -785,7 +785,7 @@ contains
       enddo   
       do i = 1, cluster_id
          j = count(label(:) == i)
-         if (j < 7) then
+         if (j < minPts) then
             write (*, '(" *** Warning: cluster ", i5, " has only ", i5, " particles, consider reducing minPts or purging outliers")') i, j
          end if
       end do
