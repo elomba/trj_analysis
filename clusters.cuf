@@ -800,6 +800,7 @@ contains
    integer, intent(INOUT) ::  label(Nmol)
    integer :: i, j, k, active_old, nb, nbj, offj 
    j = (blockidx%x - 1)*blockdim%x + threadidx%x
+   if (j==1) print *, goffset(j)
    if (j <= Nmol) then
          if (.not. border(j)) return
          ! Mark cluster id for j, which is a border node, and if it is a core node,
