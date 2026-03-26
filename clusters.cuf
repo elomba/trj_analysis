@@ -809,7 +809,7 @@ contains
    integer :: i, j, k, active_old, nbj, offj 
    j = (blockidx%x - 1)*blockdim%x + threadidx%x
    if (j <= Nmol) then
-         if (border(j)==0) return
+         if (border(j)/=1) return
          ! Mark cluster id for j, which is a border node, and if it is a core node,
          ! mark its neighbors as border for the next iteration
          ! label(j) marks node as visited and assigns cluster id to it,
@@ -824,7 +824,10 @@ contains
             ! Set flag to continue BFS expansion
             active_old=atomicOr(active(1), 1)
             ! Active cluster expansion: mark neighbors of j as border if not visited
-            border_next(gadjacency(offj:offj+nbj-1)) = 1
+            do k = offj, offj + nbj - 1
+               iold=atomicOr(border_next(gadjacency(k)), 1)
+            end do
+            !border_next(gadjacency(offj:offj+nbj-1)) = 1
          end if
    end if
 end subroutine gbfs
