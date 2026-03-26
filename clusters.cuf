@@ -686,8 +686,8 @@ contains
       tadj = tadj + time_gpu
       adjacency(:) = gadjacency(:)
       do i=1,Nmol
-            do k=goffset(i), goffset(i)+gneighbors(i)-1
-               j=gadjacency(k)
+            do k=offset(i), offset(i)+neighbors(i)-1
+               j=adjacency(k)
                if (.not. is_neighbor(j,i)) then
                   print *, "ASYMMETRY:", i, j
                endif
@@ -710,10 +710,10 @@ contains
 
       is_neighbor = .false.
 
-      start = goffset(j)
+      start = offset(j)
       stop  = start + neighbors(j) - 1
       do k = start, stop
-         if (gadjacency(k) == i) then
+         if (adjacency(k) == i) then
             is_neighbor = .true.
             return
          endif
