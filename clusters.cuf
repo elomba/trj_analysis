@@ -720,86 +720,6 @@ contains
       enddo
    end function is_neighbor
 
-   subroutine cluster_search()
-      !
-      ! Main cluster search call
-      ! Code uses G-DBSCAN algorithm to identify clusters following this article
-      !
-      !   G. Andrade, et al, “G-DBSCAN: A GPU Accelerated Algorithm for Density-based Clustering,” 
-      !   Procedia Computer Science, vol. 18, pp. 369–378, 2013, doi: 10.1016/j.procs.2013.05.200.
-      !
-      use mod_common
-      use mod_thrust
-      use mod_input
-      use mod_cells
-      implicit none
-      integer :: cluster_id, i, j, istat
-      real :: time_gpu
-      Character :: error_msg*64
-      integer :: active
-      integer, device :: active_d(1)
-      !
-      ! Search for neighbors and build graph
-      !
-      call neighbor_search()
-      ! !
-      glabel(:) = 0
-      label(:) = 0
-      cluster_id = 0
-      istat = cudaEventRecord(startEvent, 0)
-      do i=1,nmol
-      if (neighbors(i) /= &
-          count(adjacency(offset(i):offset(i)+neighbors(i)-1) > 0)) then
-         print *, "ROW CORRUPTED:", i
-      endif
-      enddo
-      !
-      ! Recursive BFS search of connected clusters
-      ! Main loop over all particles
-      do i = 1, nmol
-         ! If i is a core particle and not yet assigned to a cluster, start a new cluster and expand it with BFS
-         if (neighbors(i)>=minPts-1 .and. label(i) == 0) then
-            gborder(:) = .false.
-            gborder_next(:) = .false.
-            cluster_id = cluster_id + 1
-            gborder(i) = .true.
-            ! active is a flag to check if BFS expansion is still active, i.e. if new border nodes are being
-            ! found. When no more border nodes are found, BFS is finished and we move to the next cluster.
-            active = 1
-            ! Expand cluster with GPU BFS, starting from border nodes and
-            ! expanding until no more border nodes found.
-            do while (active)
-               gborder_next(:) = .false.
-               active_d(1) = 0
-               call gbfs<<<nbcuda, nthread>>>(Nmol, gborder, gborder_next, glabel,cluster_id, minPts, active_d)
-               istat = cudaDeviceSynchronize()
-               gborder(:) = gborder_next(:)
-               active = active_d(1)
-            end do
-            ! After BFS is finished, cluster_id is assigned to all particles in the cluster (label(:))
-            ! and we move to the next unvisited core particle
-            label(:) = glabel(:)
-         end if
-      end do
-      do i=1,10
-         print *, i, neighbors(i), offset(i)
-      enddo   
-      do i = 1, cluster_id
-         j = count(label(:) == i)
-         if (j < 7) then
-            write (*, '(" *** Warning: cluster ", i5, " has only ", i5, " particles, consider reducing minPts or purging outliers")') i, j
-         end if
-      end do
-      time_gpu = gptime(stopEvent, startEvent)
-      tbfs = tbfs + time_gpu
-      ! Check for redimensioning of neighbor list
-      if (maxval(neighbors(:)) > 60) then
-         write (error_msg, '(" Warning:redimension next to at least ", i5)') maxval(neighbors(:))
-         stop(error_msg)
-      end if
-      maxcln = cluster_id
-   end subroutine cluster_search
-
    attributes(global) subroutine gbfs(Nmol, border, border_next, label, cluster_id, minPts, active)
    ! GPU BFS routine, uses neighbor lists to run through adjacent nodes, marks visited nodes and border nodes.
    ! Starts from border nodes and border is being expanded. Completely parallel implementation.
@@ -827,13 +747,14 @@ contains
             ! Active cluster expansion: mark neighbors of j as border if not visited
              do k = offj, offj+nbj-1
                nb = gadjacency(k)
-               if (atomicCAS(label(nb), 0, 0) == 0) then
+               if (label(nb) == 0) then
                   border_next(nb) = .true.
                endif
             end do
          end if
    end if
 end subroutine gbfs
+
 
 
 subroutine denspcl(dim, members, nm, sidel, side2, rho, lsmax, deltar, center)
