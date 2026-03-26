@@ -806,7 +806,7 @@ contains
    integer, intent(INOUT) :: active(1)
    logical(kind=1), intent(INOUT) ::  border(Nmol), border_next(Nmol)
    integer, intent(INOUT) ::  label(Nmol)
-   integer :: i, j, k, active_old, nb, nbj, offj 
+   integer :: i, j, k, active_old, nbj, offj 
    j = (blockidx%x - 1)*blockdim%x + threadidx%x
    if (j <= Nmol) then
          if (.not. border(j)) return
@@ -824,12 +824,7 @@ contains
             ! Set flag to continue BFS expansion
             active_old=atomicOr(active(1), 1)
             ! Active cluster expansion: mark neighbors of j as border if not visited
-             do k = offj, offj+nbj-1
-               nb = gadjacency(k)
-               if (label(nb) == 0) then
-                  border_next(nb) = .true.
-               endif
-            end do
+            border_next(gadjacency(offj:offj+nbj-1)) = .true.
          end if
    end if
 end subroutine gbfs
