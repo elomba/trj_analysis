@@ -773,7 +773,7 @@ contains
                active_d(1) = 0
                call gbfs<<<nbcuda, nthread>>>(Nmol, gborder, gborder_next, glabel,cluster_id, minPts, active_d)
                istat = cudaDeviceSynchronize()
-               boder_next(:) = gborder_next(:)
+               border_next(:) = gborder_next(:)
                print *, "Cluster", cluster_id, "- border_next count:", count(border_next(:)==1)
                gborder(:) = gborder_next(:)
                active = active_d(1)
