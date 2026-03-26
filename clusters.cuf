@@ -686,6 +686,12 @@ contains
       tadj = tadj + time_gpu
       adjacency(:) = gadjacency(:)
       do i=1,Nmol
+            do k=goffset(i), goffset(i)+gneighbors(i)-1
+               j=gadjacency(k)
+               if (.not. is_neighbor(j,i)) then
+                  print *, "ASYMMETRY:", i, j
+               endif
+         enddo
          if (any(adjacency(offset(i):offset(i)+neighbors(i)-1)==i)) print *, "SELF NEIGHBOR:", i
             if (neighbors(i) > 0) then
                if (adjacency(offset(i)) == 0) then
@@ -694,6 +700,25 @@ contains
          endif
    enddo
    end subroutine neighbor_search
+
+   logical function is_neighbor(j, i)
+      use mod_common
+      implicit none
+
+      integer, intent(in) :: j, i
+      integer :: k, start, stop
+
+      is_neighbor = .false.
+
+      start = goffset(j)
+      stop  = start + neighbors(j) - 1
+      do k = start, stop
+         if (gadjacency(k) == i) then
+            is_neighbor = .true.
+            return
+         endif
+      enddo
+   end function is_neighbor
 
    subroutine cluster_search()
       !
