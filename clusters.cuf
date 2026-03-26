@@ -778,9 +778,9 @@ contains
             ! Active cluster expansion: mark neighbors of j as border if not visited
              do k = offj, offj+nbj-1
                nb = gadjacency(k)
-               if (atomicCAS(label(nb), 0, 0) == 0) then
+               !if (atomicCAS(label(nb), 0, 0) == 0) then
                   border(nb) = .true.
-               endif
+               !endif
 !               if (label(nb) == 0) then
 !                  border(nb) = .true.
 !               endif 
