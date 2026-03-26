@@ -815,7 +815,16 @@ contains
          ! mark its neighbors as border for the next iteration
          ! label(j) marks node as visited and assigns cluster id to it,
          ! so that it is not visited again in the next BFS iterations
-
+  ! DEBUG for seed particles
+   if (cluster_id == 548) then
+      nbj = gneighbors(j)
+      offj = goffset(j)
+      print *, "DEBUG Cluster", cluster_id, "Seed particle", j, "neighbors:", nbj, "offset:", offj
+      do k = offj, offj + nbj - 1
+         nb = gadjacency(k)
+         print *, "  neighbor", nb, "labeled:", glabel(nb)
+      end do
+   end if
 !         label(j) = cluster_id
          nbj = gneighbors(j)
          offj = goffset(j)
