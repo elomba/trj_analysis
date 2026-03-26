@@ -855,19 +855,19 @@ end subroutine gbfs
    integer :: i, j, k, nbj, offj
    j = (blockidx%x - 1)*blockdim%x + threadidx%x
    if (j <= Nmol) then
-      if (border(j)==0.and.label(j) == 0) then
+      if (gborder(j)==0.and.glabel(j) == 0) then
          ! Mark cluster id for j, which is a border node, and if it is a core node,
          ! mark its neighbors as border for the next iteration
          ! label(j) marks node as visited and assigns cluster id to it,
          ! so that it is not visited again in the next BFS iterations
-         label(j) = cluster_id
+         glabel(j) = cluster_id
          nbj = gneighbors(j)
          offj = goffset(j)
          if (nbj >= minPts-1) then
             ! Set flag to continue BFS expansion
             active = .true.
             ! Active cluster expansion: mark neighbors of j as border if not visited
-            border(gadjacency(offj:offj+nbj-1)) = .true.
+            gborder(gadjacency(offj:offj+nbj-1)) = 1
          end if
       end if
    end if
