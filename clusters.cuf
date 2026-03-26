@@ -747,18 +747,11 @@ contains
       label(:) = 0
       cluster_id = 0
       istat = cudaEventRecord(startEvent, 0)
-      do i=1,nmol
-      if (neighbors(i) /= &
-          count(adjacency(offset(i):offset(i)+neighbors(i)-1) > 0)) then
-         print *, "ROW CORRUPTED:", i
-      endif
-      enddo
       !
       ! Recursive BFS search of connected clusters
       ! Main loop over all particles
       do i = 1, nmol
          ! If i is a core particle and not yet assigned to a cluster, start a new cluster and expand it with BFS
-         label(:) = glabel(:)
          if (neighbors(i)>=minPts-1 .and. label(i) == 0) then
             ! Seed reassignment for BFS, cluster_id is the current cluster being expanded, border(:) are the border nodes from which BFS expansion starts
             ! Try to inherit cluster ID from already-labeled neighbors
@@ -794,13 +787,12 @@ contains
                call gbfs<<<nbcuda, nthread>>>(Nmol, cluster_id_local, minPts, active_d)
                istat = cudaDeviceSynchronize()
                border_next(:) = gborder_next(:)
-               print *, "Cluster", cluster_id, "- border_next count:", count(border_next(:)==1), ' iteration:', iter
                gborder(:) = gborder_next(:)
                active = active_d(1)
             end do
             ! After BFS is finished, cluster_id is assigned to all particles in the cluster (label(:))
             ! and we move to the next unvisited core particle
-            print *, "Cluster", cluster_id, "- particles labeled:", count(label(:) == cluster_id)
+            label(:) = glabel(:)
          end if
       end do
       do i = 1, cluster_id
@@ -832,26 +824,15 @@ contains
          ! mark its neighbors as border for the next iteration
          ! label(j) marks node as visited and assigns cluster id to it,
          ! so that it is not visited again in the next BFS iterations
-  ! DEBUG for seed particles
-   if (cluster_id == 548) then
-      nbj = gneighbors(j)
-      offj = goffset(j)
-      print *, "DEBUG Cluster", cluster_id, "Seed particle", j, "neighbors:", nbj, "offset:", offj
-      do k = offj, offj + nbj - 1
-         nb = gadjacency(k)
-         print *, "  neighbor", nb, "labeled:", glabel(nb)
-      end do
-   end if
-!         label(j) = cluster_id
          nbj = gneighbors(j)
          offj = goffset(j)
          ! Check if already labeled
 
          if (atomicCAS(glabel(j), 0, cluster_id) /= 0) return
-         ! If j is a core node, mark its neighbors as border for the next iteration
          active_old=atomicOr(active(1), 1)
          if (nbj>=minPts-1) then
             ! Set flag to continue BFS expansion
+            ! If j is a core node, mark its neighbors as border for the next iteration
             ! Active cluster expansion: mark neighbors of j as border if not visited
             do k = offj, offj + nbj - 1
                nb = gadjacency(k)
