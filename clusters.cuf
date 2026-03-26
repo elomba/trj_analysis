@@ -806,7 +806,7 @@ contains
    integer, intent(INOUT) :: active(1)
    integer, intent(INOUT) ::  border(Nmol), border_next(Nmol)
    integer, intent(INOUT) ::  label(Nmol)
-   integer :: i, j, k, active_old, nbj, offj 
+   integer :: i, j, k, iold, active_old, nbj, offj 
    j = (blockidx%x - 1)*blockdim%x + threadidx%x
    if (j <= Nmol) then
          if (border(j)/=1) return
