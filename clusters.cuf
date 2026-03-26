@@ -712,6 +712,7 @@ contains
       label(:) = 0
       cluster_id = 0
       istat = cudaEventRecord(startEvent, 0)
+      gborder(:) = .false.
       !
       ! Recursive BFS search of connected clusters
       ! Main loop over all particles
