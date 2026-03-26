@@ -732,7 +732,7 @@ contains
       use mod_input
       use mod_cells
       implicit none
-      integer :: cluster_id, i, j, istat, iter
+      integer :: cluster_id, i, j, istat, iter, cluster_id_local, inherited_cluster, nb
       real :: time_gpu
       Character :: error_msg*64
       integer :: active
@@ -760,9 +760,26 @@ contains
          ! If i is a core particle and not yet assigned to a cluster, start a new cluster and expand it with BFS
          label(:) = glabel(:)
          if (neighbors(i)>=minPts-1 .and. label(i) == 0) then
+            ! Seed reassignment for BFS, cluster_id is the current cluster being expanded, border(:) are the border nodes from which BFS expansion starts
+            ! Try to inherit cluster ID from already-labeled neighbors
+            inherited_cluster = 0
+
+            do k = offset(i), offset(i) + neighbors(i) - 1
+               nb = adjacency(k)
+               if (glabel(nb) /= 0) then
+                  inherited_cluster = glabel(nb)
+                  exit
+               endif
+            enddo
+
+            if (inherited_cluster /= 0) then
+               cluster_id_local = inherited_cluster
+            else
+               cluster_id = cluster_id + 1
+               cluster_id_local = cluster_id
+            endif
             gborder(:) = 0
             gborder_next(:) = 0
-            cluster_id = cluster_id + 1
             gborder(i) = 1
             ! active is a flag to check if BFS expansion is still active, i.e. if new border nodes are being
             ! found. When no more border nodes are found, BFS is finished and we move to the next cluster.
@@ -774,7 +791,7 @@ contains
                iter = iter + 1
                gborder_next(:) = 0
                active_d(1) = 0
-               call gbfs<<<nbcuda, nthread>>>(Nmol, cluster_id, minPts, active_d)
+               call gbfs<<<nbcuda, nthread>>>(Nmol, cluster_id_local, minPts, active_d)
                istat = cudaDeviceSynchronize()
                border_next(:) = gborder_next(:)
                print *, "Cluster", cluster_id, "- border_next count:", count(border_next(:)==1), ' iteration:', iter
