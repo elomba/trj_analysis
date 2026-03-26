@@ -686,11 +686,12 @@ contains
       tadj = tadj + time_gpu
       adjacency(:) = gadjacency(:)
       do i=1,Nmol
-      if (neighbors(i) > 0) then
-         if (adjacency(offset(i)) == 0) then
-            print *, "BAD OFFSET:", i
+         if (any(adjacency(:)==i)) print *, "SELF NEIGHBOR:", i
+            if (neighbors(i) > 0) then
+               if (adjacency(offset(i)) == 0) then
+                  print *, "BAD OFFSET:", i
+               endif
          endif
-      endif
    enddo
    end subroutine neighbor_search
 
