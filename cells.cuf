@@ -181,7 +181,7 @@ contains
         allocate (adjacency(maxnbpp*nmol))
 
         ! Init variables
-        border(:) = .false.
+        border(:) = 0
         neighbors(:) = 0
 
         ! Allocate GPU memory
@@ -191,8 +191,8 @@ contains
         allocate (gadjacency(maxnbpp*nmol))
 
         ! Init variables
-        gborder(:) = .false.
-        gborder_next(:) = .false.
+        gborder(:) = 0
+        gborder_next(:) = 0
         gneighbors(:) = 0
 
     end subroutine cells_init_pre_nc_read

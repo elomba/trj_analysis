@@ -758,17 +758,17 @@ contains
       do i = 1, nmol
          ! If i is a core particle and not yet assigned to a cluster, start a new cluster and expand it with BFS
          if (neighbors(i)>=minPts-1 .and. label(i) == 0) then
-            gborder(:) = .false.
-            gborder_next(:) = .false.
+            gborder(:) = 0
+            gborder_next(:) = 0
             cluster_id = cluster_id + 1
-            gborder(i) = .true.
+            gborder(i) = 1
             ! active is a flag to check if BFS expansion is still active, i.e. if new border nodes are being
             ! found. When no more border nodes are found, BFS is finished and we move to the next cluster.
             active = 1
             ! Expand cluster with GPU BFS, starting from border nodes and
             ! expanding until no more border nodes found.
             do while (active)
-               gborder_next(:) = .false.
+               gborder_next(:) = 0
                active_d(1) = 0
                call gbfs<<<nbcuda, nthread>>>(Nmol, gborder, gborder_next, glabel,cluster_id, minPts, active_d)
                istat = cudaDeviceSynchronize()
@@ -804,12 +804,12 @@ contains
    ! Starts from border nodes and border is being expanded. Completely parallel implementation.
    integer, value, intent(IN) :: Nmol, cluster_id, minPts
    integer, intent(INOUT) :: active(1)
-   logical(kind=1), intent(INOUT) ::  border(Nmol), border_next(Nmol)
+   integer, intent(INOUT) ::  border(Nmol), border_next(Nmol)
    integer, intent(INOUT) ::  label(Nmol)
    integer :: i, j, k, active_old, nbj, offj 
    j = (blockidx%x - 1)*blockdim%x + threadidx%x
    if (j <= Nmol) then
-         if (.not. border(j)) return
+         if (border(j)==0) return
          ! Mark cluster id for j, which is a border node, and if it is a core node,
          ! mark its neighbors as border for the next iteration
          ! label(j) marks node as visited and assigns cluster id to it,
@@ -824,7 +824,7 @@ contains
             ! Set flag to continue BFS expansion
             active_old=atomicOr(active(1), 1)
             ! Active cluster expansion: mark neighbors of j as border if not visited
-            border_next(gadjacency(offj:offj+nbj-1)) = .true.
+            border_next(gadjacency(offj:offj+nbj-1)) = 1
          end if
    end if
 end subroutine gbfs
