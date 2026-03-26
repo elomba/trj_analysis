@@ -790,8 +790,8 @@ contains
 !               call gbfs<<<nbcuda, nthread>>>(Nmol, cluster_id_local, minPts, active_d)
                call gbfs_old<<<nbcuda, nthread>>>(Nmol, cluster_id_local, minPts, iactive_d)
                istat = cudaDeviceSynchronize()
-               border_next(:) = gborder_next(:)
-               gborder(:) = gborder_next(:)
+!               border_next(:) = gborder_next(:)
+!               gborder(:) = gborder_next(:)
                active = active_d(1)
                iactive = iactive_d
             end do
