@@ -771,7 +771,9 @@ contains
          ! mark its neighbors as border for the next iteration
          ! label(j) marks node as visited and assigns cluster id to it,
          ! so that it is not visited again in the next BFS iterations
-         label(j) = cluster_id
+         if (atomicCAS(label(j), 0, cluster_id) /= 0) return
+
+!         label(j) = cluster_id
          nbj = gneighbors(j)
          offj = goffset(j)
          ! If j is a core node, mark its neighbors as border for the next iteration
