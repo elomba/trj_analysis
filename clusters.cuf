@@ -640,7 +640,7 @@ contains
       use mod_input
       use mod_cells
       implicit none
-      integer :: istat
+      integer :: istat, i
       real :: time_gpu
       Character :: error_msg*64
       !
