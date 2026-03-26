@@ -814,11 +814,11 @@ contains
          ! mark its neighbors as border for the next iteration
          ! label(j) marks node as visited and assigns cluster id to it,
          ! so that it is not visited again in the next BFS iterations
-         if (atomicCAS(label(j), 0, cluster_id) /= 0) return
 
 !         label(j) = cluster_id
          nbj = gneighbors(j)
          offj = goffset(j)
+         if (atomicCAS(label(j), 0, cluster_id) /= 0) return
          ! If j is a core node, mark its neighbors as border for the next iteration
          if (nbj>=minPts-1) then
             ! Set flag to continue BFS expansion
