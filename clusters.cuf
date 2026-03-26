@@ -491,9 +491,6 @@ contains
       mapcl(:) = 0
       do i = 1, maxclni
          clsz = count(label == i)
-         if (clsz < 3) then
-         print *, 'Cluster ', i, ' size: ', clsz
-         end if
          !
          ! Eliminate clusters smaller than minPts if purge is true, otherwise keep all clusters
          !
@@ -661,7 +658,6 @@ contains
       tgraph = tgraph + time_gpu
       goffset(:) = gneighbors(:)
       neighbors(:) = gneighbors(:)
-      print *, neighbors(83035)
       if (maxval(neighbors(:)) > maxnbpp) then
          write (*, '(" *** Error: max number of neighbors is ", i5," > ",i3)') maxval(neighbors(:)), maxnbpp
          write (*, '(" *** Please increase maxnbpp and recompile or reduce rcl from ", f8.4)') rcl
@@ -739,6 +735,12 @@ contains
             ! and we move to the next unvisited core particle
             label(:) = glabel(:)
             
+         end if
+      end do
+      do i = 1, cluster_id
+         j = count(label(:) == i)
+         if (j < 7) then
+            write (*, '(" *** Warning: cluster ", i5, " has only ", i5, " particles, consider reducing minPts or purging outliers")') i, j
          end if
       end do
       time_gpu = gptime(stopEvent, startEvent)

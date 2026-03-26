@@ -68,7 +68,7 @@ contains
          if (rdf_sq_cl_dyn_sqw_conf_ord(i) == .true.) then
          select case (i)
             case (1)
-               write(unit,'(//" ··· Flow control:",A," module will be executed !")') "RDF"
+               write(unit,'(//" ··· Flow control: ",A," module will be executed !")') "RDF"
             case (2)
                write(unit,'(" ··· Flow control: ",A," module will be executed !")') "S(q)"
             case (3)
