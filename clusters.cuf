@@ -649,11 +649,11 @@ contains
       istat = cudaEventRecord(startEvent, 0)
       !
       ! Neighbors are determined with and without a linked-cell method
-      !if (use_cell) then
-      !   call gpu_graph_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, minPts)
-      !else
+      if (use_cell) then
+         call gpu_graph_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, minPts)
+      else
          call gpu_graf<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, minPts)
-      !end if
+      end if
       time_gpu = gptime(stopEvent, startEvent)
       tgraph = tgraph + time_gpu
       goffset(:) = gneighbors(:)
@@ -712,13 +712,13 @@ contains
       label(:) = 0
       cluster_id = 0
       istat = cudaEventRecord(startEvent, 0)
-      gborder(:) = .false.
       !
       ! Recursive BFS search of connected clusters
       ! Main loop over all particles
       do i = 1, nmol
          ! If i is a core particle and not yet assigned to a cluster, start a new cluster and expand it with BFS
          if (neighbors(i)>=minPts-1 .and. label(i) == 0) then
+            gborder(:) = .false.
             cluster_id = cluster_id + 1
             gborder(i) = .true.
             ! active is a flag to check if BFS expansion is still active, i.e. if new border nodes are being
@@ -778,12 +778,9 @@ contains
             ! Active cluster expansion: mark neighbors of j as border if not visited
              do k = offj, offj+nbj-1
                nb = gadjacency(k)
-               !if (atomicCAS(label(nb), 0, 0) == 0) then
+               if (atomicCAS(label(nb), 0, 0) == 0) then
                   border(nb) = .true.
-               !endif
-!               if (label(nb) == 0) then
-!                  border(nb) = .true.
-!               endif 
+               endif
             end do
          end if
       end if
