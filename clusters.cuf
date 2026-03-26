@@ -771,7 +771,7 @@ contains
    integer, intent(INOUT) :: active
    logical(kind=1), intent(INOUT) ::  border(Nmol), core(Nmol)
    integer, intent(INOUT) ::  label(Nmol)
-   integer :: i, j, k, active_old, nb 
+   integer :: i, j, k, active_old, nb, nbj, offj 
    j = (blockidx%x - 1)*blockdim%x + threadidx%x
    if (j <= Nmol) then
       if (border(j).and.label(j) == 0) then
@@ -780,11 +780,14 @@ contains
          ! label(j) marks node as visited and assigns cluster id to it,
          ! so that it is not visited again in the next BFS iterations
          label(j) = cluster_id
-         if (core(j)) then
+         nbj = gneighbors(j)
+         offj = goffset(j)
+         ! If j is a core node, mark its neighbors as border for the next iteration
+         if (nbj>=minPts-1) then
             ! Set flag to continue BFS expansion
             active_old=atomicOr(active, 1)
             ! Active cluster expansion: mark neighbors of j as border if not visited
-             do k = goffset(j), goffset(j)+gneighbors(j)-1
+             do k = offj, offj+nbj-1
                nb = gadjacency(k)
                if (cluster_id==548) then
                   print *, 'Debug: core particle 83035 found, neighbor: ', nb, ' core: ', core(nb), ' label: ', label(nb) 
