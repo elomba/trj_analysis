@@ -737,7 +737,7 @@ contains
       Character :: error_msg*64
       integer :: active
       integer, device :: active_d(1)
-      integer :: boder_next(Nmol)
+      integer :: border_next(Nmol)
       !
       ! Search for neighbors and build graph
       !
