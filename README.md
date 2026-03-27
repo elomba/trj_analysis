@@ -123,7 +123,7 @@ dump trj1 all netcdf ${Ndump} run.nc id type x y z
 - **Trajectory format**: NetCDF only (use LAMMPS `dump netcdf` command)
 - **Simulation cell**: Orthogonal boxes only (triclinic cells not supported)
 - **Particle number**: Must remain constant (NpT allowed, but ΔQ = 2π/L variations introduce minor S(Q) errors)
-- **Units**: LAMMPS "real" or "lj" units (conversion for other unit systems pending)
+- **Units**: LAMMPS "real", "metal", or "lj" units (conversion for other LAMMPS unit systems pending)
 - **Molecular analysis**: Atoms are analyzed individually; internal molecular degrees of freedom not considered   
 
 ## Usage
@@ -141,6 +141,7 @@ The input file uses Fortran namelist format. Sample configurations are provided 
 - `examples/3D/sarl/input.nml` - 3D system example for a SALR system
 - `examples/3D/sarl/dyn/input.nml` - 3D system example for a SALR system dynamic properties 
 - `examples/3D/Conf/input.nml` - 3D confined system (electrolyte within plates)
+- `examples/3D/meam-dyn/input.nml` - Binary SiC MEAM mixture, including dynamics
 - `examples/3D/LJmix/input.nml` - Binary Lennard-Jones mixture
 
 ### Namelist Reference
@@ -154,7 +155,7 @@ The input file uses Fortran namelist format. Sample configurations are provided 
 | `nsp` | integer | Number of species to analyze |
 | `norder` | integer | Maximum order for Steinhardt parameters |
 | `nthread` | integer | CUDA threads per block (default: 128) |
-| `ncfs_from_to(2)` | integer | Configuration range [start, end] |
+| `ncfs_from_to(3)` | integer | Configuration range [start, end] |
 | `rcl` | real | Cutoff distance for cluster identification & neighbor analysis |
 | `rdf_sq_cl_dyn_sqw_conf_ord` | logical(7) | Enable modules: RDF, S(Q), clusters, dynamics, S(Q,ω), confinement, order parameters |
 | `nqw` | integer | Number of Q-values for dynamic analysis |
@@ -261,7 +262,8 @@ All outputs are written to the working directory with descriptive filenames.
 - `centers.lammpstrj` - Cluster center-of-mass trajectory (LAMMPS format for Ovito visualization)
 
 ### Confinement
-- Density and charge profiles along confined direction (filenames reflect analysis type)
+- `densprof.dat` - Density profile along the confinement direction per species
+- `fshape.dat` - Charge density profile along the confinement direction, total, + and -
 
 
 ## Example Workflow
