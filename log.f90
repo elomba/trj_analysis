@@ -64,6 +64,8 @@ contains
    subroutine print_active_modules(unit)
       integer, intent(in) :: unit
       integer :: i
+      write(unit,'(//" *** Active analysis modules:")')
+      write(unit,'(a,90('_'),a)') char(27)//'[33m', char(27)//'[0m'
       do i = 1, 7
          if (rdf_sq_cl_dyn_sqw_conf_ord(i) == .true.) then
          select case (i)
@@ -84,6 +86,7 @@ contains
          end select
          endif
       end do
+      write(unit,'(a,90('_'),a)') char(27)//'[33m', char(27)//'[0m'
    end subroutine print_active_modules
    
    subroutine header(unit)
