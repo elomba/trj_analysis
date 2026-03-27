@@ -164,6 +164,36 @@ Three-dimensional SALR system evaluation of dynamic properties
 | `dyn.dat`| Position and velocity self correlation functions |
 | `dynw.dat`| Position and velocity self correlation functions (fequency domain) |
 
+## 3D/meam-dyn
+
+Three-dimensional MEAM SiC  system with evaluation of dynamic properties (metal units)
+
+### Simulation input
+
+| File | Description |
+|-----|-------------|
+| `in.meam` | LAMMPS simulation input |
+| `library.meam` | library data MEAM potentials |
+| `SiC.meam` | MEAM potential for SiC |
+
+### Structural observables
+
+| File | Description |
+|-----|-------------|
+| `sq.dat` | Static structure factor |
+| `sqmix.dat` | Partial structure factor |
+| `sqcl.dat` | Cluster structure factor |
+
+### Dynamic correlation functions
+
+| File | Description |
+|-----|-------------|
+| `fkt.dat` | Intermediate scattering function |
+| `fskt.dat` | Self intermediate scattering function |
+| `dyn.dat`| Position and velocity self correlation functions |
+| `dynw.dat`| Position and velocity self correlation functions (fequency domain) |
+
+
 ## 3D/LJmix
 
 Example of a **binary Lennard-Jones mixture**.

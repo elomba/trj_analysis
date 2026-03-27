@@ -1,0 +1,49 @@
+&INPUT
+  log_output_file='trj_analysis.log'
+  trj_input_file='run.nc'
+  ndim=3
+  nsp=2
+  nqw=1
+  norder=5
+  ncfs_from_to=1000 1 1000
+  rcl=2.59
+  rdf_sq_cl_dyn_sqw_conf_ord=T T F T F  F F
+  ener_name="ener"
+  press_name="stress"
+  periodic=.t. .t. .t.
+  nprint=10
+/
+&INPUT_SP
+  sp_types_selected=2 1
+  mat=12.0 28.0
+/
+&INPUT_RDF
+  deltar=0.25
+  rcrdf=25.0 ! Cutoff in rdf
+/
+&INPUT_SQ
+  qmax=5.5
+  qmin=5.5
+/
+&INPUT_CL
+  dcl=6.0
+  ndrclus=200
+/
+&INPUT_DYN
+nbuffer=40 ! No.of time origins to compute dynamics
+tmax=0.222
+jump=20
+/
+&INPUT_SQW
+qw=0.18
+/
+&INPUT_ORDER
+orderp=4 6 8 10 12
+print_orderp=.true.
+rclcl=110.0
+/
+&INPUT_CONF
+  idir=0
+  pwall=0.0
+  pwallp=0.0
+/

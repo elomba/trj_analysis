@@ -160,6 +160,7 @@ contains
                & ' compute time per conf.=',f7.2,' s:'&
                & )") nstep, nstep*tstep, (cpu1 - cpu0)/nprint
          else
+            ! for real and metal units, print time in ns for better readability
                Write (*, "(' ** Working on MD step no. ',i10,' time =',f10.5,&
                & ' ns, compute time per conf.=',f7.2,' s:')") nstep, nstep*tstep/1000.0, (cpu1 - cpu0)/nprint
          endif
@@ -172,7 +173,7 @@ contains
                write (*, "(' ** Average potential energy/epsilon=',f15.4, ' Per atom=',f15.4)") epotav/Iconf, epotav/(Iconf*nmol)
             else if (tunits == 'picosecond') then
                write (*, "(' ** Potential energy=',f15.4,' eV, Per atom=',f15.4,' eV')") epot, epotperatom
-               write (*, "(' ** Average potential energy=',f15.4,' eV, Per atom=',f15.4,' eV')") epotav, epotav
+               write (*, "(' ** Average potential energy=',f15.4,' eV, Per atom=',f15.4,' eV')") epotav/Iconf, epotav/(Iconf*nmol)
             else
                write (*, "(' ** Potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epot, epotperatom
                write (*, "(' ** Average potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epotav/Iconf, epotav/(Iconf*nmol)

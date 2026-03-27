@@ -70,6 +70,7 @@ module mod_nc
    character(len=*), parameter, dimension(6) :: tipos = (/"NF90_BYTE  ", "&
    &NF90_CHAR  ", "NF90_SHORT ", "NF90_INT   ", "NF90_FLOAT ", "NF90_D&
    &OUBLE"/)
+   character(len=255) :: ncfname
 contains
    ! Routine to return NetCDF error codes
    SUBROUTINE check(istatus, ioerr)
@@ -150,6 +151,19 @@ module mod_nc_conf
    integer, dimension(:), allocatable :: counter, nct
 end module mod_nc_conf
 
+subroutine open_netcdf_input(path, ncid)
+   use netcdf
+   use mod_nc, only : ncfname, check 
+   implicit none
+   character(len=*), intent(in) :: path
+   integer, intent(out) :: ncid
+   integer :: ioerr
+   ncfname = path
+   call check(nf90_open(path=path, mode=NF90_NOWRITE, ncid=ncid), ioerr)
+   if (ioerr .ne. 0) then
+      stop("** UNRECOVERABLE ERROR: cannot open NetCDF trajectory file !")
+   endif
+end subroutine open_netcdf_input
 
 subroutine read_nc_cfg(ncid, ncstart, io, unit)
    ! Read netcdf configurations from file
@@ -432,7 +446,12 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
                tempty(ntypes) = ity(i,1)
             endif
          end do
+         write (iunit,"(' *** Reading trajectory from file: ',A)") trim(adjustl(ncfname))
+         write (*,"(' *** Reading trajectory from file: ',A)") trim(adjustl(ncfname))
+         write (iunit, "(' ** Number of configurations in file =',i)") nconf_i
+         write (*, "(' ** Number of configurations in file =',i)") nconf_i
          write (iunit, "(/' ** Number of atoms types =',i3)") ntypes
+         write (*, "(' ** Number of atoms types =',i3)") ntypes
 
          allocate (atypes(ntypes),orgty(ntypes))
          orgty(1:ntypes) = tempty(1:ntypes)
@@ -446,7 +465,8 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
             atypes(ity(i, 1)) = atypes(ity(i, 1)) + 1
          end do
          do i = 1, ntypes
-            write (iunit, "(/'  ··Number of atoms of types ',i2,' (',i2,')=',i8)") i, orgty(i),atypes(i)
+            write (iunit, "('  ··Number of atoms of type ',i2,' (',i2,')=',i8)") i, orgty(i),atypes(i)
+            write (*, "('  ··Number of atoms of type ',i2,' (',i2,')=',i8)") i, orgty(i),atypes(i)
          end do
       else
          !

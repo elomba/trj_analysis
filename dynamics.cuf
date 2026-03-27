@@ -361,7 +361,7 @@ contains
             fw = 0.5*(1-tanh((alpha/tmaxP)*(t(i)-tmaxP)))
             if (i==1) then
                pct =  fw*stcorr(i)/(ndim*count_org)
-               write(56,"(f10.3,8f15.5)")t(i),pct,0.0
+               write(56,"(f10.3,8f17.5)")t(i),pct,0.0
             else
                pct1 = pct
 
@@ -370,7 +370,7 @@ contains
                ! Use Green-Kubo relation eta_gk = (V/NkT)*\int_0^t<pxy(t')pxy(0)>dt' in (bar*s)
                !
                sum_visc = sum_visc + (pct+pct1)*(t(i)-t(i-1))/2
-               if (i<=itlimit) write(56,"(f10.3,9f15.5)")t(i),pct,(volumen/temperature/c_nktv)*sum_visc
+               if (i<=itlimit) write(56,"(f10.3,9f17.5)")t(i),pct,(volumen/temperature/c_nktv)*sum_visc
             endif
          end if
          if (run_sqw) then

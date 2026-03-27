@@ -135,14 +135,7 @@ program trj_analysis
     call log_init()
     call gpu_and_header(startEvent,stopEvent,devNum)
 
-  
-
-    ! Open netcdf trajectory file, get the file identificator ncid_in
-    call check(nf90_open(path=trj_input_file, mode=NF90_WRITE, ncid=ncid_in), ioerr)
-    if (ioerr .ne. 0) then
-        stop("** UNRECOVERABLE ERROR: cannot open NetCDF trajectory file !")
-    endif 
-    !
+    call open_netcdf_input(trj_input_file, ncid_in)
     ! First load from netcdf input file. Load global attributes of the simulation trajectory
     ! Read header and details of the NETCDF trajectory files: check consistency with input data
     !
