@@ -134,11 +134,7 @@ contains
          write(1000,"(i9,12f15.5)")nstep, pack(thermo_q(1:nther),mascara)
       endif
        if (run_clusters.and.Iconf==1) then
-            if (outliers_purge) then
-               Write (*, "(/' **i* Clusters >= minPts=',i3,' particles being analyzed. Outliers purged. '/)") minPts
-            else
-               Write (*, "(/ ' *** Clusters >= minPts=',i3,' particles being analyzed. Outliers kept. '/)") minPts
-            endif
+               Write (*, "(/ ' *** Clusters >= minPts=',i3,' particles being analyzed.  '/)") minPts
          endif
       ! Print periodic progress update to console
       If (Mod(Iconf - 1, nprint) .Eq. 0) Then

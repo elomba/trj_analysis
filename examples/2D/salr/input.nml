@@ -29,7 +29,6 @@
   dcl=6.0
   ndrclus=200
   minpts=3
-  outliers_purge=.f.
 /
 &INPUT_DYN
 nbuffer=6 ! No.of time origins to compute dynamics

@@ -173,8 +173,8 @@ contains
       !
       if (maxcln < 1) maxcln = 1
       call memory_manager_cluster(maxcln)
-      ! Cluster purge based on size threshold (minPts)
-      call outlier_purge(maxcln, outliers_purge)
+      ! Assign particles to clusters
+      call cluster_assign(maxcln)
       Cluster_id = maxcln
       !
       ! Write trajectory file with centers of mass of clusters if sufficient clusters found
@@ -473,9 +473,8 @@ contains
       rhoclusav(0:ndrclus) = rhoclusav(0:ndrclus) + rhoclus(0:ndrclus)/maxcln
    end subroutine cluster_geometry
    
-   subroutine outlier_purge(maxclni, purge)
+   subroutine cluster_assign(maxclni )
       implicit none
-      logical, intent(IN) :: purge
       integer, intent(INOUT) :: maxclni
       integer, dimension(:), allocatable:: mapcl
       integer :: clcount, i, j, clsz, maxclsz
@@ -485,33 +484,26 @@ contains
       allocate(mapcl(maxclni))
       maxclsz = 0
       ! 
-      ! Allocate size for cluster structure eliminating outliers 
+      ! Allocate size for cluster structure 
       clcount = 0
       mapcl(:) = 0
       do i = 1, maxclni
          clsz = count(label == i)
          !
-         ! Eliminate clusters smaller than minPts if purge is true, otherwise keep all clusters
          !
-         if (clsz >= minPts .or. .not. purge) then
-            clcount = clcount + 1
-            !
-            ! Remap cluster IDs
-            !
-            mapcl(i) = clcount
-            if (clsz > maxclsz) then
-               maxclsz = clsz
-            end if
-            cluster(clcount)%clsize = clsz
-            allocate (cluster(clcount)%members(clsz))
-            allocate (cluster(clcount)%molfrac(nsp))
-         endif
+         clcount = clcount + 1
+         !
+         ! Remap cluster IDs
+         !
+         mapcl(i) = clcount
+         if (clsz > maxclsz) then
+            maxclsz = clsz
+         end if
+         cluster(clcount)%clsize = clsz
+         allocate (cluster(clcount)%members(clsz))
+         allocate (cluster(clcount)%molfrac(nsp))
          !
       end do
-      if (clcount==0) then 
-         write(*, "(' *** Error: all clusters are outliers !!!')")
-         stop 
-      endif
       maxclni = clcount
       ! 
       ! Assign perticles to clusters
@@ -531,7 +523,7 @@ contains
          end do
       end do
       clusid_d(1:nmol) = clusid(1:nmol)
-   end subroutine outlier_purge
+   end subroutine cluster_assign
 
    subroutine memory_manager_cluster(maxcln)
       !
@@ -684,20 +676,20 @@ contains
       time_gpu = gptime(stopEvent, startEvent)
       tadj = tadj + time_gpu
       adjacency(:) = gadjacency(:)
-      do i=1,Nmol
-            do k=offset(i), offset(i)+neighbors(i)-1
-               j=adjacency(k)
-               if (.not. is_neighbor(j,i)) then
-                  print *, "ASYMMETRY:", i, j
-               endif
-         enddo
-         if (any(adjacency(offset(i):offset(i)+neighbors(i)-1)==i)) print *, "SELF NEIGHBOR:", i
-            if (neighbors(i) > 0) then
-               if (adjacency(offset(i)) == 0) then
-                  print *, "BAD OFFSET:", i
-               endif
-         endif
-   enddo
+   !    do i=1,Nmol
+   !          do k=offset(i), offset(i)+neighbors(i)-1
+   !             j=adjacency(k)
+   !             if (.not. is_neighbor(j,i)) then
+   !                print *, "ASYMMETRY:", i, j
+   !             endif
+   !       enddo
+   !       if (any(adjacency(offset(i):offset(i)+neighbors(i)-1)==i)) print *, "SELF NEIGHBOR:", i
+   !          if (neighbors(i) > 0) then
+   !             if (adjacency(offset(i)) == 0) then
+   !                print *, "BAD OFFSET:", i
+   !             endif
+   !       endif
+   ! enddo
    end subroutine neighbor_search
 
    logical function is_neighbor(j, i)
@@ -736,7 +728,6 @@ contains
       real :: time_gpu
       Character :: error_msg*64
       integer :: active
-      integer, device :: active_d(1)
       integer :: border_next(Nmol)
       logical :: iactive
       logical, device :: iactive_d
@@ -755,10 +746,8 @@ contains
       do i = 1, nmol
          ! If i is a core particle and not yet assigned to a cluster, start a new cluster and expand it with BFS
          if (neighbors(i)>=minPts-1 .and. label(i) == 0) then
-            ! Seed reassignment for BFS, cluster_id is the current cluster being expanded, border(:) are the border nodes from which BFS expansion starts
             ! Try to inherit cluster ID from already-labeled neighbors
             inherited_cluster = 0
-
             do k = offset(i), offset(i) + neighbors(i) - 1
                nb = adjacency(k)
                if (label(nb) /= 0) then
@@ -773,38 +762,23 @@ contains
                cluster_id = cluster_id + 1
                cluster_id_local = cluster_id
             endif
+            ! cluster_id_local is the current cluster being expanded, 
             gborder(:) = 0
-            gborder_next(:) = 0
             gborder(i) = 1
             ! active is a flag to check if BFS expansion is still active, i.e. if new border nodes are being
             ! found. When no more border nodes are found, BFS is finished and we move to the next cluster.
-            active = 1
+            iactive = .true.
             ! Expand cluster with GPU BFS, starting from border nodes and
             ! expanding until no more border nodes found.
-            iter = 0
-            iactive = .true.
             do while (iactive)
-               iter = iter + 1
-               gborder_next(:) = 0
-               active_d(1) = 0
                iactive_d = .false.
-!               call gbfs<<<nbcuda, nthread>>>(Nmol, cluster_id_local, minPts, active_d)
-               call gbfs_old<<<nbcuda, nthread>>>(Nmol, cluster_id_local, minPts, iactive_d)
+               call gbfs<<<nbcuda, nthread>>>(Nmol, cluster_id_local, minPts, iactive_d)
                istat = cudaDeviceSynchronize()
-!               border_next(:) = gborder_next(:)
-!               gborder(:) = gborder_next(:)
-               active = active_d(1)
                iactive = iactive_d
             end do
             ! After BFS is finished, cluster_id is assigned to all particles in the cluster (label(:))
             ! and we move to the next unvisited core particle
             label(:) = glabel(:)
-         end if
-      end do
-      do i = 1, cluster_id
-         j = count(label(:) == i)
-         if (j < minPts) then
-            write (*, '(" *** Warning: cluster ", i5, " has only ", i5, " particles, consider reducing minPts or purging outliers")') i, j
          end if
       end do
       time_gpu = gptime(stopEvent, startEvent)
@@ -817,38 +791,8 @@ contains
       maxcln = cluster_id
    end subroutine cluster_search
 
+ 
    attributes(global) subroutine gbfs(Nmol, cluster_id, minPts, active)
-   ! GPU BFS routine, uses neighbor lists to run through adjacent nodes, marks visited nodes and border nodes.
-   ! Starts from border nodes and border is being expanded. Completely parallel implementation.
-   integer, value, intent(IN) :: Nmol, cluster_id, minPts
-   integer, intent(INOUT) :: active(1)
-   integer :: i, j, k, iold, active_old, nbj, offj, nb
-   j = (blockidx%x - 1)*blockdim%x + threadidx%x
-   if (j <= Nmol) then
-         if (gborder(j)/=1) return
-         ! Mark cluster id for j, which is a border node, and if it is a core node,
-         ! mark its neighbors as border for the next iteration
-         ! label(j) marks node as visited and assigns cluster id to it,
-         ! so that it is not visited again in the next BFS iterations
-         nbj = gneighbors(j)
-         offj = goffset(j)
-         ! Check if already labeled
-
-         if (atomicCAS(glabel(j), 0, cluster_id) /= 0) return
-         active_old=atomicOr(active(1), 1)
-         if (nbj>=minPts-1) then
-            ! Set flag to continue BFS expansion
-            ! If j is a core node, mark its neighbors as border for the next iteration
-            ! Active cluster expansion: mark neighbors of j as border if not visited
-            do k = offj, offj + nbj - 1
-               nb = gadjacency(k)
-               iold=atomicOr(gborder_next(nb), 1)
-            end do
-         end if
-   end if
-end subroutine gbfs
-
-   attributes(global) subroutine gbfs_old(Nmol, cluster_id, minPts, active)
    ! GPU BFS routine, uses neighbor lists to run through adjacent nodes, marks visited nodes and border nodes.
    ! Starts from border nodes and border is being expanded. Completely parallel implementation.
    integer, value, intent(IN) :: Nmol, cluster_id, minPts
@@ -864,15 +808,15 @@ end subroutine gbfs
          glabel(j) = cluster_id
          nbj = gneighbors(j)
          offj = goffset(j)
-            active = .true.
          if (nbj >= minPts-1) then
             ! Set flag to continue BFS expansion
             ! Active cluster expansion: mark neighbors of j as border if not visited
+            active = .true.
             gborder(gadjacency(offj:offj+nbj-1)) = 1
          end if
       end if
    end if
-end subroutine gbfs_old
+end subroutine gbfs
 
 
 

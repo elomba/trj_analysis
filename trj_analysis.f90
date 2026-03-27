@@ -126,12 +126,7 @@ program trj_analysis
     else
         devNum = 0
     end if
-    !
-    ! initialize timers
-    !
-    call cpu_time(time_cpu_start)
-    call cpu_time(cpu0)
-
+    
     ! Get CUDA properties from device devNum 
    
   
@@ -139,7 +134,9 @@ program trj_analysis
     call read_input_file()
     call log_init()
     call gpu_and_header(startEvent,stopEvent,devNum)
-    !
+
+  
+
     ! Open netcdf trajectory file, get the file identificator ncid_in
     call check(nf90_open(path=trj_input_file, mode=NF90_WRITE, ncid=ncid_in), ioerr)
     if (ioerr .ne. 0) then
@@ -171,6 +168,12 @@ program trj_analysis
     call common_init(nmol, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)
     ! Analysis begins from first configuration selected
     Nccount = 0
+
+    !
+    ! initialize timers
+    !
+    call cpu_time(time_cpu_start)
+    call cpu_time(cpu0)
     do i = 1, ncfs_from_to(1)
         ! In the first configuration basic initialization 
         if (first_configuration) call basic_init(use_cell,run_clusters,run_dyn,confined,nmol)
