@@ -26,7 +26,6 @@
 !   pi              - Pi constant
 !   rgas            - Gas constant (erg/(mol·K))
 !   kelvintokcal    - Kelvin to kcal/mol conversion
-!   kcal_a3_to_bar  - Pressure unit conversion
 !
 ! Notes:
 !   - Arrays with _d suffix are GPU device arrays
@@ -42,9 +41,8 @@ module mod_common
       nspmax = 10, nmolmax = 220000, nmesmax = 10000, nkmax = 200, ksmax = 6
    Integer, Parameter :: nitmax = nspmax*(nspmax + 1)/2, llmax = 12
    real(myprec), parameter :: pi = 3.1415926535898D0, fconv = 4.135, &
-      rgas = 8.3144d7, aunit = 1.0d-8, tunit = 1.0d-12, &
-      kelvintokcal = 0.00198717, c_nktv=1.380649d2, &
-      kcal_a3_to_bar=69476.954109
+      rgas = 8.3144d7, aunit = 1.0d-8, tunit = 1.0d-12,  &
+      kelvintokcal = 0.00198717, kelvintoeV=8.617333262145d-5, c_nktv=1.380649d2
 
    real(myprec) :: time_cpu_start, time_cpu_stop, time_total = 0_sp, time_gput=0.0
    real(double) :: ekin, suma
@@ -64,7 +62,8 @@ module mod_common
    integer, device, allocatable, dimension(:, :) :: ipos_d, densprof_d, histomix_d
    real(kind=8) :: ecaver
    real(myprec) :: tuniti, volumen, side, side2, dq, densty, Tfact, taver, &
-      temperature, rdenst, volumen_r, tstep, pwall, pwallp, drclus, rcl=-1.0, rmingr
+      temperature, rdenst, volumen_r, tstep, pwall, pwallp, drclus, rcl=-1.0, rmingr, &
+      kelvinfactor
    real(myprec), dimension(3) :: sidel, sidelv, rlow
    real, device, dimension(3) :: fk_d, sidel_d
    real(myprec), dimension(3, 3) :: cell
@@ -338,15 +337,19 @@ contains
       if (units == 'femtosecond') then
          tuniti = 1.0d-15
          tstep = factor*0.001
+         kelvinfactor = kelvintokcal
+         write(*,'(" *** Time units in fs: assuming real units !!")')
       else if (units == 'picosecond') then
          tuniti = 1.0d-12
          tstep = factor
-         write(*,'(" *** Time units in ps: assuming metal units !!)')
+         kelvinfactor = kelvintoeV
+         write(*,'(" *** Time units in ps: assuming metal units !!")')
       else if (units == 'lj') then
+         write(*,'(" *** Time units in LJ: assuming reduced units !!")')
          tuniti = 1.0d-12
          tstep = factor
       else
-         print *, 'ERROR: timeunit ', units, ' not implemented!: watch for corrections'
+         print *, ' *** ERROR: timeunit ', units, ' not implemented!'
          stop
       end if
 

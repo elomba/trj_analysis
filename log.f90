@@ -111,6 +111,12 @@ contains
       character*15, dimension(nther) :: title =(/"     T(K)","KE (Kcal/mol)","PE Kcal/mol",&
          " Pressure (bar)","      Pxx(bar)","    Pyy(bar)","     Pzz(bar)",&
          "      Pxy(bar)","    Pxz(bar)","     Pyz(bar)"/)
+      character*15, dimension(nther) :: titleeV =(/"     T(K)","KE (eV)","PE (eV)",&
+         " Pressure (bar)","      Pxx(bar)","    Pyy(bar)","     Pzz(bar)",&
+         "      Pxy(bar)","    Pxz(bar)","     Pyz(bar)"/)
+      character*15, dimension(nther) :: titlelj =(/"     T(K)","KE/epsilon","PE/epsilon",&
+         " Psigma³/epsilon","      Pxxsigma³/epsilon","    Pyysigma³/epsilon","     Pzzsigma³/epsilon",&
+         "      Pxysigma³/epsilon","    Pxzsigma³/epsilon","     Pyzsigma³/epsilon"/) 
       real(myprec) :: thermo_q(nther), Tfcl
       integer :: i, j
       ! Initialize thermodynamic array and select available quantities
@@ -121,7 +127,7 @@ contains
       mascara(4:10) = ex_stress  ! Pressure and stress components
       if (ex_vel) then
          thermo_q(1) = temperature
-         thermo_q(2) = kelvintokcal*ekin*(aunit/tunit)**2/Rgas
+         thermo_q(2) = kelvinfactor*ekin*(aunit/tunit)**2/Rgas
       endif
       if (run_thermo) thermo_q(3) = epot
       if (ex_stress) then
@@ -132,7 +138,13 @@ contains
       if (sum(mascara)) then
          if (iconf == 1) then
             open(1000, file="thermo_run.dat")
-            write(1000,"('#    Conf  ',16a15)")pack(title(1:nther),mascara)
+            if (tunits == 'lj') then
+               write(1000,"('#    Conf  ',16a15)")pack(titlelj(1:nther),mascara)
+            else if (tunits == 'picosecond') then
+               write(1000,"('#    Conf  ',16a15)")pack(titleeV(1:nther),mascara)
+            else     
+               write(1000,"('#    Conf  ',16a15)")pack(title(1:nther),mascara)
+            endif
          endif
          write(1000,"(i9,12f15.5)")nstep, pack(thermo_q(1:nther),mascara)
       endif
@@ -158,6 +170,9 @@ contains
             if (tunits == 'lj') then
                write (*, "(' ** Potential energy/epsilon=',f15.4,' Per atom=',f15.4)") epot, epotperatom
                write (*, "(' ** Average potential energy/epsilon=',f15.4, ' Per atom=',f15.4)") epotav/Iconf, epotav/(Iconf*nmol)
+            else if (tunits == 'picosecond') then
+               write (*, "(' ** Potential energy=',f15.4,' eV, Per atom=',f15.4,' eV')") epot, epotperatom
+               write (*, "(' ** Average potential energy=',f15.4,' eV, Per atom=',f15.4,' eV')") epotav, epotav
             else
                write (*, "(' ** Potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epot, epotperatom
                write (*, "(' ** Average potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epotav/Iconf, epotav/(Iconf*nmol)
@@ -184,9 +199,13 @@ contains
             if (tunits=='lj') then
                write (*, "(' ** Kinetic energy/epsilon=',f15.4,' average=',f15.4)") &
                   ekin/natoms, ecaver/(natoms*Iconf)
+            else if (tunits == 'picosecond') then
+               write (*, "(' ** Kinetic energy=',f15.4,' eV, average=',f15.4,' eV')") &
+                  kelvinfactor*ekin*(aunit/tunit)**2/Rgas, &
+                  kelvinfactor*ecaver*(aunit/tunit)**2/Rgas/Iconf
             else
                write (*, "(' ** Kinetic energy=',f15.4,' Kcal/mol, average=',f15.4,'Kcal/mol')") &
-                  kelvintokcal*ekin*(aunit/tunit)**2/Rgas, 0.00198717*ecaver*(aunit/tunit)**2/Rgas/Iconf
+                  kelvinfactor*ekin*(aunit/tunit)**2/Rgas, kelvinfactor*ecaver*(aunit/tunit)**2/Rgas/Iconf
             
             endif 
             if (run_clusters) then
@@ -195,13 +214,20 @@ contains
                      ekincl, ekclaver/Iconf
                   write (*, "(' ** Internal cluster kinetic energy/epsilon=',f15.4,' average=',f15.4)") &
                      ekincls, ekinclsav/Iconf
+               elseif (tunits == 'picosecond') then
+                  write (*, "(' ** Cluster kinetic energy=',f15.4,' eV, average=',f15.4,' eV')") &
+                     kelvinfactor*ekincl*(aunit/tunit)**2/Rgas, &
+                     kelvinfactor*ekclaver*(aunit/tunit)**2/Rgas/Iconf
+                  write (*, "(' ** Internal cluster kinetic energy=',f15.4,' eV, average=',f15.4,' eV')") &
+                     kelvinfactor*ekincls*(aunit/tunit)**2/Rgas, &
+                     kelvinfactor*ekinclsav*(aunit/tunit)**2/Rgas/Iconf
                else
                    write (*, "(' ** Cluster kinetic energy/epsilon=',f15.4,' Kcal/mol average=',f15.4,' Kcal/mol')") &
-                     kelvintokcal*ekincl*(aunit/tunit)**2/Rgas, kelvintokcal*ekclaver*(aunit/tunit)**2/Rgas/Iconf
+                     kelvinfactor*ekincl*(aunit/tunit)**2/Rgas, kelvinfactor*ekclaver*(aunit/tunit)**2/Rgas/Iconf
                   write (*, "(' ** Internal cluster kinetic energy=',f15.4,'&
                   & Kcal/mol, average=',f15.4,'Kcal&
-                  &/mol')") kelvintokcal*ekincls*(aunit/tunit)**2/Rgas,&
-                  & kelvintokcal*ekinclsav*(aunit/tunit)**2/Rgas/Iconf
+                  &/mol')") kelvinfactor*ekincls*(aunit/tunit)**2/Rgas,&
+                  & kelvinfactor*ekinclsav*(aunit/tunit)**2/Rgas/Iconf
                endif
                if (maxcln>1) then
                   Tfcl = (maxcln-1)*ndim
@@ -211,6 +237,9 @@ contains
                if (tunits == 'lj') then
                     Write (*, "(' ** Average cluster k_b*temperature/epsilon =',f10.2&
                   &)") 2*ekclaver/(Tfcl*Iconf)
+               else if (tunits == 'picosecond') then
+                  Write (*, "(' ** Average cluster temperature =',f10.2&
+                  &,' K')") 2*ekclaver*(aunit/tunit)**2/(Tfcl*Rgas*Iconf)
                else
                   Write (*, "(' ** Average cluster temperature =',f10.2&
                   &,' K')") 2*ekclaver*(aunit/tunit)**2/(Tfcl*Rgas*Iconf)
@@ -252,7 +281,7 @@ contains
          time_gput = tthrus + tadj + tbfs + tgraph + trdf + tsQ + tord + tdyn
          print *, " ··Time config in/out  ", tread/iconf
       End if
-
+ 
    end subroutine print_output
 
    subroutine printPotEngCl()
