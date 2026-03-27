@@ -6,6 +6,7 @@ This directory contains **reference examples illustrating the use of the `trj_an
 The examples cover several types of systems commonly encountered in soft-matter and molecular simulations:
 
 - **SALR systems** (short-range attraction / long-range repulsion) exhibiting cluster formation
+- **MEAM SiC** A semiconductor alloy using MEAM potentials. It includes dynamics processing. 
 - **Binary Lennard-Jones mixtures**
 - **Confined systems** (e.g. ionic-liquid-like systems near walls)
 
