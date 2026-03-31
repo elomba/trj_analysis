@@ -263,7 +263,7 @@ All outputs are written to the working directory with descriptive filenames.
 
 ### Confinement
 - `densprof.dat` - Density profile along the confinement direction per species
-- `fshape.dat` - Charge density profile along the confinement direction, total, + and -
+- `qdens.dat` - Charge density profile along the confinement direction, total, + and -
 
 
 ## Example Workflow
