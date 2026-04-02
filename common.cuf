@@ -85,12 +85,13 @@ module mod_common
    real, allocatable, dimension(:, :, :) :: histomix
    logical :: pdir(3) = .true., run_clusters = .false., run_rdf = .false., &
       run_sq = .false., run_dyn = .false., run_sqw = .false., run_thermo = .false., &
-      confined = .false.
+      confined = .false., do_z_slice = .false.
    character :: fname99*18
    character, dimension(:), allocatable :: atoms*8
    character(len=:), allocatable :: tunits, vunits
    character :: ener_name*12, press_name*12
    real(myprec) :: epotperatom, epot,epotav
+   real(myprec) :: z_slice_min = -99999.0_myprec, z_slice_max = 99999.0_myprec
    real(double) :: pressure, pressav, pxyz(6)
    integer, allocatable, dimension(:) :: epotperatomhistomixcl, epothistomixcl
    integer(kind=2), allocatable, dimension(:) :: clusid
