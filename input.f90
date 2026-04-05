@@ -146,6 +146,7 @@ contains
       if (rdf_sq_cl_dyn_sqw_conf_ord(6) == .true.) then
          read (unit=io_input_file, nml=INPUT_CONF)
          confined = .true.
+         if (rdf_sq_cl_dyn_sqw_conf_ord(1) == .true. .or. rdf_sq_cl_dyn_sqw_conf_ord(2) == .true.) twoDsq_in_3D = .true.
       endif
       if (rdf_sq_cl_dyn_sqw_conf_ord(7) == .true.) then
          if (norder < 1) then

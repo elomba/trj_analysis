@@ -99,7 +99,7 @@ module mod_common
    real(myprec), allocatable, dimension(:) :: epotclcldata
    real(myprec) :: epotclclmean, epotclclstdv
    logical :: ex_vel = .false., ex_force = .false., ex_stress = .false., &
-   &  ex_mol = .false., ex_qc = .false., periodic(3) = .true.
+   &  ex_mol = .false., ex_qc = .false., periodic(3) = .true., twoDsq_in_3D = .false.
 
    type clus
       sequence
