@@ -52,7 +52,7 @@ module mod_common
    integer :: nbcuda, natms, nmol, width, nqmax, nqwmax, lmaxx, lmaxy, lmaxz, &
       lsmax, nqmin, ndr, shmsize, maxthread, nit, nconf, nmzero = 0, maxcln,&
       voigt, nrandom=0, ndrclus=100, maxnbpp=25
-   integer :: cntch(100), ncharge
+   integer :: cntch(100), ncharge, nslice=0
    real(double), dimension(100) :: chgh
    integer, allocatable, dimension(:) :: ntype, itype, lty, list, label, nq
    integer, allocatable, dimension(:, :) :: ipos, densprofi,  histomixi
@@ -63,12 +63,12 @@ module mod_common
    real(kind=8) :: ecaver
    real(myprec) :: tuniti, volumen, side, side2, dq, densty, Tfact, taver, &
       temperature, rdenst, volumen_r, tstep, pwall, pwallp, drclus, rcl=-1.0, rmingr, &
-      kelvinfactor
+      kelvinfactor, zgrid
    real(myprec), dimension(3) :: sidel, sidelv, rlow
    real, device, dimension(3) :: fk_d, sidel_d
    real(myprec), dimension(3, 3) :: cell
    real(myprec), allocatable, dimension(:) :: masa, bscat, sig2n, gaver, u_p, gtot
-   real(kind=8), allocatable, dimension(:) :: gi, g2i, gii, g2ii, qcharge
+   real(kind=8), allocatable, dimension(:) :: gi, g2i, gii, g2ii, qcharge, zslice 
    real, device, allocatable, dimension(:) :: sqf_d, sqfcl_d, bsc_d
    real(myprec), allocatable, dimension(:, :) :: r, vel, force, densprof
    real(double), allocatable, dimension(:) :: qdensprof, dqminus, dqplus

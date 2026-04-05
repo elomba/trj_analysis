@@ -67,7 +67,7 @@ module mod_input
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
    namelist /INPUT_SQ/ qmax, qmin, bsc
    namelist /INPUT_CL/ dcl, minPts, ndrclus, cl_thresh, geometry
-   namelist /INPUT_CONF/ idir
+   namelist /INPUT_CONF/ idir, nslice, zslice, zgrid
    namelist /INPUT_DYN/ nbuffer, tmax, tmaxp, tlimit, jump
    namelist /INPUT_SQW/ qw, tmqw
    namelist /INPUT_ORDER/ orderp, print_orderp, nnbond, rclcl
@@ -146,7 +146,13 @@ contains
       if (rdf_sq_cl_dyn_sqw_conf_ord(6) == .true.) then
          read (unit=io_input_file, nml=INPUT_CONF)
          confined = .true.
-         if (rdf_sq_cl_dyn_sqw_conf_ord(1) == .true. .or. rdf_sq_cl_dyn_sqw_conf_ord(2) == .true.) twoDsq_in_3D = .true.
+         if (rdf_sq_cl_dyn_sqw_conf_ord(1) == .true. .or. rdf_sq_cl_dyn_sqw_conf_ord(2) == .true.) then
+            if (nslice >  0) then
+               allocate(zslice(nslice))
+               zslice(:) = 0.0
+            endif
+            twoDsq_in_3D = .true.
+         endif
       endif
       if (rdf_sq_cl_dyn_sqw_conf_ord(7) == .true.) then
          if (norder < 1) then
