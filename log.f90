@@ -418,8 +418,8 @@ contains
          ri = i*deltar
          !
          ! Compute 3d ad 2d normalizations factors
-         !
-         if (ndim == 3) then
+         ! --- MODIFICADO: Normalización 2D si hay confinamiento en Z ---
+         if (ndim == 3 .and. .not. (confined .and. idir == 3)) then
             deltaV = 4*pi*((ri + deltar/2)**3 - (ri - deltar/2)**3)/3.0
          else
             deltaV = pi*((ri + deltar/2)**2 - (ri - deltar/2)**2)
