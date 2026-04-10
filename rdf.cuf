@@ -135,11 +135,6 @@ contains
          g2ii_d(:) = 0
       endif
       !
-      ! Note the increase in the number of threads to optimize the use of shared atomics. This limits the value of nthread
-      ! to 128 for 3D and 256 for 2D calculations (max 1024 threads per block)
-      ! Important : the third parameter in the kernel call is the size of dynamically allocated shared
-      !             memory (assumed sized arrays for the shared histogram)
-      !
       istat = cudaEventRecord(startEvent, 0)
       ! Adjust thread/block configuration for optimal shared memory usage
       if (nthread*6 <= 1024) then
@@ -150,7 +145,8 @@ contains
          rdfb = nbcuda/4 + 1
       end if
       ! Call appropriate GPU kernel for dimensionality
-      if (ndim == 3) then
+      ! --- MODIFICADO: Forzar 2D si hay confinamiento en Z ---
+      if (ndim == 3 .and. .not. (confined .and. idir == 3)) then
          call rdf_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, nit&
          &, nsp, nbcuda*lsmax, lsmax, side2, sidel_d, deltar)
          call printcudaerror(" *** Warning: 3D rdf_sh GPU kernel exit with errors: reduce nthread",istat)
@@ -159,10 +155,14 @@ contains
          &, side2, sidel_d, deltar )
 
       else
+         ! Llamada a la versión 2D con los nuevos parámetros de la rodaja Z
          call rdf2_sh<<<rdfb, rdfth, lsmax*nit*4>>>(r_d, Nmol, ndim, histomix_d, nit&
-         &, nsp, nbcuda*lsmax, lsmax, itype_d, side2, sidel_d, deltar)
+         &, nsp, nbcuda*lsmax, lsmax, itype_d, side2, sidel_d, deltar, &
+         z_slice_min, z_slice_max, do_z_slice)
+         
          call printcudaerror(" *** Warning: 2D rdf2_sh GPU kernel exit with errors: reduce nthread", istat)
          if (istat /= 0) stop(" *** Fatal error in rdf2_sh kernel!!")
+      
          if (nrandom>0) call s2D2_sh<<<nrandom,nthread,(lsmax+1)*4>>>(r_d, Nmol, ndim, gii_d, g2ii_d, lsmax &
          &, side2, sidel_d, deltar )
       end if
@@ -179,32 +179,31 @@ contains
          g2i(:) = g2i(:)+g2ii(:)
       endif
 
-!        Gather histograms from each block
-
+      ! Gather histograms from each block
       do i = 0, nbcuda - 1
          istart = i*lsmax
          ind = 1
          do k = 1, nsp
-            do l = k, nsp
-               histomix(1:lsmax, k, l) = histomix(1:lsmax, k, l) + real(histomixi(istart + 1:istart + lsmax, ind))
-               ind = ind + 1
-            end do
+             do l = k, nsp
+                histomix(1:lsmax, k, l) = histomix(1:lsmax, k, l) + real(histomixi(istart + 1:istart + lsmax, ind))
+                ind = ind + 1
+             end do
          end do
       end do
       ! Normalize histograms to get total g(r)
       do i=1, lsmax
          gtot(i) = 0
          ri = real(i)*deltar
-         if (ndim == 3) then
+         if (ndim == 3 .and. .not. (confined .and. idir == 3)) then
             deltaV = 4*pi*((ri + deltar/2)**3 - (ri - deltar/2)**3)/3.0
          else
             deltaV = pi*((ri + deltar/2)**2 - (ri - deltar/2)**2)
          end if
          !
          do j=1, nsp
-            do l = j, nsp
-               gtot(i) = gtot(i) + histomix(i, j, l)
-            end do
+             do l = j, nsp
+                gtot(i) = gtot(i) + histomix(i, j, l)
+             end do
          end do
          gtot(i) = 2*volumen*gtot(i)/(deltaV*natms*natms)
       end do
