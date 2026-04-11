@@ -67,7 +67,7 @@ module mod_input
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
    namelist /INPUT_SQ/ qmax, qmin, bsc
    namelist /INPUT_CL/ dcl, minPts, ndrclus, cl_thresh, geometry
-   namelist /INPUT_CONF/ idir
+   namelist /INPUT_CONF/ idir, z_slice_min, z_slice_max
    namelist /INPUT_DYN/ nbuffer, tmax, tmaxp, tlimit, jump
    namelist /INPUT_SQW/ qw, tmqw
    namelist /INPUT_ORDER/ orderp, print_orderp, nnbond, rclcl
