@@ -69,19 +69,19 @@ module mod_common
    real(myprec), dimension(3, 3) :: cell
    real(myprec), allocatable, dimension(:) :: masa, bscat, sig2n, gaver, u_p, gtot
    real(kind=8), allocatable, dimension(:) :: gi, g2i, gii, g2ii, qcharge, zslice 
-   real, device, allocatable, dimension(:) :: sqf_d, sqfcl_d, bsc_d
+   real, device, allocatable, dimension(:) :: sqf_d, sqfxy_d, sqfcl_d, bsc_d
    real(myprec), allocatable, dimension(:, :) :: r, vel, force, densprof
    real(double), allocatable, dimension(:) :: qdensprof, dqminus, dqplus
    real(double),allocatable, dimension(:, :) :: stress
-   real, device, allocatable, dimension(:, :) :: r_d, v_d, rclxyzd, sqfp_d
+   real, device, allocatable, dimension(:, :) :: r_d, v_d, rclxyzd, sqfp_d, sqfpxy_d
    logical, allocatable, dimension(:) :: bigcl
    logical,  device, allocatable, dimension(:) :: bigcl_d
    real(double), allocatable, dimension(:) :: engcls, gclr, gclr2
    real ::  qmin2, cpu0, cpu1
    real, dimension(3) :: fk
-   real, allocatable, dimension(:) :: sqf, sqfcl, gcluster, gclustav, gclcl, gclt, rhoclus, &
+   real, allocatable, dimension(:) :: sqf, sqfxy, sqfcl, gcluster, gclustav, gclcl, gclt, rhoclus, &
       rhoclusav, sqcl
-   real, allocatable, dimension(:, :) :: sqfp
+   real, allocatable, dimension(:, :) :: sqfp, iqfxyp
    real, allocatable, dimension(:, :, :) :: histomix
    logical :: pdir(3) = .true., run_clusters = .false., run_rdf = .false., &
       run_sq = .false., run_dyn = .false., run_sqw = .false., run_thermo = .false., &

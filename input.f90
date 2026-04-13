@@ -149,6 +149,8 @@ contains
          if (rdf_sq_cl_dyn_sqw_conf_ord(1) == .true. .or. rdf_sq_cl_dyn_sqw_conf_ord(2) == .true.) then
             if (nslice >  0) then
                allocate(zslice(nslice))
+               allocate(zsliced(nslice))
+               zsliced(:) = 0.0
                zslice(:) = 0.0
             endif
             twoDsq_in_3D = .true.
