@@ -76,7 +76,7 @@ contains
          else  
             ! Directional sampling for small q (2D slices in 3D)
             zsliced(:) = zslice
-            if (dim==2) then
+            if (ndim==2) then
                write(*,*) " *** Error: S(Q) calculation using directional sampling in 2D (x and y) not implemented ***"
                stop
             endif
@@ -163,8 +163,10 @@ contains
          sqfcl(:) = 0.0d0
       endif
       Allocate (sqf_d(nqmax), sqfp_d(nqmax, nsp))
+      Allocate (sqf(nqmax), sqfp(nqmax, nsp))
       if (idir>0) then
-         allocate(sqfxy(nqmax,nslice), sqfxy_d(nqmax,nslice), sqfp(nqmax,nsp,nslice), sqfp_d(nqmax,nsp,nslice))
+         allocate(sqfxy(nqmax,nslice), sqfpxy(nqmax,nsp, nslice))
+         allocate(sqfxy_d(nqmax,nslice), sqfpxy_d(nqmax,nsp,nslice))
       endif
       gclustav(:) = 0.0
       rhoclus(:) = 0.0
@@ -488,12 +490,12 @@ integer, intent(IN) :: itype(Nmol), ntype(nsp), ipos(nsp, Nmol)
 integer, value, intent(IN) :: Nmol, dim, nsp, kmax, nslice
 real, dimension(dim, Nmol), intent(IN) :: r_d
 real(kind=4), intent(IN) :: bsc(nsp)
-real(kind=4), intent(INOUT) :: sqf(kmax), sqfp(kmax, nsp)
+real(kind=4), intent(INOUT) :: sqf(kmax,nslice), sqfp(kmax, nsp, nslice)
 real(kind=4) :: rkxyz, fk1, fk2, fk3, kf1, kf2, kf3,  q, suma(nslice), tsum(nslice)
 real(kind=8) :: sumcx(nslice), sumsx(nslice), sumcpx(nslice), sumspx(nslice), q2, bs
 real(kind=4), intent(IN) :: fk(dim), zslice(nslice)
 real(kind=4), value, intent(IN) ::  dq, q2max, zgrid 
-
+real(kind=4) :: z
 integer :: i, j, it, kx, ky, kz, ind, ia, islice, count
 kx = (blockidx%x - 1)*blockdim%x + threadidx%x - 1
 ky = (blockidx%y - 1)*blockdim%y + threadidx%y - 1
@@ -529,14 +531,14 @@ if (q2 > 0.0 .and. q2 <= q2max) then
       if (count>0) suma(:) = (sumcpx(:)**2 + sumspx(:)**2)/count
       if (ind<=kmax) then
          do islice = 1, nslice
-            ia = atomicadd(sqfpxy(ind, j, islice), suma(islice))
+            ia = atomicadd(sqfp(ind, j, islice), suma(islice))
          end do
       endif
    end do
    tsum(:) = (sumcx(:)**2 + sumsx(:)**2)
    if (ind<=kmax) then
       do islice = 1, nslice
-         ia = atomicadd(sqfixy(ind, islice), tsum(islice))
+         ia = atomicadd(sqf(ind, islice), tsum(islice))
       end do
    endif
 end if
@@ -549,7 +551,7 @@ real, dimension(2, Nmol), intent(IN) :: r_d
 real, intent(in), value :: zgrid
 real(kind=4), intent(INOUT) :: sqf(kmax, nslice), sqfp(kmax, nsp, nslice)
 real(kind=4), intent(IN) ::bsc(nsp), zslice(nslice)
-real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, suma(nslice), bs
+real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, suma(nslice), bs, z
 real(kind=8) :: sumcx(nslice), sumsx(nslice), sumcy(nslice), sumsy(nslice), sumcpx(nslice), sumspx(nslice), sumcpy(nslice), sumspy(nslice)
 real(kind=4), intent(IN) :: fk(dim)
 integer :: i, j, k, ind, it, ia, islice, count
