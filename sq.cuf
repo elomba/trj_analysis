@@ -80,7 +80,7 @@ contains
                write(*,*) " *** Error: S(Q) calculation using directional sampling in 2D (x and y) not implemented ***"
                stop
             endif
-            call sqfxy<<<tBlock, grid>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqfxy_d, sqfpxy_d,&
+            call sqf3xy<<<tBlock, grid>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqfxy_d, sqfpxy_d,&
             & nsp, nqmax, qmin2, dq, nslice, zgrid, zsliced)
             call sqf2xy<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqfxy_d, sqfpxy_d,&
             & nsp, nqmax, nqmin + 1, nslice, zgrid, zsliced)
@@ -483,7 +483,7 @@ end if
 end subroutine sqfnD
 
 
-attributes(global) subroutine sqfxy(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, q2max, dq, nslice, zgrid, zslice)
+attributes(global) subroutine sqf3xy(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, q2max, dq, nslice, zgrid, zslice)
 integer, intent(IN) :: itype(Nmol), ntype(nsp), ipos(nsp, Nmol)
 integer, value, intent(IN) :: Nmol, dim, nsp, kmax, nslice
 real, dimension(dim, Nmol), intent(IN) :: r_d
@@ -540,7 +540,7 @@ if (q2 > 0.0 .and. q2 <= q2max) then
       end do
    endif
 end if
-end subroutine sqfxy
+end subroutine sqf3xy
 
 attributes(global) subroutine sqf2xy(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, minPts, nslice, zgrid, zslice)
 integer, value, intent(IN) :: Nmol, dim, nsp, kmax, minPts, nslice
