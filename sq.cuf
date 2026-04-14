@@ -166,7 +166,6 @@ contains
          sqfcl(:) = 0.0d0
       endif
       Allocate (sqf_d(nqmax), sqfp_d(nqmax, nsp))
-      Allocate (sqf(nqmax), sqfp(nqmax, nsp))
       if (idir>0) then
          allocate(sqfxy(nqmax,nslice), sqfpxy(nqmax,nsp, nslice))
          allocate(sqfxy_d(nqmax,nslice), sqfpxy_d(nqmax,nsp,nslice))
