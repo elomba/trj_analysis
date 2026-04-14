@@ -32,7 +32,7 @@ module mod_nc
    use mod_precision
    use mod_common, Only : ex_vel, ex_force, ex_stress, run_thermo, &
       u_p, stress, ex_mol, ex_qc, periodic, voigt, &
-      ener_name, press_name, pwall, pwallp, tunits, vunits, nstep, auto_zslice, zlslice, zgrid
+      ener_name, press_name, pwall, pwallp, tunits, vunits, nstep, auto_zslice, zslice, zgrid
    use mod_input, only : idir
    interface
       subroutine read_nc_cfg(ncid, ncstart, io, unit)
@@ -326,7 +326,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
                      pwallp = pwall + cell(k,1)
                      if (auto_zslice) then
                         zslice(1) = (maxval(r(k,1:natoms,1)) + minval(r(k,1:natoms,1)))/2.0
-                        zgrid = (maxval(r(k,1:natoms,1)) - minval(r(k,1:natoms,1)))/real(nslice+10)
+                        zgrid = (maxval(r(k,1:natoms,1)) - minval(r(k,1:natoms,1)))/real(10)
                         write(*,'(" ** Auto-defined z-slices: zslice(1) = ",F8.2,", zgrid = ",F8.2)') zslice(1), zgrid
                      endif
                   endif
