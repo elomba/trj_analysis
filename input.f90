@@ -61,7 +61,7 @@ module mod_input
    !
    ! Input namelists
    namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread,  &
-      & ncfs_from_to,  rdf_sq_cl_dyn_sqw_conf_ord, nqw, nslice, norder, ener_name, &
+      & ncfs_from_to,  rdf_sq_cl_dyn_sqw_conf_ord, nqw, nslice=-1, norder, ener_name, &
       & press_name, potnbins, potengmargin, rcl, periodic, nprint
    namelist /INPUT_SP/ sp_types_selected, mat
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
@@ -144,17 +144,26 @@ contains
       endif
       idir = 0
       if (rdf_sq_cl_dyn_sqw_conf_ord(6) == .true.) then
-         if (nslice >  0) then
-            allocate(zslice(nslice))
-            allocate(zsliced(nslice))
-            zsliced(:) = 0.0
-            zslice(:) = 0.0
+         if (ndim /= 3) then
+            write(*,'("*** Error: system must be 3D to compute confinement properties !")')
+            stop
          endif
+         if (idir /=3) then
+            write(*,'("*** Error: confinement direction idir must be set to 3 (z) !")')
+            stop
+         endif
+         if (nslice < 1) then
+            nslice = 1
+            write(*,'("*** Warning: nslice (number of slices for confinement profile) reset to 1 !")')
+            ! Definition of z-slices postponed until we read first configuration to 
+            ! get box size in z
+            auto_zslice = .true.
+         endif
+         allocate(zslice(nslice))
+         allocate(zsliced(nslice))
+         zsliced(:) = 0.0
+         zslice(:) = 0.0
          read (unit=io_input_file, nml=INPUT_CONF)
-         print *, "Confinement analysis selected with idir = ", idir
-         print *, "zslice values: ", zslice(1:nslice)
-         print *, "zgrid: ", zgrid
-         print *, "nslice: ", nslice
          confined = .true.
          if (rdf_sq_cl_dyn_sqw_conf_ord(1) == .true. .or. rdf_sq_cl_dyn_sqw_conf_ord(2) == .true.) then
             twoDsq_in_3D = .true.

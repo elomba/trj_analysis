@@ -334,7 +334,6 @@ contains
       open (110, file='sqmix.dat')
       if (idir>0) then
          open (120, file='sqxy.dat')
-         print *, zslice(1:nslice)
          write (120, "('#     Q        ',9x,16('S_xy(Q,',f8.3,')',8x:))") zslice(1:nslice)
          do j=1, nsp
             write(fname99,'("sqpxy_",i1,".dat")') j
@@ -352,42 +351,60 @@ contains
       write (110, "('#       Q',14x,15('S_',2i1,'(Q)',9x:))") ((j, j), j=1, nsp)
       do i = 1, nqmax
          if (i*dq <= qmin .or. dq > 0.2) then
-            if (nsp == 2 .and. bsc_one) then
-               s11 = x1*sqfp(i, 1)/(ntype(1)*Nconf*real(nq(i)))
-               s22 = x2*sqfp(i, 2)/(ntype(2)*Nconf*real(nq(i)))
-               s12 = 0.5*(sqf(i)/(Nmol*Nconf*real(nq(i))) - s11 - s22)
-               scc = x2**2*s11 + x1**2*s22 - 2*x1*x2*s12
-               write (100, '(6f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i)))&
-               &, scc, s11, s22, s12, nq(i)
-            else
-               write (100, '(2f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i))), nq(i)
-            end if
-            write (110, '(15f16.7)') i*dq, (sqfp(i, j)/(ntype(j)*Nconf&
-            &*real(nq(i))), j=1, nsp)
-            if (idir>0) then
+            ! For small q, print all data points. For larger q, print every 3rd point to reduce file size and noise.
+            if (twoDsq_in_3D) then
+               ! Compute 2D structure factor in xy plane for 3D systems with confinement
                write (120, '(15f16.7)') i*dq, (sqfxy(i, j)/(Nconf&
                &*real(nq(i))), j=1, nslice)
                do j=1, nsp
                   write (130+j, '(15f16.7)') i*dq, (sqfpxy(i, j, islice)/(Nconf&
                   &*real(nq(i))), islice=1, nslice)
                end do
-            end if
+            else
+               ! Compute partial structure factors and concentration-concentration
+               ! structure factor for binary mixtures with bsc=1
+               if (nsp == 2 .and. bsc_one) then
+                  s11 = x1*sqfp(i, 1)/(ntype(1)*Nconf*real(nq(i)))
+                  s22 = x2*sqfp(i, 2)/(ntype(2)*Nconf*real(nq(i)))
+                  s12 = 0.5*(sqf(i)/(Nmol*Nconf*real(nq(i))) - s11 - s22)
+                  scc = x2**2*s11 + x1**2*s22 - 2*x1*x2*s12
+                  write (100, '(6f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i)))&
+                  &, scc, s11, s22, s12, nq(i)
+               else
+                  write (100, '(2f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i))), nq(i)
+               end if
+               write (110, '(15f16.7)') i*dq, (sqfp(i, j)/(ntype(j)*Nconf&
+               &*real(nq(i))), j=1, nsp)
+            endif
          end if
       end do
       if (dq <= 0.2) then
          do i = nint(qmin/dq) + 1, nqmax - 2, 3
-            if (nsp == 2 .and. bsc_one) then
-               s11 = x1*sum(sqfp(i - 2:i + 2, 1)/(ntype(1)*Nconf*real(nq(i - 2:i + 2))))/5
-               s22 = x2*sum(sqfp(i - 2:i + 2, 2)/(ntype(2)*Nconf*real(nq(i - 2:i + 2))))/5
-               s12 = 0.5*(sum(sqf(i - 2:i + 2)/(Nmol*Nconf*real(nq(i - 2:i + 2))))/5 - s11 - s22)
-               scc = x2**2*s11 + x1**2*s22 - 2*x1*x2*s12
-               write (100, '(6f15.7,i12)') i*dq, sum(sqf(i - 2:i + 2)/(Nmol*Nconf*real(nq(i - 2:i + 2))))/5&
-               &, scc, s11, s22, s12, nq(i)
+            if (twoDsq_in_3D) then
+               ! Compute 2D structure factor in xy plane for 3D systems with confinement, using 5-point moving average to reduce noise
+               write (120, '(15f16.7)') i*dq, (sum(sqfxy(i - 2:i + 2,j),dim=1)/(Nconf&
+               &*real(5*nq(i))), j=1, nslice)
+               do j=1, nsp
+                  write (130+j, '(15f16.7)') i*dq, (sum(sqfpxy(i - 2:i + 2, j, islice),dim=1)/(Nconf&
+                  &*real(5*nq(i))), islice=1, nslice)
+               end do
             else
-               write (100, '(2f15.7,i12)') i*dq, sum(sqf(i - 2:i + 2)/(Nmol*Nconf*real(nq(i - 2:i + 2))))/5, nq(i)
-            end if
-            write (110, '(15f16.7)') i*dq, (sum(sqfp(i - 2:i + 2, j)/(ntype(j)*Nconf&
-            &*real(nq(i - 2:i + 2))))/5, j=1, nsp)
+               ! Compute partial structure factors and concentration-concentration
+               ! structure factor for binary mixtures with bsc=1,
+               ! using 5-point moving average to reduce noise
+               if (nsp == 2 .and. bsc_one) then
+                  s11 = x1*sum(sqfp(i - 2:i + 2, 1)/(ntype(1)*Nconf*real(nq(i - 2:i + 2))))/5
+                  s22 = x2*sum(sqfp(i - 2:i + 2, 2)/(ntype(2)*Nconf*real(nq(i - 2:i + 2))))/5
+                  s12 = 0.5*(sum(sqf(i - 2:i + 2)/(Nmol*Nconf*real(nq(i - 2:i + 2))))/5 - s11 - s22)
+                  scc = x2**2*s11 + x1**2*s22 - 2*x1*x2*s12
+                  write (100, '(6f15.7,i12)') i*dq, sum(sqf(i - 2:i + 2)/(Nmol*Nconf*real(nq(i - 2:i + 2))))/5&
+                  &, scc, s11, s22, s12, nq(i)
+               else
+                  write (100, '(2f15.7,i12)') i*dq, sum(sqf(i - 2:i + 2)/(Nmol*Nconf*real(nq(i - 2:i + 2))))/5, nq(i)
+               end if
+               write (110, '(15f16.7)') i*dq, (sum(sqfp(i - 2:i + 2, j)/(ntype(j)*Nconf&
+               &*real(nq(i - 2:i + 2))))/5, j=1, nsp)
+            endif
          end do
       end if
       close (100)
