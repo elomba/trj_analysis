@@ -148,10 +148,6 @@ contains
             write(*,'("*** Error: system must be 3D to compute confinement properties !")')
             stop
          endif
-         if (idir /=3) then
-            write(*,'("*** Error: confinement direction idir must be set to 3 (z) !")')
-            stop
-         endif
          if (nslice < 1) then
             nslice = 1
             write(*,'("*** Warning: nslice (number of slices for confinement profile) reset to 1 !")')
@@ -164,6 +160,10 @@ contains
          zsliced(:) = 0.0
          zslice(:) = 0.0
          read (unit=io_input_file, nml=INPUT_CONF)
+                 if (idir /=3) then
+            write(*,'("*** Error: confinement direction idir must be set to 3 (z) !")')
+            stop
+         endif
          confined = .true.
          if (rdf_sq_cl_dyn_sqw_conf_ord(1) == .true. .or. rdf_sq_cl_dyn_sqw_conf_ord(2) == .true.) then
             twoDsq_in_3D = .true.
