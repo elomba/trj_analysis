@@ -323,6 +323,7 @@ contains
       integer, intent(IN) :: Nmol
       integer :: i, j
       logical :: bsc_one = .true.
+      character(len=128) :: fname99
       baver = sum(ntype(1:nsp)*bsc(1:nsp))/Nmol
       b2aver = sum(ntype(1:nsp)*bsc(1:nsp)**2)/Nmol
       sqf(:) = sqf(:)/baver**2
@@ -331,6 +332,15 @@ contains
       enddo
       open (100, file='sq.dat')
       open (110, file='sqmix.dat')
+      if (idir>0) then
+         open (120, file='sqxy.dat')
+         write (120, "('#     Q        ',9x,16('S_xy(Q,',f7.3,')',8x:))") zslice(1:nslice)
+         do j=1, nsp
+            write(fname99,'("sqpxy_",i1,".dat")') j
+            open (130+j, file='sqpxy_'//trim(adjustl(fname99))//'.dat')
+            write (130+j, "('#     Q        ',9x,16('S_xy(Q,',f7.3,')',8x:))") zslice(1:nslice)
+         end do
+      end if
       if (nsp == 2 .and. bsc_one) then
          x1 = (real(ntype(1))/real(Nmol))
          x2 = (real(ntype(2))/real(Nmol))
@@ -353,6 +363,14 @@ contains
             end if
             write (110, '(15f16.7)') i*dq, (sqfp(i, j)/(ntype(j)*Nconf&
             &*real(nq(i))), j=1, nsp)
+            if (idir>0) then
+               write (120, '(15f16.7)') i*dq, (sqfxy(i, j)/(Nconf&
+               &*real(nq(i))), j=1, nnslice)
+               do j=1, nsp
+                  write (130+j, '(15f16.7)') i*dq, (sqfpxy(i, j, islice)/(Nconf&
+                  &*real(nq(i))), islice=1, nslice)
+               end do
+            end if
          end if
       end do
       if (dq <= 0.2) then
@@ -373,6 +391,12 @@ contains
       end if
       close (100)
       close (110)
+      if (idir>0) then
+         close (120)
+         do j=1, nsp
+            close (130+j)
+         end do
+      end if
    end subroutine printSQ
 
    subroutine printrdf(rcl, lsmax)
