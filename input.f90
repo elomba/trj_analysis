@@ -61,7 +61,7 @@ module mod_input
    !
    ! Input namelists
    namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread,  &
-      & ncfs_from_to,  rdf_sq_cl_dyn_sqw_conf_ord, nqw, nslice=-1, norder, ener_name, &
+      & ncfs_from_to,  rdf_sq_cl_dyn_sqw_conf_ord, nqw, nslice, norder, ener_name, &
       & press_name, potnbins, potengmargin, rcl, periodic, nprint
    namelist /INPUT_SP/ sp_types_selected, mat
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
