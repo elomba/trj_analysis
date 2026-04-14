@@ -321,7 +321,7 @@ contains
       !
       real(myprec) :: x1, x2, s11, s22, s12, scc, baver, b2aver
       integer, intent(IN) :: Nmol
-      integer :: i, j
+      integer :: i, j, islice
       logical :: bsc_one = .true.
       character(len=128) :: fname99
       baver = sum(ntype(1:nsp)*bsc(1:nsp))/Nmol
@@ -365,7 +365,7 @@ contains
             &*real(nq(i))), j=1, nsp)
             if (idir>0) then
                write (120, '(15f16.7)') i*dq, (sqfxy(i, j)/(Nconf&
-               &*real(nq(i))), j=1, nnslice)
+               &*real(nq(i))), j=1, nslice)
                do j=1, nsp
                   write (130+j, '(15f16.7)') i*dq, (sqfpxy(i, j, islice)/(Nconf&
                   &*real(nq(i))), islice=1, nslice)
