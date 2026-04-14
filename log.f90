@@ -334,11 +334,12 @@ contains
       open (110, file='sqmix.dat')
       if (idir>0) then
          open (120, file='sqxy.dat')
-         write (120, "('#     Q        ',9x,16('S_xy(Q,',f7.3,')',8x:))") zslice(1:nslice)
+         print *, zslice(1:nslice)
+         write (120, "('#     Q        ',9x,16('S_xy(Q,',f8.3,')',8x:))") zslice(1:nslice)
          do j=1, nsp
             write(fname99,'("sqpxy_",i1,".dat")') j
             open (130+j, file='sqpxy_'//trim(adjustl(fname99))//'.dat')
-            write (130+j, "('#     Q        ',9x,16('S_xy(Q,',f7.3,')',8x:))") zslice(1:nslice)
+            write (130+j, "('#     Q        ',9x,16('S_xy(Q,',f8.3,')',8x:))") zslice(1:nslice)
          end do
       end if
       if (nsp == 2 .and. bsc_one) then

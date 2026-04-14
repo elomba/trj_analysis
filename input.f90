@@ -151,6 +151,10 @@ contains
             zslice(:) = 0.0
          endif
          read (unit=io_input_file, nml=INPUT_CONF)
+         print *, "Confinement analysis selected with idir = ", idir
+         print *, "zslice values: ", zslice(1:nslice)
+         print *, "zgrid: ", zgrid
+         print *, "nslice: ", nslice
          confined = .true.
          if (rdf_sq_cl_dyn_sqw_conf_ord(1) == .true. .or. rdf_sq_cl_dyn_sqw_conf_ord(2) == .true.) then
             twoDsq_in_3D = .true.
