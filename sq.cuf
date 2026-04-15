@@ -80,10 +80,10 @@ contains
                write(*,*) " *** Error: S(Q) calculation using directional sampling in 2D (x and y) not implemented ***"
                stop
             endif
-            call sqf3xy<<<tBlock, grid>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqfxy_d, sqfpxy_d,&
-            & nsp, nqmax, qmin2, dq, nslice, zgrid, zsliced)
-            call sqf2xy<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqfxy_d, sqfpxy_d,&
-            & nsp, nqmax, nqmin + 1, nslice, zgrid, zsliced)
+            ! call sqf3xy<<<tBlock, grid>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqfxy_d, sqfpxy_d,&
+            ! & nsp, nqmax, qmin2, dq, nslice, zgrid, zsliced)
+            ! call sqf2xy<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqfxy_d, sqfpxy_d,&
+            ! & nsp, nqmax, nqmin + 1, nslice, zgrid, zsliced)
          endif
          ierrSync = cudaGetLastError()
          if (ierrSync /= cudaSuccess) write(*,*) &
@@ -158,7 +158,7 @@ contains
          lmaxz = 1
       end if
       qmin = lmaxx*fk(1)
-      if (twoDsq_in_3D .and. ndim==3) then
+      if (twoDstruc_3D .and. ndim==3) then
          Allocate (nq(0:nqmax))
       else
          Allocate (sqf(nqmax), sqfp(nqmax, nsp), nq(0:nqmax))
@@ -170,7 +170,7 @@ contains
          sqfcl(:) = 0.0d0
       endif
 
-      if (twoDsq_in_3D) then
+      if (twoDstruc_3D) then
          allocate(sqfxy(nqmax,nslice), sqfpxy(nqmax,nsp, nslice))
          allocate(sqfxy_d(nqmax,nslice), sqfpxy_d(nqmax,nsp,nslice))
       else
@@ -257,7 +257,22 @@ contains
       endif
       if (nqmin > 10) then
          indm = 0
-         if (ndim == 3.and..not.twoDsq_in_3D) then
+         if (ndim == 2.or.twoDstruc_3D) then
+            do i = 0, lmaxx - 1
+               do j = 0, lmaxy - 1
+                  if (i + j .ne. 0) then
+                     rr = sqrt((i*fk(1))**2 + (j*fk(2))**2)
+                     if (rr .lt. qmin) then
+                        ind = nint(rr/dq)
+                        if (ind > indm) indm = ind
+                        if (ind <= nqmax) nq(ind) = nq(ind) + 1
+                     end if
+                  end if
+               end do
+            end do
+            nq(indm + 1:nqmax) = 2
+            write (*, "(//' *** S(Q) calculation using ',i4,'x',i4,' vectors **'/)") lmaxx, lmaxy
+         else
             do i = 0, lmaxx - 1
                do j = 0, lmaxy - 1
                   do k = 0, lmaxz - 1
@@ -274,21 +289,6 @@ contains
             end do
             write (*, "(//' *** S(Q) calculation using ',i4,'x',i4,'x',i4,' vectors **')") lmaxx, lmaxy, lmaxz
             nq(indm + 1:nqmax) = 3
-         else
-            do i = 0, lmaxx - 1
-               do j = 0, lmaxy - 1
-                  if (i + j .ne. 0) then
-                     rr = sqrt((i*fk(1))**2 + (j*fk(2))**2)
-                     if (rr .lt. qmin) then
-                        ind = nint(rr/dq)
-                        if (ind > indm) indm = ind
-                        if (ind <= nqmax) nq(ind) = nq(ind) + 1
-                     end if
-                  end if
-               end do
-            end do
-            nq(indm + 1:nqmax) = 2
-            write (*, "(//' *** S(Q) calculation using ',i4,'x',i4,' vectors **'/)") lmaxx, lmaxy
          end if
          qmin2 = qmin**2
          if (tunits == 'lj') then
@@ -297,7 +297,7 @@ contains
             write (*, "(' *** Averaging over all q-vectors for q <',f10.6,' A^-1 **')") qmin
          endif
       else
-         if (ndim == 2.or.twoDsq_in_3D) then
+         if (ndim == 2.or.twoDstruc_3D) then
             nq(1:nqmax) = 2
          else
             nq(1:nqmax) = 3
@@ -620,7 +620,7 @@ subroutine sq_clear()
 
    ! Clean house
    deallocate (nq)
-   if (twoDsq_in_3D) then
+   if (twoDstruc_3D) then
       deallocate(sqfxy)
       deallocate(sqfxy_d)
       deallocate(sqfpxy)

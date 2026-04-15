@@ -155,10 +155,12 @@ contains
             ! get box size in z
             auto_zslice = .true.
          endif
-         allocate(zslice(nslice))
-         allocate(zsliced(nslice))
+         allocate(zslice(nslice),countslice(nslice))
+         allocate(zsliced(nslice),countsliced(nslice))
          zsliced(:) = 0.0
          zslice(:) = 0.0
+         countslice(:) = 0
+         countsliced(:) = 0
          read (unit=io_input_file, nml=INPUT_CONF)
                  if (idir /=3) then
             write(*,'("*** Error: confinement direction idir must be set to 3 (z) !")')
@@ -166,7 +168,7 @@ contains
          endif
          confined = .true.
          if (rdf_sq_cl_dyn_sqw_conf_ord(1) == .true. .or. rdf_sq_cl_dyn_sqw_conf_ord(2) == .true.) then
-            twoDsq_in_3D = .true.
+            twoDstruc_3D = .true.
          endif
       endif
       if (rdf_sq_cl_dyn_sqw_conf_ord(7) == .true.) then

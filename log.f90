@@ -336,8 +336,8 @@ contains
          open (120, file='sqxy.dat')
          write (120, "('#     Q        ',9x,16('S_xy(Q,',f8.3,')',8x:))") zslice(1:nslice)
          do j=1, nsp
-            write(fname99,'("sqpxy_",i1,".dat")') j
-            open (130+j, file='sqpxy_'//trim(adjustl(fname99))//'.dat')
+            write(fname99,'("sqpxy_",i1,"-",i1,".dat")') j, j
+            open (130+j, file=trim(adjustl(fname99))//'.dat')
             write (130+j, "('#     Q        ',9x,16('S_xy(Q,',f8.3,')',8x:))") zslice(1:nslice)
          end do
       end if
@@ -352,7 +352,7 @@ contains
       do i = 1, nqmax
          if (i*dq <= qmin .or. dq > 0.2) then
             ! For small q, print all data points. For larger q, print every 3rd point to reduce file size and noise.
-            if (twoDsq_in_3D) then
+            if (_3D) then
                ! Compute 2D structure factor in xy plane for 3D systems with confinement
                write (120, '(15f16.7)') i*dq, (sqfxy(i, j)/(Nconf&
                &*real(nq(i))), j=1, nslice)
@@ -380,7 +380,7 @@ contains
       end do
       if (dq <= 0.2) then
          do i = nint(qmin/dq) + 1, nqmax - 2, 3
-            if (twoDsq_in_3D) then
+            if (
                ! Compute 2D structure factor in xy plane for 3D systems with confinement, using 5-point moving average to reduce noise
                write (120, '(15f16.7)') i*dq, (sum(sqfxy(i - 2:i + 2,j),dim=1)/(Nconf&
                &*real(5*nq(i))), j=1, nslice)
@@ -426,15 +426,26 @@ contains
       Real(myprec) :: gmix(nspmax, nspmax), deltav, ri, xfj
       integer, intent(in) :: lsmax
       integer :: i, j, l, k
-      if (nsp<=6) then
-         fname99 = 'gmixsim.dat'
-         Open (99, file=fname99)
+      if (twoDstruc_3D) then
+         count=0
+         do i=1, nsp
+            do j=i, nsp
+               write(fname99,'("gxy_",i1,'-',i1".dat")') i,j
+               open (130+j, file=trim(adjustl(fname99))//'.dat')
+               write (130+j, "('#     Q        ',9x,16('S_xy(Q,',f8.3,')',8x:))") zslice(1:nslice)
+            end do
+         end do  
       else
-         do k=1, nsp
-            write(fname99,'("gmixsim",i1,".dat")') k
-            open(887+k,file=fname99)
-         enddo
-      endif
+         if (nsp<=6) then
+            fname99 = 'gmixsim.dat'
+            Open (99, file=fname99)
+         else
+            do k=1, nsp
+               write(fname99,'("gmixsim",i1,".dat")') k
+               open(887+k,file=fname99)
+            enddo
+         endif
+      endif 
       if (nrandom>0) Open (199, file="s2n.dat")
       if (run_clusters.and.maxcln>cl_thresh) then
          if (geometry) then 
@@ -462,19 +473,30 @@ contains
          ! Compute 3d ad 2d normalizations factors
          !
          if (ndim == 3) then
-            deltaV = 4*pi*((ri + deltar/2)**3 - (ri - deltar/2)**3)/3.0
+            if (twoDstruc_3D) then
+               ! For 2D rdf din xy plane of 3D systems with confinement, use cylindrical shell volume for normalization
+               deltaV = pi*((ri + deltar/2)**2 - (ri - deltar/2)**2)*zgrid
+            else
+               ! For 3D systems, use spherical shell volume for normalization
+               deltaV = 4*pi*((ri + deltar/2)**3 - (ri - deltar/2)**3)/3.0
+            endif
          else
+            ! For 2D systems, use circular shell area for normalization
             deltaV = pi*((ri + deltar/2)**2 - (ri - deltar/2)**2)
          end if
          !
          Do j = 1, nsp
-
+            xfi = real(ntype(i), kind=8)/Real(natms, kind=8)
             Do l = j, nsp
                xfj = real(ntype(j), kind=8)/Real(natms, kind=8)
-               gmix(j, l) = (j/l + 1)*volumen*histomix(i, j, l)/(deltaV*ntype(l)*ntype(j)*Nconf)
-               gmix(l,j) = gmix(j,l)
-               if (idir > 0) gmix(j, l) = densty*gmix(j, l)/rdenst
-
+               if (twoDstruc_3D) then
+                  ! Compute 2D rdf in xy plane for 3D systems with confinement, using appropriate normalization for cylindrical shells and accounting for slice thickness
+                  gmix_xy(j,l,:) = (j/l + 1)*zgrid*histomix_xy(i, j, l)/(deltaV*countslice(:)**2*xfj*xfi*Nconf)
+                  gmix_xy(l,j,:) = gmix_xy(j,l,:)
+               else
+                  gmix(j, l) = (j/l + 1)*volumen*histomix(i, j, l)/(deltaV*ntype(l)*ntype(j)*Nconf)
+                  gmix(l,j) = gmix(j,l)
+               endif 
             End Do
          End Do
          if (i<lsmax) then
@@ -496,6 +518,16 @@ contains
                & (gmix(j, j:nsp), j=1, nsp)
             endif
          else
+            if (twoDstruc_3D) then
+               count = 0
+               do i = 1, nsp
+                  do j=i, nsp
+                     write (130+j, '(15f16.7)') i*deltar, (gmix_xy(i, j, islice)/(Nconf&
+                     &*real(nq(i))), islice=1, nslice)
+                     count = count + 1
+                  end do
+               enddo 
+            else
             if (nsp <= 6) then
                Write (99, '(16f16.5)') i*deltar,  (gmix(j, j:nsp), j=1, nsp)
             else
@@ -505,12 +537,21 @@ contains
             endif
          end if
       End Do
-      if (nsp<=6) then
-         close (99)
-      else
-         do k=1,nsp
-            close(887+k)
+      if (twoDstruc_3D) then 
+         do i = 1, nsp
+            do j=i, nsp
+               close (130+count)
+               count = count - 1
+            end do
          end do
+      else
+         if (nsp<=6) then
+            close (99)
+         else
+            do k=1,nsp
+               close(887+k)
+            end do
+         endif
       endif
       if (nrandom>0) close (199)
    end subroutine printrdf

@@ -157,7 +157,6 @@ contains
       implicit none
       ! Radial distribution function
       if (rdf_sq_cl_dyn_sqw_conf_ord(1) == .true.) run_rdf = .true.
-      run_sq = .false.
       ! Static structure factors
       if (rdf_sq_cl_dyn_sqw_conf_ord(2) == .true.) run_sq = .true.
       ! Cluster analysis

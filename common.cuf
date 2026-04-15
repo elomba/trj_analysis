@@ -54,12 +54,15 @@ module mod_common
       voigt, nrandom=0, ndrclus=100, maxnbpp=25
    integer :: cntch(100), ncharge, nslice=-1
    real(double), dimension(100) :: chgh
-   integer, allocatable, dimension(:) :: ntype, itype, lty, list, label, nq
+   integer, allocatable, dimension(:) :: ntype, itype, lty, list, label, nq, countslice
    integer, allocatable, dimension(:, :) :: ipos, densprofi,  histomixi
+   integer, allocatable, dimension(:, :, :) :: _xyi
    integer (kind=2), allocatable, dimension(:,:) :: indqw
-   integer, device, allocatable, dimension(:) :: itype_d, ntype_d, glabel
+   integer, device, allocatable, dimension(:) :: itype_d, ntype_d, glabel, countsliced
    real, device, allocatable, dimension(:) :: gii_d, g2ii_d
    integer, device, allocatable, dimension(:, :) :: ipos_d, densprof_d, histomix_d
+   integer, device, allocatable, dimension(:,:,:) :: histomix_xy_d
+   integer, allocatable, dimension(:,:,:) :: histomix_xyi
    real(kind=8) :: ecaver
    real(myprec) :: tuniti, volumen, side, side2, dq, densty, Tfact, taver, &
       temperature, rdenst, volumen_r, tstep, pwall, pwallp, drclus, rcl=-1.0, rmingr, &
@@ -67,10 +70,11 @@ module mod_common
    real(myprec), dimension(3) :: sidel, sidelv, rlow
    real, device, dimension(3) :: fk_d, sidel_d
    real(myprec), dimension(3, 3) :: cell
-   real(myprec), allocatable, dimension(:) :: masa, bscat, sig2n, gaver, u_p, gtot, zslice
+   real(myprec), allocatable, dimension(:) :: masa, bscat, sig2n, gaver, u_p, zslice
+   real(myprec), allocatable, dimension(:,:,:) :: gmix_xy
    real(kind=8), allocatable, dimension(:) :: gi, g2i, gii, g2ii, qcharge
    real, device, allocatable, dimension(:) :: sqf_d, sqfcl_d, bsc_d, zsliced
-   real(myprec), allocatable, dimension(:, :) :: r, vel, force, densprof
+   real(myprec), allocatable, dimension(:, :) :: r, vel, force, densprof, gtotxy
    real(double), allocatable, dimension(:) :: qdensprof, dqminus, dqplus
    real(double),allocatable, dimension(:, :) :: stress
    real, device, allocatable, dimension(:, :) :: r_d, v_d, rclxyzd, sqfp_d, sqfxy_d
@@ -84,6 +88,7 @@ module mod_common
       rhoclusav, sqcl
    real, allocatable, dimension(:, :) :: sqfp, iqfxyp, sqfxy
    real, allocatable, dimension(:, :, :) :: histomix, sqfpxy
+   real, allocatable, dimension(:, :, :, :) :: histomix_xy
    logical :: pdir(3) = .true., run_clusters = .false., run_rdf = .false., &
       run_sq = .false., run_dyn = .false., run_sqw = .false., run_thermo = .false., &
       confined = .false., auto_zslice = .false.
@@ -100,7 +105,7 @@ module mod_common
    real(myprec), allocatable, dimension(:) :: epotclcldata
    real(myprec) :: epotclclmean, epotclclstdv
    logical :: ex_vel = .false., ex_force = .false., ex_stress = .false., &
-   &  ex_mol = .false., ex_qc = .false., periodic(3) = .true., twoDsq_in_3D = .false.
+   &  ex_mol = .false., ex_qc = .false., periodic(3) = .true., twoDstruc_3D = .false.
 
    type clus
       sequence
