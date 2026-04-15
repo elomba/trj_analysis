@@ -72,7 +72,7 @@ module mod_common
    real(myprec), dimension(3, 3) :: cell
    real(myprec), allocatable, dimension(:) :: masa, bscat, sig2n, gaver, u_p, zslice
    real(myprec), allocatable, dimension(:,:,:) :: gmix_xy
-   real(kind=8), allocatable, dimension(:) :: gi, g2i, gii, g2ii, qcharge
+   real(kind=8), allocatable, dimension(:) :: gi, g2i, gii, g2ii, qcharge, gtot
    real, device, allocatable, dimension(:) :: sqf_d, sqfcl_d, bsc_d, zsliced
    real(myprec), allocatable, dimension(:, :) :: r, vel, force, densprof, gtotxy
    real(double), allocatable, dimension(:) :: qdensprof, dqminus, dqplus
