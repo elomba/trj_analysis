@@ -65,7 +65,7 @@ contains
       ndr = lsmax
       ! Allocate RDF histogram arrays (host and device)
       if (twoDstruc_3D) then
-         Allocate (histomix_xy(lsmax, nsp, nsp, nslice),gtotxy(0:lsmax,nslice), gmix_xy(nsp,nsp,nslice))!, histomix_xyi(nbcuda*lsmax, nit, nslice))
+         Allocate (histomix_xy(lsmax, nsp, nsp, nslice),gtotxy(0:lsmax,nslice), gmix_xy(nsp,nsp,nslice))!, (nbcuda*lsmax, nit, nslice))
 !         Allocate (histomix_xy(lsmax, nsp, nsp, nslice), gtotxy(0:lsmax)
          Allocate (histomix_xy_d(nbcuda*lsmax, nit, nslice))
       else
