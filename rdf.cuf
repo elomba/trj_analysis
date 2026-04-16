@@ -588,8 +588,7 @@ real, value, intent(IN) :: side2, deltar, zgrid
 real, intent(IN) :: sidel(3), zslice(nslice)
 integer, intent(INOUT) :: count(nslice)
 ! Assumed size histogram (memory size must be assigned in the kernel call)
-!integer, shared :: histomix_s(lsmax, nit, nslice)
-integer :: histomix_s(lsmax, nit, nslice)
+integer, shared :: histomix_s(lsmax, nit, nslice)
 histomix_s(:, :, :) = 0
 i = (blockidx%x - 1)*blockdim%x + threadidx%x
 if (i <= Nmol - 1) then
