@@ -170,7 +170,8 @@ contains
             print *, " Shared memory per block: ", 4*lsmax*nit*nslice, " bytes (", 4*lsmax*nit*nslice/1024.0, " KB)"
             zsliced(:) = zslice(:)
             countsliced(:) = 0
-            call rdfxy_sh<<<rdfb, rdfth, nslice*lsmax*nit*4>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
+            !call rdfxy_sh<<<rdfb, rdfth, nslice*lsmax*nit*4>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
+            call rdfxy_sh<<<rdfb, rdfth>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
            
             call printcudaerror(" *** Warning: 3D rdfxy_sh GPU kernel exit with errors: reduce nthread",istat)
             countslice(:) = countsliced(:)
