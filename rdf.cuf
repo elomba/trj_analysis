@@ -251,7 +251,7 @@ contains
          do j=1, nsp
             do l = j, nsp
                if (twoDstruc_3D) then
-                  print *, " Adding contribution from species pair (", j, ",", l, ") to total g(r) for bin ", i
+                  print *, " Adding contribution from species pair (", j, ",", l, ") to total g(r) for bin ", i, lsmax
                   gtotxy(i,:) = gtotxy(i,:) + histomix_xy(i, j, l,:)
                else
                   gtot(i) = gtot(i) + histomix(i, j, l)
@@ -263,6 +263,7 @@ contains
          else  
             gtot(i) = 2*volumen*gtot(i)/(deltaV*natms*natms)
          end if
+         print *, " Total g(r) for bin ", i, ": ", gtotxy(i,:), lsmax
       end do
       if(.not.twoDstruc_3D) then
          call find_first_minimum_interp(gtot, lsmax, deltar, rmingr)
