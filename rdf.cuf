@@ -220,7 +220,9 @@ contains
          do k = 1, nsp
             do l = k, nsp
                if (twoDstruc_3D) then
+                  print *, " Gathering histograms for species pair (", k, ",", l, ") from block ", i
                   histomix_xy(1:lsmax, k, l,islice) = histomix_xy(1:lsmax, k, l,islice) + real(histomix_xyi(istart + 1:istart + lsmax, ind,islice))
+                  print *, " Partial g(r) for species pair (", k, ",", l, ") after gathering: "
                else
                   histomix(1:lsmax, k, l) = histomix(1:lsmax, k, l) + real(histomixi(istart + 1:istart + lsmax, ind))
                end if   
@@ -230,15 +232,17 @@ contains
       end do
       ! Normalize histograms to get total g(r)
       do i=1, lsmax
-         gtot(i) = 0
          ri = real(i)*deltar
          if (ndim == 3) then
             if (twoDstruc_3D) then
+               gtotxy(i,:) = 0
                deltaV = pi*((ri + deltar/2)**2 - (ri - deltar/2)**2)*zgrid
             else
+               gtot(i) = 0
                deltaV = 4*pi*((ri + deltar/2)**3 - (ri - deltar/2)**3)/3.0
             end if
          else
+            gtot(i) = 0
             deltaV = pi*((ri + deltar/2)**2 - (ri - deltar/2)**2)
          end if
          !
