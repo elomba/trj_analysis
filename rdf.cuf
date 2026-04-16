@@ -169,7 +169,7 @@ contains
             print *, " Launching 3D RDFxy kernel with ", rdfb, " blocks and ", rdfth, " threads per block (",rdfb*rdfth," total threads)"
             zsliced(:) = zslice(:)
             countsliced(:) = 0
-            call rdfxy_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
+            call rdfxy_sh<<<rdfb, rdfth, nslice*lsmax*nit*4>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
            
             call printcudaerror(" *** Warning: 3D rdfxy_sh GPU kernel exit with errors: reduce nthread",istat)
             countslice(:) = countsliced(:)
@@ -589,7 +589,6 @@ real, intent(IN) :: sidel(3), zslice(nslice)
 integer, intent(INOUT) :: count(nslice)
 ! Assumed size histogram (memory size must be assigned in the kernel call)
 integer, shared :: histomix_s(lsmax, nit, nslice)
-
 histomix_s(:, :, :) = 0
 i = (blockidx%x - 1)*blockdim%x + threadidx%x
 if (i <= Nmol - 1) then
@@ -597,13 +596,19 @@ if (i <= Nmol - 1) then
    xi = r_d(1, i)
    yi = r_d(2, i)
    zi = r_d(3, i)
-   islice =  minloc(abs(zslice - zi),dim=1)  
+   islice =  minloc(abs(zslice - zi),dim=1)
+   if (islice < 1 .or. islice > nslice) then
+      print *, " Error: wrong slice index in rdfxy_sh kernel ", islice, nslice, zi, zslice(1), zslice(nslice)
+   end if     
    if (abs(zslice(islice) - zi) <= zgrid/2.0) then
       ! Count number of particles in each slice to normalize later
       ia = atomicadd(count(islice), 1)
       Do j = i + 1, Nmol
          zj = r_d(3, j)
          jslice =  minloc(abs(zslice - zj),dim=1)
+         if (jslice < 1 .or. jslice > nslice) then
+            print *, " Error: wrong slice index in rdfxy_sh kernel ", jslice, nslice, zj, zslice(1), zslice(nslice)
+         end if
          if (islice == jslice .and. abs(zslice(jslice) - zj) <= zgrid/2.0) then
             xd = r_d(1, j) - xi
             yd = r_d(2, j) - yi
