@@ -65,9 +65,9 @@ contains
       ndr = lsmax
       ! Allocate RDF histogram arrays (host and device)
       if (twoDstruc_3D) then
-         Allocate (histomix_xy(lsmax, nsp, nsp, nslice),gtotxy(0:lsmax,nslice), gmix_xy(nsp,nsp,nslice))!, (nbcuda*lsmax, nit, nslice))
-!         Allocate (histomix_xy(lsmax, nsp, nsp, nslice), gtotxy(0:lsmax)
+         Allocate (histomix_xy(lsmax, nsp, nsp, nslice),gtotxy(0:lsmax,nslice), gmix_xy(nsp,nsp,nslice))
          Allocate (histomix_xy_d(nbcuda*lsmax, nit, nslice))
+         Allocate (histomix_xyi(nbcuda*lsmax, nit, nslice))
       else
          Allocate (histomix(lsmax, nsp, nsp), gtot(0:lsmax), histomixi(nbcuda*lsmax, nit))
          Allocate (histomix_d(nbcuda*lsmax, nit))
@@ -106,8 +106,8 @@ contains
       ! Clean house
       if (twoDstruc_3D) then
          deallocate (histomix_xy)
- !        deallocate (gtotxy)
- !        deallocate (histomix_xyi)
+         deallocate (gtotxy)
+         deallocate (histomix_xyi)
          deallocate (histomix_xy_d)
       else
          deallocate (histomix)
@@ -170,8 +170,8 @@ contains
             print *, " Shared memory per block: ", 4*lsmax*nit*nslice, " bytes (", 4*lsmax*nit*nslice/1024.0, " KB)"
             zsliced(:) = zslice(:)
             countsliced(:) = 0
-            !call rdfxy_sh<<<rdfb, rdfth, nslice*lsmax*nit*4>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
-            call rdfxy_sh<<<rdfb, rdfth>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
+            call rdfxy_sh<<<rdfb, rdfth, nslice*lsmax*nit*4>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
+            !call rdfxy_sh<<<rdfb, rdfth>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
            
             call printcudaerror(" *** Warning: 3D rdfxy_sh GPU kernel exit with errors: reduce nthread",istat)
             countslice(:) = countsliced(:)
