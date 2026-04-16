@@ -431,8 +431,9 @@ contains
          do i=1, nsp
             do j=i, nsp
                write(fname99,'("gxy_",i1,"-",i1,".dat")') i,j
-               open (130+j, file=trim(adjustl(fname99))//'.dat')
-               write (130+j, "('#     Q        ',9x,16('S_xy(Q,',f8.3,')',8x:))") zslice(1:nslice)
+               open (130+count, file=trim(adjustl(fname99))//'.dat')
+               write (130+count, "('#     Q        ',9x,16('S_xy(Q,',f8.3,')',8x:))") zslice(1:nslice)
+               count = count + 1
             end do
          end do  
       else
@@ -499,19 +500,21 @@ contains
                endif 
             End Do
          End Do
-         if (i<lsmax) then
-            if (nrandom>0) then
+         ! Print number fluctuations to check for hyperuniformity, if requested
+         if (nrandom>0) then
+            if (i<lsmax) then
                if (run_clusters) then
-                  Write (199, '(18f16.5)') i*deltar,  gclr2(i)/(Nconf*nrandom)-(gclr(i)/(Nconf*nrandom))**2,&
+                  Write (199, '(18f16.5)') ri,  gclr2(i)/(Nconf*nrandom)-(gclr(i)/(Nconf*nrandom))**2,&
                   & g2i(i)/(Nconf*nrandom)-(gi(i)/(Nconf*nrandom))**2
                else
-                  Write (199, '(18f16.5)') i*deltar,  g2i(i)/(Nconf*nrandom)-(gi(i)/(Nconf*nrandom))**2
+                  Write (199, '(18f16.5)') ri,  g2i(i)/(Nconf*nrandom)-(gi(i)/(Nconf*nrandom))**2
                endif
             endif
          endif
+         ! Print rdf's, with different formats for cluster vs. non-cluster analysis and for 2D vs. 3D systems
          if (run_clusters.and.maxcln>cl_thresh) then
             if (geometry) then
-               Write (99, '(28f16.5)') i*deltar,&
+               Write (99, '(28f16.5)') ri,&
                & gclustav(i)/(deltaV*Nconf), 2*gclcl(i)/(deltaV*Nconf),(gmix(j, j:nsp), j=1, nsp)
             else
                Write (99, '(28f16.5)') i*deltar,&
@@ -525,17 +528,19 @@ contains
                      write (130+count, '(15f16.7)') i*deltar, (gmix_xy(k, j, 1:nslice)/Nconf)
                      count = count + 1
                   end do
-               enddo 
+               end do 
             else
-            if (nsp <= 6) then
-               Write (99, '(16f16.5)') i*deltar,  (gmix(j, j:nsp), j=1, nsp)
-            else
-               do k=1, nsp
-                  write(887+k,'(16f16.5)') i*deltar,  gmix(k, 1:nsp)
-               enddo
-            endif
+               if (nsp <= 6) then
+                  Write (99, '(16f16.5)') i*deltar,  (gmix(j, j:nsp), j=1, nsp)
+               else
+                  do k=1, nsp
+                     write(887+k,'(16f16.5)') i*deltar,  gmix(k, 1:nsp)
+                  end do
+               endif
+            endif 
          end if
-      End Do
+      end do
+      ! Close files for rdf output, with different handling for 2D vs. 3D systems and for cluster vs. non-cluster analysis
       if (twoDstruc_3D) then 
          count = 0
          do i = 1, nsp
