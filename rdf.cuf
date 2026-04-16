@@ -169,8 +169,8 @@ contains
             print *, " Launching 3D RDFxy kernel with ", rdfb, " blocks and ", rdfth, " threads per block (",rdfb*rdfth," total threads)"
             zsliced(:) = zslice(:)
             countsliced(:) = 0
-            call rdfxy_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, histomix_xy_d, nit&
-            &, nsp, nbcuda*lsmax, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
+            call rdfxy_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, histomix_xy_d, nit, nsp, hdim, lsmax, itype_d, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
+           
             call printcudaerror(" *** Warning: 3D rdfxy_sh GPU kernel exit with errors: reduce nthread",istat)
             countslice(:) = countsliced(:)
          else
@@ -241,7 +241,7 @@ contains
          do j=1, nsp
             do l = j, nsp
                if (twoDstruc_3D) then
-                  gtotxy(i,:) = gtotxy(i,:) + histomix_xy(1:lsmax, j, l,:)
+                  gtotxy(i,:) = gtotxy(i,:) + histomix_xy(i, j, l,:)
                else
                   gtot(i) = gtot(i) + histomix(i, j, l)
                end if
@@ -577,8 +577,8 @@ if (i <= Nmol - 1) then
 end if
 end subroutine rdf2_sh
 
-attributes(global) subroutine rdfxy_sh(r, Nmol, dim, histomix, nit, nsp, hdim, lsmax, itype&
-&, side2, sidel, deltar, nslice, zgrid, zslice, count)
+attributes(global) subroutine rdfxy_sh(Nmol, dim, histomix, nit, nsp, hdim, lsmax, itype, side2, sidel, deltar, nslice, zgrid, zslice, count)
+
 !
 ! Masively parallel rdf calculation using shared memory (2D)
 !
