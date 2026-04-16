@@ -167,6 +167,7 @@ contains
       if (ndim == 3) then
          if (twoDstruc_3D) then
             print *, " Launching 3D RDFxy kernel with ", rdfb, " blocks and ", rdfth, " threads per block (",rdfb*rdfth," total threads)"
+            print *, " Shared memory per block: ", 4*lsmax*nit*nslice, " bytes (", 4*lsmax*nit*nslice/1024.0, " KB)"
             zsliced(:) = zslice(:)
             countsliced(:) = 0
             call rdfxy_sh<<<rdfb, rdfth, nslice*lsmax*nit*4>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
