@@ -169,7 +169,7 @@ contains
             print *, " Launching 3D RDFxy kernel with ", rdfb, " blocks and ", rdfth, " threads per block (",rdfb*rdfth," total threads)"
             zsliced(:) = zslice(:)
             countsliced(:) = 0
-            call rdfxy_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, histomix_xy_d, nit, nsp, hdim, lsmax, itype_d, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
+            call rdfxy_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, histomix_xy_d, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
            
             call printcudaerror(" *** Warning: 3D rdfxy_sh GPU kernel exit with errors: reduce nthread",istat)
             countslice(:) = countsliced(:)
@@ -577,14 +577,13 @@ if (i <= Nmol - 1) then
 end if
 end subroutine rdf2_sh
 
-attributes(global) subroutine rdfxy_sh(Nmol, dim, histomix, nit, nsp, hdim, lsmax, itype, side2, sidel, deltar, nslice, zgrid, zslice, count)
+attributes(global) subroutine rdfxy_sh(Nmol, dim, histomix, nit, nsp, lsmax, side2, sidel, deltar, nslice, zgrid, zslice, count)
 
 !
 ! Masively parallel rdf calculation using shared memory (2D)
 !
-integer, value, intent(IN) :: Nmol, dim, nit, lsmax, hdim, nsp
+integer, value, intent(IN) :: Nmol, dim, nit, lsmax, nsp
 integer, intent(IN), value :: nslice
-integer, intent(IN) :: itype(Nmol)
 integer i, j, ind, ia, fact, iti, itj, istart, ij, islice, jslice 
 real ::  rr2, rr, xi, yi, zi, xd, yd, zj
 real, dimension(3) :: rv
@@ -597,7 +596,7 @@ integer, shared :: histomix_s(lsmax, nit, nslice)
 histomix_s(:, :, :) = 0
 i = (blockidx%x - 1)*blockdim%x + threadidx%x
 if (i <= Nmol - 1) then
-   iti = itype(i)
+   iti = itype_d(i)
    xi = r_d(1, i)
    yi = r_d(2, i)
    zi = r_d(3, i)
@@ -615,7 +614,7 @@ if (i <= Nmol - 1) then
             yd = yd - sidel(2)*nint(yd/sidel(2))
             rr2 = xd*xd + yd*yd
             If (rr2 .Lt. side2) Then
-               itj = itype(j)
+               itj = itype_d(j)
                rr = __fsqrt_rn(rr2)
                ind = Nint(rr/deltar)
                ij = ind_ij(iti, itj, nsp)
