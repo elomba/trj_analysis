@@ -169,22 +169,23 @@ contains
             print *, " Launching 3D RDFxy kernel with ", rdfb, " blocks and ", rdfth, " threads per block (",rdfb*rdfth," total threads)"
             zsliced(:) = zslice(:)
             countsliced(:) = 0
-            call rdfxy_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, histomix_xy_d, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
+            call rdfxy_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
            
             call printcudaerror(" *** Warning: 3D rdfxy_sh GPU kernel exit with errors: reduce nthread",istat)
             countslice(:) = countsliced(:)
          else
             print *, " Launching 3D RDF kernel with ", rdfb, " blocks and ", rdfth, " threads per block (",rdfb*rdfth," total threads)"
-            call rdf_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, nit&
-            &, nsp, nbcuda*lsmax, lsmax, side2, sidel_d, deltar)
+            ! Note: for 3D RDF, we use a single histogram array that accumulates contributions from all blocks, so we can directly copy it to host after the kernel execution
+            call rdf_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar )
             call printcudaerror(" *** Warning: 3D rdf_sh GPU kernel exit with errors: reduce nthread",istat)
             if (istat /= 0) stop(" *** Fatal error in rdf_sh kernel!!")
+            ! Sampling fluctuations in particle number for hyperuniformity analysis (if nrandom > 0)
             if (nrandom>0) call s2D3_sh<<<nrandom,nthread,(lsmax+1)*4>>>(r_d, Nmol, ndim, gii_d, g2ii_d, lsmax &
             &, side2, sidel_d, deltar )
          endif
       else
-         call rdf2_sh<<<rdfb, rdfth, lsmax*nit*4>>>(r_d, Nmol, ndim, histomix_d, nit&
-         &, nsp, nbcuda*lsmax, lsmax, itype_d, side2, sidel_d, deltar)
+         ! 2D RDF calculation
+         call rdf2_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar )
          call printcudaerror(" *** Warning: 2D rdf2_sh GPU kernel exit with errors: reduce nthread", istat)
          if (istat /= 0) stop(" *** Fatal error in rdf2_sh kernel!!")
          if (nrandom>0) call s2D2_sh<<<nrandom,nthread,(lsmax+1)*4>>>(r_d, Nmol, ndim, gii_d, g2ii_d, lsmax &
@@ -336,13 +337,12 @@ contains
       end do
    end subroutine rdfclcl2
 
-   attributes(global) subroutine rdf_sh(Nmol, dim, nit, nsp, hdim, lsmax, &
-   &  side2, sidel, deltar )
+   attributes(global) subroutine rdf_sh(Nmol, dim, nit, nsp, lsmax, side2, sidel, deltar )
    use curand_device
    !
    ! Mossively parallel rdf calculation using shared memory
    !
-   integer, value, intent(IN) :: Nmol, dim, nit, lsmax, hdim, nsp
+   integer, value, intent(IN) :: Nmol, dim, nit, lsmax,  nsp
    integer i, j, ind, ia, fact, iti, itj, istart, ij, ix
    real ::  rr2, rr, xi, yi, zi, xd, yd, zd, xrd1, xrd2, xrd3
    real, dimension(3) :: rv
@@ -390,7 +390,7 @@ contains
          ! in global memory
          !
          if (istart + lsmax > dim_hist) then
-            print *, " Error: wrong index in rdf_sh kernel storing histograms ", istart, lsmax, hdim
+            print *, " Error: wrong index in rdf_sh kernel storing histograms ", istart, lsmax
          end if
          histomix_d(istart + 1:istart + lsmax, :) = histomix_s(1:lsmax, :) + histomix_d(istart + 1:istart + lsmax, :)
       end if
@@ -526,36 +526,32 @@ end if
 
 end subroutine s2D2_sh
 
-attributes(global) subroutine rdf2_sh(r, Nmol, dim, histomix, nit, nsp, hdim, lsmax, itype&
-&, side2, sidel, deltar)
+attributes(global) subroutine rdf2_sh(Nmol, dim, nit, nsp, lsmax, side2, sidel, deltar ) 
 !
 ! Masively parallel rdf calculation using shared memory (2D)
 !
-integer, value, intent(IN) :: Nmol, dim, nit, lsmax, hdim, nsp
-integer, intent(IN) :: itype(Nmol)
+integer, value, intent(IN) :: Nmol, dim, nit, lsmax, nsp
 integer i, j, ind, ia, fact, iti, itj, istart, ij
 real ::  rr2, rr, xi, yi, zi, xd, yd, zd
 real, dimension(3) :: rv
 real, value, intent(IN) :: side2, deltar
 real, intent(IN) :: sidel(3)
-real, dimension(dim, Nmol), intent(IN) :: r
-integer, intent(INOUT) :: histomix(hdim, nit)
 ! Assumed size histogram (memory size must be assigned in the kernel call)
 integer, shared :: histomix_s(lsmax, nit)
 histomix_s(:, :) = 0
 i = (blockidx%x - 1)*blockdim%x + threadidx%x
 if (i <= Nmol - 1) then
-   iti = itype(i)
-   xi = r(1, i)
-   yi = r(2, i)
+   iti = itype_d(i)
+   xi = r_d(1, i)
+   yi = r_d(2, i)
    Do j = i + 1, Nmol
-      xd = r(1, j) - xi
-      yd = r(2, j) - yi
+      xd = r_d(1, j) - xi
+      yd = r_d(2, j) - yi
       xd = xd - sidel(1)*nint(xd/sidel(1))
       yd = yd - sidel(2)*nint(yd/sidel(2))
       rr2 = xd*xd + yd*yd
       If (rr2 .Lt. side2) Then
-         itj = itype(j)
+         itj = itype_d(j)
          rr = __fsqrt_rn(rr2)
          ind = Nint(rr/deltar)
          ij = ind_ij(iti, itj, nsp)
@@ -572,12 +568,12 @@ if (i <= Nmol - 1) then
       ! Store each block's shared memory histogram on different positions
       ! in global memory
       !
-      histomix(istart + 1:istart + lsmax, :) = histomix_s(1:lsmax, :) + histomix(istart + 1:istart + lsmax, :)
+      histomix_d(istart + 1:istart + lsmax, :) = histomix_s(1:lsmax, :) + histomix_d(istart + 1:istart + lsmax, :)
    end if
 end if
 end subroutine rdf2_sh
 
-attributes(global) subroutine rdfxy_sh(Nmol, dim, histomix, nit, nsp, lsmax, side2, sidel, deltar, nslice, zgrid, zslice, count)
+attributes(global) subroutine rdfxy_sh(Nmol, dim, nit, nsp, lsmax, side2, sidel, deltar, nslice, zgrid, zslice, count)
 
 !
 ! Masively parallel rdf calculation using shared memory (2D)
@@ -589,7 +585,7 @@ real ::  rr2, rr, xi, yi, zi, xd, yd, zj
 real, dimension(3) :: rv
 real, value, intent(IN) :: side2, deltar, zgrid 
 real, intent(IN) :: sidel(3), zslice(nslice)
-integer, intent(INOUT) :: histomix(hdim, nit, nslice), count(nslice)
+integer, intent(INOUT) :: count(nslice)
 ! Assumed size histogram (memory size must be assigned in the kernel call)
 integer, shared :: histomix_s(lsmax, nit, nslice)
 
@@ -633,7 +629,7 @@ if (i <= Nmol - 1) then
       ! Store each block's shared memory histogram on different positions
       ! in global memory
       !
-      histomix(istart + 1:istart + lsmax, :, :) = histomix_s(1:lsmax, :, :) + histomix(istart + 1:istart + lsmax, :, :)
+      histomix_xy_d(istart + 1:istart + lsmax, :, :) = histomix_s(1:lsmax, :, :) + histomix_xy_d(istart + 1:istart + lsmax, :, :)
    end if
 end if
 end subroutine rdfxy_sh
