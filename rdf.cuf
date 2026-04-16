@@ -173,6 +173,7 @@ contains
            
             call printcudaerror(" *** Warning: 3D rdfxy_sh GPU kernel exit with errors: reduce nthread",istat)
             countslice(:) = countsliced(:)
+            print *, " Slice counts: ", countslice(:)
          else
             print *, " Launching 3D RDF kernel with ", rdfb, " blocks and ", rdfth, " threads per block (",rdfb*rdfth," total threads)"
             ! Note: for 3D RDF, we use a single histogram array that accumulates contributions from all blocks, so we can directly copy it to host after the kernel execution
