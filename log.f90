@@ -321,7 +321,7 @@ contains
       !
       real(myprec) :: x1, x2, s11, s22, s12, scc, baver, b2aver
       integer, intent(IN) :: Nmol
-      integer :: i, j, islice
+      integer :: i, j
       logical :: bsc_one = .true.
       character(len=128) :: fname99
       baver = sum(ntype(1:nsp)*bsc(1:nsp))/Nmol
@@ -354,11 +354,10 @@ contains
             ! For small q, print all data points. For larger q, print every 3rd point to reduce file size and noise.
             if (twoDstruc_3D) then
                ! Compute 2D structure factor in xy plane for 3D systems with confinement
-               write (120, '(15f16.7)') i*dq, (sqfxy(i, j)/(Nconf&
-               &*real(nq(i))), j=1, nslice)
+               write (120, '(15f16.7)') i*dq, sqfxy(i, 1:nslice)/(Nconf*real(nq(i)))
                do j=1, nsp
-                  write (130+j, '(15f16.7)') i*dq, (sqfpxy(i, j, islice)/(Nconf&
-                  &*real(nq(i))), islice=1, nslice)
+                  write (130+j, '(15f16.7)') i*dq, sqfpxy(i, j, 1:nslice)/(Nconf&
+                  &*real(nq(i)))
                end do
             else
                ! Compute partial structure factors and concentration-concentration
@@ -385,8 +384,8 @@ contains
                write (120, '(15f16.7)') i*dq, (sum(sqfxy(i - 2:i + 2,j),dim=1)/(Nconf&
                &*real(5*nq(i))), j=1, nslice)
                do j=1, nsp
-                  write (130+j, '(15f16.7)') i*dq, (sum(sqfpxy(i - 2:i + 2, j, islice),dim=1)/(Nconf&
-                  &*real(5*nq(i))), islice=1, nslice)
+                  write (130+j, '(15f16.7)') i*dq, sum(sqfpxy(i - 2:i + 2, j, 1:nslice),dim=1)/(Nconf&
+                  &*real(5*nq(i)))
                end do
             else
                ! Compute partial structure factors and concentration-concentration
@@ -425,7 +424,7 @@ contains
       real(myprec), intent(IN) :: rcl
       Real(myprec) :: gmix(nspmax, nspmax), deltav, ri, xfj, xfi
       integer, intent(in) :: lsmax
-      integer :: i, j, l, k, count, islice
+      integer :: i, j, l, k, count
       character(len=128) :: fname99
       if (twoDstruc_3D) then
          count=0
@@ -523,7 +522,7 @@ contains
                count = 0
                do k = 1, nsp
                   do j=i, nsp
-                     write (130+count, '(15f16.7)') i*deltar, (gmix_xy(k, j, islice)/Nconf), islice=1, nslice)
+                     write (130+count, '(15f16.7)') i*deltar, (gmix_xy(k, j, 1:nslice)/Nconf)
                      count = count + 1
                   end do
                enddo 
