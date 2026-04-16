@@ -227,7 +227,7 @@ contains
                   histomix(1:lsmax, k, l) = histomix(1:lsmax, k, l) + real(histomixi(istart + 1:istart + lsmax, ind))
                end if   
                ind = ind + 1
-               print *, ind, k, l, nsp
+!               print *, ind, k, l, nsp
             end do
          end do
       end do
