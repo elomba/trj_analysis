@@ -380,7 +380,7 @@ contains
       end do
       if (dq <= 0.2) then
          do i = nint(qmin/dq) + 1, nqmax - 2, 3
-            if (
+            if (twoDstruc_3D) then
                ! Compute 2D structure factor in xy plane for 3D systems with confinement, using 5-point moving average to reduce noise
                write (120, '(15f16.7)') i*dq, (sum(sqfxy(i - 2:i + 2,j),dim=1)/(Nconf&
                &*real(5*nq(i))), j=1, nslice)
