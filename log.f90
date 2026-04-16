@@ -352,7 +352,7 @@ contains
       do i = 1, nqmax
          if (i*dq <= qmin .or. dq > 0.2) then
             ! For small q, print all data points. For larger q, print every 3rd point to reduce file size and noise.
-            if (_3D) then
+            if (twoDstruc_3D) then
                ! Compute 2D structure factor in xy plane for 3D systems with confinement
                write (120, '(15f16.7)') i*dq, (sqfxy(i, j)/(Nconf&
                &*real(nq(i))), j=1, nslice)
@@ -425,12 +425,13 @@ contains
       real(myprec), intent(IN) :: rcl
       Real(myprec) :: gmix(nspmax, nspmax), deltav, ri, xfj
       integer, intent(in) :: lsmax
-      integer :: i, j, l, k
+      integer :: i, j, l, k, count
+      character(len=128) :: fname99
       if (twoDstruc_3D) then
          count=0
          do i=1, nsp
             do j=i, nsp
-               write(fname99,'("gxy_",i1,'-',i1".dat")') i,j
+               write(fname99,'("gxy_",i1,"-",i1,".dat")') i,j
                open (130+j, file=trim(adjustl(fname99))//'.dat')
                write (130+j, "('#     Q        ',9x,16('S_xy(Q,',f8.3,')',8x:))") zslice(1:nslice)
             end do
@@ -491,7 +492,7 @@ contains
                xfj = real(ntype(j), kind=8)/Real(natms, kind=8)
                if (twoDstruc_3D) then
                   ! Compute 2D rdf in xy plane for 3D systems with confinement, using appropriate normalization for cylindrical shells and accounting for slice thickness
-                  gmix_xy(j,l,:) = (j/l + 1)*zgrid*histomix_xy(i, j, l)/(deltaV*countslice(:)**2*xfj*xfi*Nconf)
+                  gmix_xy(j,l,:) = (j/l + 1)*zgrid*histomix_xy(i, j, l,:)/(deltaV*countslice(:)**2*xfj*xfi*Nconf)
                   gmix_xy(l,j,:) = gmix_xy(j,l,:)
                else
                   gmix(j, l) = (j/l + 1)*volumen*histomix(i, j, l)/(deltaV*ntype(l)*ntype(j)*Nconf)
@@ -520,10 +521,9 @@ contains
          else
             if (twoDstruc_3D) then
                count = 0
-               do i = 1, nsp
+               do k = 1, nsp
                   do j=i, nsp
-                     write (130+j, '(15f16.7)') i*deltar, (gmix_xy(i, j, islice)/(Nconf&
-                     &*real(nq(i))), islice=1, nslice)
+                     write (130+count, '(15f16.7)') i*deltar, (gmix_xy(k, j, islice)/Nconf), islice=1, nslice)
                      count = count + 1
                   end do
                enddo 
@@ -538,10 +538,11 @@ contains
          end if
       End Do
       if (twoDstruc_3D) then 
+         count = 0
          do i = 1, nsp
             do j=i, nsp
-               close (130+count)
-               count = count - 1
+               close(130+count)
+               count = count + 1
             end do
          end do
       else
