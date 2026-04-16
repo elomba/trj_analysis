@@ -590,7 +590,6 @@ real ::  rr2, rr, xi, yi, zi, xd, yd, zj
 real, dimension(3) :: rv
 real, value, intent(IN) :: side2, deltar, zgrid 
 real, intent(IN) :: sidel(3), zslice(nslice)
-real, dimension(dim, Nmol), intent(IN) :: r
 integer, intent(INOUT) :: histomix(hdim, nit, nslice), count(nslice)
 ! Assumed size histogram (memory size must be assigned in the kernel call)
 integer, shared :: histomix_s(lsmax, nit, nslice)
