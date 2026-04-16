@@ -196,7 +196,7 @@ contains
 
       ! Block histograms back from device to host
       if (twoDstruc_3D) then
-         histomix_xyi(:, :) = histomix_xy_d(:, :)
+         histomix_xyi(:, :, :) = histomix_xy_d(:, :, :)
       else
          ! For 3D RDF, histomix_d contains the sum of all histograms from each block, so we can directly copy it to host
          histomixi(:, :) = histomix_d(:, :)
