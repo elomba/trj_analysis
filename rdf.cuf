@@ -233,6 +233,7 @@ contains
       ! Normalize histograms to get total g(r)
       do i=1, lsmax
          ri = real(i)*deltar
+         print *, " Normalizing histogram for bin ", i, " at distance ", ri
          if (ndim == 3) then
             if (twoDstruc_3D) then
                gtotxy(i,:) = 0
@@ -249,6 +250,7 @@ contains
          do j=1, nsp
             do l = j, nsp
                if (twoDstruc_3D) then
+                  print *, " Adding contribution from species pair (", j, ",", l, ") to total g(r) for bin ", i
                   gtotxy(i,:) = gtotxy(i,:) + histomix_xy(i, j, l,:)
                else
                   gtot(i) = gtot(i) + histomix(i, j, l)
