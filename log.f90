@@ -423,9 +423,9 @@ contains
       !
       implicit none
       real(myprec), intent(IN) :: rcl
-      Real(myprec) :: gmix(nspmax, nspmax), deltav, ri, xfj
+      Real(myprec) :: gmix(nspmax, nspmax), deltav, ri, xfj, xfi
       integer, intent(in) :: lsmax
-      integer :: i, j, l, k, count
+      integer :: i, j, l, k, count, islice
       character(len=128) :: fname99
       if (twoDstruc_3D) then
          count=0
