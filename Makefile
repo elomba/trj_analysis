@@ -18,7 +18,7 @@ FCOPTS = -O3 -gpu=cc75,cc80 -cudalib=curand
 FCINC = -I$(NETCDFINC) -I$(NVINCLUDE) $(if $(FFTWINC),-I$(FFTWINC))
 
 F90 = $(FC)
-F90OPTS = -O3 
+F90OPTS = -O3  
 F90INC = $(FCINC)
 F90LIBS = $(FCLIBS)
 

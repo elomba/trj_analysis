@@ -47,28 +47,18 @@ module mod_rdf
    implicit none
    integer, device :: dim_hist
 contains
-   subroutine test_alloc()
-      implicit none
-      print *, " Testing allocation status in mod_rdf: "
-      print *, " zsliced allocated: ", allocated(zsliced)
-      print *, " countsliced allocated: ", allocated(countsliced)
-      print *, " zslice allocated: ", allocated(zslice)
-      print *, " countslice allocated: ", allocated(countslice)
-      stop
-   end subroutine test_alloc
+ 
    subroutine RDF_init(nsp)
-      use mod_common, only : shmsize, nrandom, ex_qc, lsmax, zslice, countslice, zsliced, countsliced
       implicit none
       integer, intent(in) :: nsp
       ! Calculate maximum RDF bin index based on cutoff or half box size
-      print *, ' Dentro rdf:',allocated(zsliced), allocated(countsliced), allocated(zslice), allocated(countslice)
       if (rcrdf > 0.0) then
          lsmax = nint(rcrdf/deltar) + 1
       else
          lsmax = nint(minval(sidel(1:ndim))/2.0/deltar) + 1
       end if
       ! Check shared memory requirements for GPU kernel
-      if (lsmax*nit*4>shmsize) then
+      if (.not.twoDstruc_3D .and. lsmax*nit*4>shmsize) then
          print *, " Error g(r) grid requires ",4*lsmax*nit," bytes, larger that shared memory,",shmsize
          print *, " Increase grid size, dr, or reduce g(r) cutoff, rcdrf"
          stop
@@ -77,8 +67,10 @@ contains
       ! Allocate RDF histogram arrays (host and device)
       if (twoDstruc_3D) then
          Allocate (histomix_xy(lsmax, nsp, nsp, nslice),gtotxy(0:lsmax,nslice), gmix_xy(nsp,nsp,nslice))
-         Allocate (histomix_xy_d(nbcuda*lsmax, nit, nslice))
-         Allocate (histomix_xyi(nbcuda*lsmax, nit, nslice))
+         Allocate (histomix_xy_d(lsmax, nit, nslice))
+         Allocate (histomix_xyi(lsmax, nit, nslice))
+         allocate(zsliced(nslice),countsliced(nslice))
+         zsliced(:) = zslice(:)
       else
          Allocate (histomix(lsmax, nsp, nsp), gtot(0:lsmax), histomixi(nbcuda*lsmax, nit))
          Allocate (histomix_d(nbcuda*lsmax, nit))
@@ -111,7 +103,6 @@ contains
          if(allocated(g2i)) g2i(:) = 0
          if(allocated(gi)) gi(:) = 0
       end if
-      print *, allocated(zsliced), allocated(countsliced), allocated(zslice), allocated(countslice)
    end subroutine  RDF_init
 
    subroutine rdf_clear()
@@ -167,6 +158,7 @@ contains
       real :: time_gpu, suma, deltaV, ri
       ! Initialize histograms to zero for this configuration
       if (allocated(histomix_d)) histomix_d(:, :) = 0
+      if (allocated(histomix_xy_d)) histomix_xy_d(:, :, :) = 0
       if (nrandom>0) then
          if(allocated(gii_d)) gii_d(:) = 0
          if(allocated(g2ii_d)) g2ii_d(:) = 0
@@ -189,24 +181,15 @@ contains
       ! Call appropriate GPU kernel for dimensionality
       if (ndim == 3) then
          if (twoDstruc_3D) then
-            print *, " Launching 3D RDFxy kernel with ", rdfb, " blocks and ", rdfth, " threads per block (",rdfb*rdfth," total threads)"
-            print *, " Shared memory per block: ", 4*lsmax*nit*nslice, " bytes (", 4*lsmax*nit*nslice/1024.0, " KB)"
-            print *, zslice(:)
-            print *, " Number of slices: ", nslice, " with z grid spacing: ", zgrid
-            print *, countslice(:)
-            print *, allocated(zsliced), allocated(countsliced)
-            print *, allocated(zslice), allocated(countslice)
-            print *, size(zsliced), size(zslice)
+            rdfth = nthread
+            rdfb = nbcuda
             zsliced(:) = zslice(:)
-            !countsliced(:) = 0
-            !call rdfxy_sh<<<rdfb, rdfth, nslice*lsmax*nit*4>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
-            !call rdfxy_sh<<<rdfb, rdfth>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
+            countsliced(:) = 0
+            call rdfxy<<<rdfb, rdfth>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
            
-            !call printcudaerror(" *** Warning: 3D rdfxy_sh GPU kernel exit with errors: reduce nthread",istat)
-            !countslice(:) = countsliced(:)
-            print *, " Slice counts: ", countslice(:)
+            call printcudaerror(" *** Warning: 3D rdfxy GPU kernel exit with errors: reduce nthread",istat)
+            countslice(:) = countsliced(:)
          else
-            print *, " Launching 3D RDF kernel with ", rdfb, " blocks and ", rdfth, " threads per block (",rdfb*rdfth," total threads)"
             ! Note: for 3D RDF, we use a single histogram array that accumulates contributions from all blocks, so we can directly copy it to host after the kernel execution
             call rdf_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar )
             call printcudaerror(" *** Warning: 3D rdf_sh GPU kernel exit with errors: reduce nthread",istat)
@@ -240,30 +223,35 @@ contains
          gi(:) = gi(:)+gii(:)
          g2i(:) = g2i(:)+g2ii(:)
       endif
-
-!        Gather histograms from each block
-
-      do i = 0, nbcuda - 1
-         istart = i*lsmax
-         ind = 1
-         do k = 1, nsp
-            do l = k, nsp
-               if (twoDstruc_3D) then
-               !   print *, " Gathering histograms for species pair (", k, ",", l, ") from block ", i
-                  histomix_xy(1:lsmax, k, l,islice) = histomix_xy(1:lsmax, k, l,islice) + real(histomix_xyi(istart + 1:istart + lsmax, ind,islice))
-               !   print *, " Partial g(r) for species pair (", k, ",", l, ") after gathering: "
-               else
-                  histomix(1:lsmax, k, l) = histomix(1:lsmax, k, l) + real(histomixi(istart + 1:istart + lsmax, ind))
-               end if   
+      if (twoDstruc_3D) then
+         ind=1
+         do k=1, nsp
+            do j=k, nsp
+               do islice=1, nslice
+                  if (countslice(islice) > 0) then
+                     histomix_xy(:, k, j, islice) = histomix_xy(:, k, j, islice) + real(histomix_xyi(:, ind, islice))/countslice(islice)**2
+                  end if
+               end do   
                ind = ind + 1
-!               print *, ind, k, l, nsp
             end do
          end do
-      end do
+      else
+!        Gather histograms from each block
+
+         do i = 0, nbcuda - 1
+            istart = i*lsmax
+            ind = 1
+            do k = 1, nsp
+               do l = k, nsp
+                  histomix(1:lsmax, k, l) = histomix(1:lsmax, k, l) + real(histomixi(istart + 1:istart + lsmax, ind))
+                  ind = ind + 1
+               end do
+            end do
+         end do
+      endif
       ! Normalize histograms to get total g(r)
       do i=1, lsmax
          ri = real(i)*deltar
-         print *, " Normalizing histogram for bin ", i, " at distance ", ri
          if (ndim == 3) then
             if (twoDstruc_3D) then
                gtotxy(i,:) = 0
@@ -280,7 +268,6 @@ contains
          do j=1, nsp
             do l = j, nsp
                if (twoDstruc_3D) then
-                  print *, " Adding contribution from species pair (", j, ",", l, ") to total g(r) for bin ", i, lsmax
                   gtotxy(i,:) = gtotxy(i,:) + histomix_xy(i, j, l,:)
                else
                   gtot(i) = gtot(i) + histomix(i, j, l)
@@ -288,11 +275,10 @@ contains
             end do
          end do
          if (twoDstruc_3D) then
-            gtotxy(i,:) = 2*volumen*(zgrid/sidel(3))*gtotxy(i,:)/(deltaV*countslice(:)**2)
+            gtotxy(i,:) = 2*volumen*(zgrid/sidel(3))*gtotxy(i,:)/(deltaV)
          else  
             gtot(i) = 2*volumen*gtot(i)/(deltaV*natms*natms)
          end if
-         print *, " Total g(r) for bin ", i, ": ", gtotxy(i,1:lsmax), lsmax
       end do
       if(.not.twoDstruc_3D) then
          call find_first_minimum_interp(gtot, lsmax, deltar, rmingr)
@@ -613,7 +599,7 @@ if (i <= Nmol - 1) then
 end if
 end subroutine rdf2_sh
 
-attributes(global) subroutine rdfxy_sh(Nmol, dim, nit, nsp, lsmax, side2, sidel, deltar, nslice, zgrid, zslice, count)
+attributes(global) subroutine rdfxy(Nmol, dim, nit, nsp, lsmax, side2, sidel, deltar, nslice, zgrid, zslice, count)
 
 !
 ! Masively parallel rdf calculation using shared memory (2D)
@@ -627,11 +613,8 @@ real, value, intent(IN) :: side2, deltar, zgrid
 real, intent(IN) :: sidel(3), zslice(nslice)
 integer, intent(INOUT) :: count(nslice)
 ! Assumed size histogram (memory size must be assigned in the kernel call)
-integer, shared :: histomix_s(lsmax, nit, nslice)
-histomix_s(:, :, :) = 0
 i = (blockidx%x - 1)*blockdim%x + threadidx%x
 if (i <= Nmol - 1) then
-   iti = itype_d(i)
    xi = r_d(1, i)
    yi = r_d(2, i)
    zi = r_d(3, i)
@@ -640,11 +623,12 @@ if (i <= Nmol - 1) then
       print *, " Error: wrong slice index in rdfxy_sh kernel ", islice, nslice, zi, zslice(1), zslice(nslice)
    end if     
    if (abs(zslice(islice) - zi) <= zgrid/2.0) then
+      iti = itype_d(i)
       ! Count number of particles in each slice to normalize later
       ia = atomicadd(count(islice), 1)
       Do j = i + 1, Nmol
          zj = r_d(3, j)
-         jslice =  minloc(abs(zslice - zj),dim=1)
+         jslice =  minloc(abs(zslice(:) - zj),dim=1)
          if (jslice < 1 .or. jslice > nslice) then
             print *, " Error: wrong slice index in rdfxy_sh kernel ", jslice, nslice, zj, zslice(1), zslice(nslice)
          end if
@@ -659,25 +643,18 @@ if (i <= Nmol - 1) then
                rr = __fsqrt_rn(rr2)
                ind = Nint(rr/deltar)
                ij = ind_ij(iti, itj, nsp)
-               !
-               ! Use atomics over shared memory to minimize collisions
-               !
-               ia = atomicadd(histomix_s(ind, ij, islice), 1)
+                !
+                ! Use atomics 
+                !
+               if (ind <= lsmax .and. ind > 0) then
+                  ia = atomicadd(histomix_xy_d(ind, ij, islice), 1)
+               end if
             end if
          endif 
       End do
    End if
-   call syncthreads()
-   if (threadidx%x == 1) then
-      istart = (blockidx%x - 1)*lsmax
-      !
-      ! Store each block's shared memory histogram on different positions
-      ! in global memory
-      !
-      histomix_xy_d(istart + 1:istart + lsmax, :, :) = histomix_s(1:lsmax, :, :) + histomix_xy_d(istart + 1:istart + lsmax, :, :)
-   end if
 end if
-end subroutine rdfxy_sh
+end subroutine rdfxy
 
 
 attributes(device) integer function ind_ij(i, j, nsp)
@@ -765,3 +742,4 @@ end subroutine find_first_minimum_interp
 
 
 end module mod_rdf
+ 

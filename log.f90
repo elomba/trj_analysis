@@ -424,7 +424,7 @@ contains
       real(myprec), intent(IN) :: rcl
       Real(myprec) :: gmix(nspmax, nspmax), deltav, ri, xfj, xfi
       integer, intent(in) :: lsmax
-      integer :: i, j, l, k, count
+      integer :: i, j, l, k, count, iunit
       character(len=128) :: fname99
       if (twoDstruc_3D) then
          count=0
@@ -432,7 +432,7 @@ contains
             do j=i, nsp
                write(fname99,'("gxy_",i1,"-",i1,".dat")') i,j
                open (130+count, file=trim(adjustl(fname99))//'.dat')
-               write (130+count, "('#     Q        ',9x,16('S_xy(Q,',f8.3,')',8x:))") zslice(1:nslice)
+               write (130+count, "('#     r        ',3x,16('g_xy(r,',f8.3,')',8x:))") zslice(1:nslice)
                count = count + 1
             end do
          end do  
@@ -458,6 +458,7 @@ contains
          endif
          if (nrandom>0)  write (199, "('#       r',16x,'s2n(cl)       s2n')")
       else
+         if (.not.twoDstruc_3D) then
          if (nsp<=6) then
             write (99, "('#       r        ',9x,16('g_',2i1,'(r)',9x:))") (((j, k), k=j, nsp), j=1, nsp)
          else
@@ -465,9 +466,9 @@ contains
                write (887+k, "('#       r        ',9x,16('g_',2i1,'(r)',9x:))") ((k, j), j=1, nsp)
             enddo
          endif
+      endif
          if (nrandom>0)  write (199, "('#       r',16x,'s2n')")
       end if
-
       Do i = 1, lsmax - 2
          ri = i*deltar
          !
@@ -487,12 +488,12 @@ contains
          end if
          !
          Do j = 1, nsp
-            xfi = real(ntype(i), kind=8)/Real(natms, kind=8)
+            xfi = real(ntype(j), kind=8)/Real(natms, kind=8)
             Do l = j, nsp
-               xfj = real(ntype(j), kind=8)/Real(natms, kind=8)
+               xfj = real(ntype(l), kind=8)/Real(natms, kind=8)
                if (twoDstruc_3D) then
                   ! Compute 2D rdf in xy plane for 3D systems with confinement, using appropriate normalization for cylindrical shells and accounting for slice thickness
-                  gmix_xy(j,l,:) = (j/l + 1)*zgrid*histomix_xy(i, j, l,:)/(deltaV*countslice(:)**2*xfj*xfi*Nconf)
+                  gmix_xy(j,l,:) = (j/l + 1)*volumen*(zgrid/sidel(3))*histomix_xy(i, j, l,:)/(deltaV*xfj*xfi*Nconf)
                   gmix_xy(l,j,:) = gmix_xy(j,l,:)
                else
                   gmix(j, l) = (j/l + 1)*volumen*histomix(i, j, l)/(deltaV*ntype(l)*ntype(j)*Nconf)
@@ -517,24 +518,24 @@ contains
                Write (99, '(28f16.5)') ri,&
                & gclustav(i)/(deltaV*Nconf), 2*gclcl(i)/(deltaV*Nconf),(gmix(j, j:nsp), j=1, nsp)
             else
-               Write (99, '(28f16.5)') i*deltar,&
+               Write (99, '(28f16.5)') ri,&
                & (gmix(j, j:nsp), j=1, nsp)
             endif
          else
             if (twoDstruc_3D) then
-               count = 0
+               iunit = 130
                do k = 1, nsp
-                  do j=i, nsp
-                     write (130+count, '(15f16.7)') i*deltar, (gmix_xy(k, j, 1:nslice)/Nconf)
-                     count = count + 1
+                  do j=k, nsp
+                     write (iunit, '(15f16.7)') ri, (gmix_xy(k, j, 1:nslice))
+                  iunit = iunit + 1
                   end do
                end do 
             else
                if (nsp <= 6) then
-                  Write (99, '(16f16.5)') i*deltar,  (gmix(j, j:nsp), j=1, nsp)
+                  Write (99, '(16f16.5)') ri,  (gmix(j, j:nsp), j=1, nsp)
                else
                   do k=1, nsp
-                     write(887+k,'(16f16.5)') i*deltar,  gmix(k, 1:nsp)
+                     write(887+k,'(16f16.5)') ri,  gmix(k, 1:nsp)
                   end do
                endif
             endif 

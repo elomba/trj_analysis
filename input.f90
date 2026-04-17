@@ -155,15 +155,8 @@ contains
             ! get box size in z
             auto_zslice = .true.
          endif
-         print *, " Allocating arrays for confinement profile with ", nslice, " slices"
          allocate(zslice(nslice),countslice(nslice))
-         allocate(zsliced(nslice),countsliced(nslice))
          read (unit=io_input_file, nml=INPUT_CONF)
-         zsliced(1:nslice) = zslice(1:nslice)
-         print *, allocated(zslice), allocated(countslice), allocated(zsliced), allocated(countsliced)
-         zslice(:) = 0.0
-         zslice(:) = zsliced(:)
-         print *, " z-slices read from input: ", zslice(:)
          countslice(:) = 0
          countsliced(:) = 0
          if (idir /=3) then

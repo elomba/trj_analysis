@@ -172,7 +172,6 @@ module mod_common
    end interface
 
 contains
-
    subroutine printcudaerror(routine,retcode)
       use cudafor
       character(*) :: routine
