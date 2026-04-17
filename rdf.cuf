@@ -69,13 +69,12 @@ contains
          Allocate (histomix_xy(lsmax, nsp, nsp, nslice),gtotxy(0:lsmax,nslice), gmix_xy(nsp,nsp,nslice))
          Allocate (histomix_xy_d(lsmax, nit, nslice))
          Allocate (histomix_xyi(lsmax, nit, nslice))
-         allocate(zsliced(nslice),countsliced(nslice))
+         allocate(zsliced(nslice),countsliced(nslice),countpslice_d(nsp,nslice))
          zsliced(:) = zslice(:)
       else
          Allocate (histomix(lsmax, nsp, nsp), gtot(0:lsmax), histomixi(nbcuda*lsmax, nit))
          Allocate (histomix_d(nbcuda*lsmax, nit))
       end if
-      print *, ' Dentro rdf(histo):',allocated(zsliced), allocated(countsliced), allocated(zslice), allocated(countslice)
       dim_hist = nbcuda*lsmax
       ! Allocate arrays for number fluctuation analysis if requested
       if (nrandom>0) then
@@ -117,7 +116,9 @@ contains
          if (allocated(gmix_xy)) deallocate (gmix_xy)
          if (allocated(zsliced)) deallocate (zsliced)
          if (allocated(countsliced)) deallocate (countsliced)
+         if (allocated(countpslice_d)) deallocate (countpslice_d)
          if (allocated(zslice)) deallocate (zslice)
+         if (allocated(countslice)) deallocate (countslice)
          if (allocated(countslice)) deallocate (countslice)
       else
          if(allocated(histomix)) deallocate (histomix)
@@ -185,10 +186,12 @@ contains
             rdfb = nbcuda
             zsliced(:) = zslice(:)
             countsliced(:) = 0
-            call rdfxy<<<rdfb, rdfth>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
+            countpslice_d(:,:) = 0
+            call rdfxy<<<rdfb, rdfth>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced, countpslice_d)
            
             call printcudaerror(" *** Warning: 3D rdfxy GPU kernel exit with errors: reduce nthread",istat)
             countslice(:) = countsliced(:)
+            countpslice(:,:) = countpslice_d(:,:)
          else
             ! Note: for 3D RDF, we use a single histogram array that accumulates contributions from all blocks, so we can directly copy it to host after the kernel execution
             call rdf_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar )
@@ -228,8 +231,8 @@ contains
          do k=1, nsp
             do j=k, nsp
                do islice=1, nslice
-                  if (countslice(islice) > 0) then
-                     histomix_xy(:, k, j, islice) = histomix_xy(:, k, j, islice) + real(histomix_xyi(:, ind, islice))/countslice(islice)**2
+                  if (countpslice(k,islice) > 0 .and. countpslice(j,islice) > 0) then
+                     histomix_xy(:, k, j, islice) = histomix_xy(:, k, j, islice) + real(histomix_xyi(:, ind, islice))/(countpslice(k,islice)*countpslice(j,islice))  
                   end if
                end do   
                ind = ind + 1
@@ -599,7 +602,7 @@ if (i <= Nmol - 1) then
 end if
 end subroutine rdf2_sh
 
-attributes(global) subroutine rdfxy(Nmol, dim, nit, nsp, lsmax, side2, sidel, deltar, nslice, zgrid, zslice, count)
+attributes(global) subroutine rdfxy(Nmol, dim, nit, nsp, lsmax, side2, sidel, deltar, nslice, zgrid, zslice, count, countp)
 
 !
 ! Masively parallel rdf calculation using shared memory (2D)
@@ -611,7 +614,7 @@ real ::  rr2, rr, xi, yi, zi, xd, yd, zj
 real, dimension(3) :: rv
 real, value, intent(IN) :: side2, deltar, zgrid 
 real, intent(IN) :: sidel(3), zslice(nslice)
-integer, intent(INOUT) :: count(nslice)
+integer, intent(INOUT) :: count(nslice), countp(nsp,nslice)
 ! Assumed size histogram (memory size must be assigned in the kernel call)
 i = (blockidx%x - 1)*blockdim%x + threadidx%x
 if (i <= Nmol - 1) then
@@ -626,6 +629,10 @@ if (i <= Nmol - 1) then
       iti = itype_d(i)
       ! Count number of particles in each slice to normalize later
       ia = atomicadd(count(islice), 1)
+      ia = atomicadd(countp(iti,islice), 1)
+       !
+       ! Loop over pairs and accumulate histogram for this slice
+       !
       Do j = i + 1, Nmol
          zj = r_d(3, j)
          jslice =  minloc(abs(zslice(:) - zj),dim=1)

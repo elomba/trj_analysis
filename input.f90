@@ -156,6 +156,7 @@ contains
             auto_zslice = .true.
          endif
          allocate(zslice(nslice),countslice(nslice))
+         allocate(countpslice(nsp, nslice))
          read (unit=io_input_file, nml=INPUT_CONF)
          countslice(:) = 0
          countsliced(:) = 0

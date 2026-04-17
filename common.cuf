@@ -55,12 +55,12 @@ module mod_common
    integer :: cntch(100), ncharge, nslice=-1
    real(double), dimension(100) :: chgh
    integer, allocatable, dimension(:) :: ntype, itype, lty, list, label, nq, countslice
-   integer, allocatable, dimension(:, :) :: ipos, densprofi,  histomixi
+   integer, allocatable, dimension(:, :) :: ipos, densprofi,  histomixi, countpslice
    integer, allocatable, dimension(:, :, :) :: _xyi
    integer (kind=2), allocatable, dimension(:,:) :: indqw
    integer, device, allocatable, dimension(:) :: itype_d, ntype_d, glabel, countsliced
    real, device, allocatable, dimension(:) :: gii_d, g2ii_d
-   integer, device, allocatable, dimension(:, :) :: ipos_d, densprof_d, histomix_d
+   integer, device, allocatable, dimension(:, :) :: ipos_d, densprof_d, histomix_d, countpslice_d
    integer, device, allocatable, dimension(:,:,:) :: histomix_xy_d
    integer, allocatable, dimension(:,:,:) :: histomix_xyi
    real(kind=8) :: ecaver

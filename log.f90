@@ -488,12 +488,10 @@ contains
          end if
          !
          Do j = 1, nsp
-            xfi = real(ntype(j), kind=8)/Real(natms, kind=8)
             Do l = j, nsp
-               xfj = real(ntype(l), kind=8)/Real(natms, kind=8)
                if (twoDstruc_3D) then
                   ! Compute 2D rdf in xy plane for 3D systems with confinement, using appropriate normalization for cylindrical shells and accounting for slice thickness
-                  gmix_xy(j,l,:) = (j/l + 1)*volumen*(zgrid/sidel(3))*histomix_xy(i, j, l,:)/(deltaV*xfj*xfi*Nconf)
+                  gmix_xy(j,l,:) = (j/l + 1)*volumen*(zgrid/sidel(3))*histomix_xy(i, j, l,:)/(deltaV*Nconf)
                   gmix_xy(l,j,:) = gmix_xy(j,l,:)
                else
                   gmix(j, l) = (j/l + 1)*volumen*histomix(i, j, l)/(deltaV*ntype(l)*ntype(j)*Nconf)
