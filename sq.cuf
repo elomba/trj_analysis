@@ -79,10 +79,10 @@ contains
                write(*,*) " *** Error: S(Q) calculation using directional sampling in 2D (x and y) not implemented ***"
                stop
             endif
-            ! call sqf3xy<<<tBlock, grid>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqfxy_d, sqfpxy_d,&
-            ! & nsp, nqmax, qmin2, dq, nslice, zgrid, zsliced)
-            ! call sqf2xy<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqfxy_d, sqfpxy_d,&
-            ! & nsp, nqmax, nqmin + 1, nslice, zgrid, zsliced)
+             call sqf3xy<<<tBlock, grid>>>(Nmol, ndim, ntype_d, bsc_d, fk_d, sqfxy_d, sqfpxy_d,&
+             & nsp, nqmax, qmin2, dq, nslice, zgrid, zsliced, countpslice_d, countsliced)
+             call sqf2xy<<<nqmax/nthread + 1, nthread>>>(Nmol, ndim, ntype_d, bsc_d, fk_d, sqfxy_d, sqfpxy_d,&
+             & nsp, nqmax, nqmin + 1, nslice, zgrid, zsliced, countpslice_d, countsliced)
          endif
          ierrSync = cudaGetLastError()
          if (ierrSync /= cudaSuccess) write(*,*) &
@@ -172,6 +172,8 @@ contains
       if (twoDstruc_3D) then
          allocate(sqfxy(nqmax,nslice), sqfpxy(nqmax,nsp, nslice))
          allocate(sqfxy_d(nqmax,nslice), sqfpxy_d(nqmax,nsp,nslice))
+         if (not.allocated(zsliced)) allocate(zsliced(nslice)
+         if (not.allocated(countpslice_d)) allocate(countpslice_d(nsp,nslice))
       else
          Allocate (sqf_d(nqmax), sqfp_d(nqmax, nsp))
       endif
@@ -492,8 +494,8 @@ end if
 end subroutine sqfnD
 
 
-attributes(global) subroutine sqf3xy(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, q2max, dq, nslice, zgrid, zslice)
-integer, intent(IN) :: itype(Nmol), ntype(nsp), ipos(nsp, Nmol)
+attributes(global) subroutine sqf3xy(Nmol, dim, ntype, bsc, fk, sqf, sqfp, nsp, kmax, q2max, dq, nslice, zgrid, zslice, count, countp)
+integer, intent(IN) :: ntype(nsp), countp(nsp, nslice), count(nslice)
 integer, value, intent(IN) :: Nmol, dim, nsp, kmax, nslice
 real, dimension(dim, Nmol), intent(IN) :: r_d
 real(kind=4), intent(IN) :: bsc(nsp)
@@ -503,7 +505,7 @@ real(kind=8) :: sumcx(nslice), sumsx(nslice), sumcpx(nslice), sumspx(nslice), q2
 real(kind=4), intent(IN) :: fk(dim), zslice(nslice)
 real(kind=4), value, intent(IN) ::  dq, q2max, zgrid 
 real(kind=4) :: z
-integer :: i, j, it, kx, ky, kz, ind, ia, islice, count, countsp
+integer :: i, j, it, kx, ky, kz, ind, ia, islice
 kx = (blockidx%x - 1)*blockdim%x + threadidx%x - 1
 ky = (blockidx%y - 1)*blockdim%y + threadidx%y - 1
 fk1 = fk(1)
