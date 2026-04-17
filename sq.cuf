@@ -75,7 +75,6 @@ contains
             & sqf_d, sqfp_d, nsp, nqmax, nqmin + 1)
          else  
             ! Directional sampling for small q (2D slices in 3D)
-            zsliced(:) = zslice
             if (ndim==2) then
                write(*,*) " *** Error: S(Q) calculation using directional sampling in 2D (x and y) not implemented ***"
                stop

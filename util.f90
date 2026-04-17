@@ -36,10 +36,11 @@ module mod_util
    use mod_common, only : shmsize, maxthread,  run_thermo, ex_stress, &
       printDevPropShort, printDeviceProperties, common_clear, nit, ener_name, press_name, &
       run_sq, run_sqw, run_rdf, run_clusters, run_dyn, &
-      printcudaerror, ex_qc, nconf, qcharge, lsmax, maxcln
+      printcudaerror, ex_qc, nconf, qcharge, lsmax, maxcln, zsliced, countsliced, zslice, countslice
    use mod_densprof, only : prof_init, prof_clear
    use mod_sq, only : sq_init, printsq, sq_clear, sq_transfer_gpu_cpu
-   use mod_rdf, only : rdf_init, printrdf, rdf_clear
+!   use mod_rdf, only : rdf_init, printrdf, rdf_clear, test_alloc
+   use mod_rdf
    use mod_dyn, only : print_rtcor, dyn_clear, dyn_init
    use mod_log, only : log_close, log_init, printPotEngCl, print_clusinfo, print_order, header, io_log_file
    use mod_clusters, only : clusters_clear, clusters_init, clusters_sq_init
@@ -189,8 +190,12 @@ contains
       implicit none
       logical, intent(IN) :: use_cell,run_rdf,run_sq,run_clusters, run_order
       integer, intent(in) :: nsp, nmol, nbcuda
+      print *, 'init:',allocated(zslice), allocated(countslice), allocated(zsliced), allocated(countsliced)
       if (use_cell) call cells_init_post_nc_read()
+      print *, 'cell:',allocated(zslice), allocated(countslice), allocated(zsliced), allocated(countsliced)
+      call test_alloc()
       if (run_rdf) call RDF_init(nsp)
+      print *, 'rdf:',allocated(zslice), allocated(countslice), allocated(zsliced), allocated(countsliced)
       if (run_sq) call sq_init(nmol, nsp, nbcuda)
       if (run_clusters) call clusters_sq_init()
       if (run_order) call order_init(norder,nmol)
@@ -284,7 +289,7 @@ contains
 
       ! Print partial pair distribution functions
       if (run_rdf) then
-         call printrdf(rcl, lsmax)
+      !   call printrdf(rcl, lsmax)
       end if
       ! Print dynamics results
       if (run_dyn) then

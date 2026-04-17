@@ -47,10 +47,21 @@ module mod_rdf
    implicit none
    integer, device :: dim_hist
 contains
+   subroutine test_alloc()
+      implicit none
+      print *, " Testing allocation status in mod_rdf: "
+      print *, " zsliced allocated: ", allocated(zsliced)
+      print *, " countsliced allocated: ", allocated(countsliced)
+      print *, " zslice allocated: ", allocated(zslice)
+      print *, " countslice allocated: ", allocated(countslice)
+      stop
+   end subroutine test_alloc
    subroutine RDF_init(nsp)
+      use mod_common, only : shmsize, nrandom, ex_qc, lsmax, zslice, countslice, zsliced, countsliced
       implicit none
       integer, intent(in) :: nsp
       ! Calculate maximum RDF bin index based on cutoff or half box size
+      print *, ' Dentro rdf:',allocated(zsliced), allocated(countsliced), allocated(zslice), allocated(countslice)
       if (rcrdf > 0.0) then
          lsmax = nint(rcrdf/deltar) + 1
       else
@@ -72,6 +83,7 @@ contains
          Allocate (histomix(lsmax, nsp, nsp), gtot(0:lsmax), histomixi(nbcuda*lsmax, nit))
          Allocate (histomix_d(nbcuda*lsmax, nit))
       end if
+      print *, ' Dentro rdf(histo):',allocated(zsliced), allocated(countsliced), allocated(zslice), allocated(countslice)
       dim_hist = nbcuda*lsmax
       ! Allocate arrays for number fluctuation analysis if requested
       if (nrandom>0) then
@@ -92,12 +104,14 @@ contains
          gclr2(:) = 0
       endif
       ! Initialize histograms to zero
-      histomix(:, :, :) = 0
-      histomix_d(:, :) = 0
+
+      if(allocated(histomix)) histomix(:, :, :) = 0
+      if(allocated(histomix_d)) histomix_d(:, :) = 0
       if (nrandom>0) then
-         g2i(:) = 0
-         gi(:) = 0
+         if(allocated(g2i)) g2i(:) = 0
+         if(allocated(gi)) gi(:) = 0
       end if
+      print *, allocated(zsliced), allocated(countsliced), allocated(zslice), allocated(countslice)
    end subroutine  RDF_init
 
    subroutine rdf_clear()
@@ -105,30 +119,39 @@ contains
 
       ! Clean house
       if (twoDstruc_3D) then
-         deallocate (histomix_xy)
-         deallocate (gtotxy)
-         deallocate (histomix_xyi)
-         deallocate (histomix_xy_d)
+         if (allocated(histomix_xy)) deallocate (histomix_xy)
+         if (allocated(gtotxy)) deallocate (gtotxy)
+         if (allocated(histomix_xyi)) deallocate (histomix_xyi)
+         if (allocated(histomix_xy_d)) deallocate (histomix_xy_d)
+         if (allocated(gmix_xy)) deallocate (gmix_xy)
+         if (allocated(zsliced)) deallocate (zsliced)
+         if (allocated(countsliced)) deallocate (countsliced)
+         if (allocated(zslice)) deallocate (zslice)
+         if (allocated(countslice)) deallocate (countslice)
       else
-         deallocate (histomix)
-         deallocate (gtot)
-         deallocate (histomixi)
-         deallocate (histomix_d)
+         if(allocated(histomix)) deallocate (histomix)
+         if(allocated(gtot)) deallocate (gtot)
+         if(allocated(histomixi)) deallocate (histomixi)
+         if(allocated(histomix_d)) deallocate (histomix_d)
       end if
       if (nrandom>0) then
-         deallocate (gii,gi,g2i,g2ii)
-         deallocate (gii_d,g2ii_d)
+         if(allocated(gii)) deallocate (gii)
+         if(allocated(gi)) deallocate (gi)
+         if(allocated(g2i)) deallocate (g2i)
+         if(allocated(g2ii)) deallocate (g2ii)
+         if(allocated(gii_d)) deallocate (gii_d)
+         if(allocated(g2ii_d)) deallocate (g2ii_d)
       endif
       if (run_clusters.and.geometry) then
 
-         deallocate (gcluster)
-         deallocate (gclustav)
-         deallocate (gclcl)
-         deallocate (gclt)
-         deallocate (rhoclus)
-         deallocate (rhoclusav)
-         deallocate (gclr)
-         deallocate (gclr2)
+         if(allocated(gcluster)) deallocate (gcluster)
+         if(allocated(gclustav)) deallocate (gclustav)
+         if(allocated(gclcl)) deallocate (gclcl)
+         if(allocated(gclt)) deallocate (gclt)
+         if(allocated(rhoclus)) deallocate (rhoclus)
+         if(allocated(rhoclusav)) deallocate (rhoclusav)
+         if(allocated(gclr)) deallocate (gclr)
+         if(allocated(gclr2)) deallocate (gclr2)
       endif
 
    end subroutine rdf_clear
@@ -143,10 +166,10 @@ contains
       integer :: istart, i, ind, k, j, l, istat=0, ierrSync, rdfb, rdfth, islice
       real :: time_gpu, suma, deltaV, ri
       ! Initialize histograms to zero for this configuration
-      histomix_d(:, :) = 0
+      if (allocated(histomix_d)) histomix_d(:, :) = 0
       if (nrandom>0) then
-         gii_d(:) = 0
-         g2ii_d(:) = 0
+         if(allocated(gii_d)) gii_d(:) = 0
+         if(allocated(g2ii_d)) g2ii_d(:) = 0
       endif
       !
       ! Note the increase in the number of threads to optimize the use of shared atomics. This limits the value of nthread
@@ -168,13 +191,19 @@ contains
          if (twoDstruc_3D) then
             print *, " Launching 3D RDFxy kernel with ", rdfb, " blocks and ", rdfth, " threads per block (",rdfb*rdfth," total threads)"
             print *, " Shared memory per block: ", 4*lsmax*nit*nslice, " bytes (", 4*lsmax*nit*nslice/1024.0, " KB)"
+            print *, zslice(:)
+            print *, " Number of slices: ", nslice, " with z grid spacing: ", zgrid
+            print *, countslice(:)
+            print *, allocated(zsliced), allocated(countsliced)
+            print *, allocated(zslice), allocated(countslice)
+            print *, size(zsliced), size(zslice)
             zsliced(:) = zslice(:)
-            countsliced(:) = 0
-            call rdfxy_sh<<<rdfb, rdfth, nslice*lsmax*nit*4>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
+            !countsliced(:) = 0
+            !call rdfxy_sh<<<rdfb, rdfth, nslice*lsmax*nit*4>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
             !call rdfxy_sh<<<rdfb, rdfth>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced)
            
-            call printcudaerror(" *** Warning: 3D rdfxy_sh GPU kernel exit with errors: reduce nthread",istat)
-            countslice(:) = countsliced(:)
+            !call printcudaerror(" *** Warning: 3D rdfxy_sh GPU kernel exit with errors: reduce nthread",istat)
+            !countslice(:) = countsliced(:)
             print *, " Slice counts: ", countslice(:)
          else
             print *, " Launching 3D RDF kernel with ", rdfb, " blocks and ", rdfth, " threads per block (",rdfb*rdfth," total threads)"
@@ -263,7 +292,7 @@ contains
          else  
             gtot(i) = 2*volumen*gtot(i)/(deltaV*natms*natms)
          end if
-         print *, " Total g(r) for bin ", i, ": ", gtotxy(i,:), lsmax
+         print *, " Total g(r) for bin ", i, ": ", gtotxy(i,1:lsmax), lsmax
       end do
       if(.not.twoDstruc_3D) then
          call find_first_minimum_interp(gtot, lsmax, deltar, rmingr)
