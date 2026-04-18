@@ -323,6 +323,7 @@ contains
       integer, intent(IN) :: Nmol
       integer :: i, j
       logical :: bsc_one = .true.
+      character(len=128) :: fname99
       baver = sum(ntype(1:nsp)*bsc(1:nsp))/Nmol
       b2aver = sum(ntype(1:nsp)*bsc(1:nsp)**2)/Nmol
       sqf(:) = sqf(:)/baver**2
@@ -331,6 +332,15 @@ contains
       enddo
       open (100, file='sq.dat')
       open (110, file='sqmix.dat')
+      if (idir>0) then
+         open (120, file='sqxy.dat')
+         write (120, "('#     Q        ',9x,16('S_xy(Q,',f8.3,')',8x:))") zslice(1:nslice)
+         do j=1, nsp
+            write(fname99,'("sqpxy_",i1,"-",i1,".dat")') j, j
+            open (130+j, file=trim(adjustl(fname99))//'.dat')
+            write (130+j, "('#     Q        ',9x,16('S_xy(Q,',f8.3,')',8x:))") zslice(1:nslice)
+         end do
+      end if
       if (nsp == 2 .and. bsc_one) then
          x1 = (real(ntype(1))/real(Nmol))
          x2 = (real(ntype(2))/real(Nmol))
@@ -341,38 +351,69 @@ contains
       write (110, "('#       Q',14x,15('S_',2i1,'(Q)',9x:))") ((j, j), j=1, nsp)
       do i = 1, nqmax
          if (i*dq <= qmin .or. dq > 0.2) then
-            if (nsp == 2 .and. bsc_one) then
-               s11 = x1*sqfp(i, 1)/(ntype(1)*Nconf*real(nq(i)))
-               s22 = x2*sqfp(i, 2)/(ntype(2)*Nconf*real(nq(i)))
-               s12 = 0.5*(sqf(i)/(Nmol*Nconf*real(nq(i))) - s11 - s22)
-               scc = x2**2*s11 + x1**2*s22 - 2*x1*x2*s12
-               write (100, '(6f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i)))&
-               &, scc, s11, s22, s12, nq(i)
+            ! For small q, print all data points. For larger q, print every 3rd point to reduce file size and noise.
+            if (twoDstruc_3D) then
+               ! Compute 2D structure factor in xy plane for 3D systems with confinement
+               write (120, '(15f16.7)') i*dq, sqfxy(i, 1:nslice)/(Nconf*real(nq(i)))
+               do j=1, nsp
+                  write (130+j, '(15f16.7)') i*dq, sqfpxy(i, j, 1:nslice)/(Nconf&
+                  &*real(nq(i)))
+               end do
             else
-               write (100, '(2f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i))), nq(i)
-            end if
-            write (110, '(15f16.7)') i*dq, (sqfp(i, j)/(ntype(j)*Nconf&
-            &*real(nq(i))), j=1, nsp)
+               ! Compute partial structure factors and concentration-concentration
+               ! structure factor for binary mixtures with bsc=1
+               if (nsp == 2 .and. bsc_one) then
+                  s11 = x1*sqfp(i, 1)/(ntype(1)*Nconf*real(nq(i)))
+                  s22 = x2*sqfp(i, 2)/(ntype(2)*Nconf*real(nq(i)))
+                  s12 = 0.5*(sqf(i)/(Nmol*Nconf*real(nq(i))) - s11 - s22)
+                  scc = x2**2*s11 + x1**2*s22 - 2*x1*x2*s12
+                  write (100, '(6f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i)))&
+                  &, scc, s11, s22, s12, nq(i)
+               else
+                  write (100, '(2f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i))), nq(i)
+               end if
+               write (110, '(15f16.7)') i*dq, (sqfp(i, j)/(ntype(j)*Nconf&
+               &*real(nq(i))), j=1, nsp)
+            endif
          end if
       end do
       if (dq <= 0.2) then
          do i = nint(qmin/dq) + 1, nqmax - 2, 3
-            if (nsp == 2 .and. bsc_one) then
-               s11 = x1*sum(sqfp(i - 2:i + 2, 1)/(ntype(1)*Nconf*real(nq(i - 2:i + 2))))/5
-               s22 = x2*sum(sqfp(i - 2:i + 2, 2)/(ntype(2)*Nconf*real(nq(i - 2:i + 2))))/5
-               s12 = 0.5*(sum(sqf(i - 2:i + 2)/(Nmol*Nconf*real(nq(i - 2:i + 2))))/5 - s11 - s22)
-               scc = x2**2*s11 + x1**2*s22 - 2*x1*x2*s12
-               write (100, '(6f15.7,i12)') i*dq, sum(sqf(i - 2:i + 2)/(Nmol*Nconf*real(nq(i - 2:i + 2))))/5&
-               &, scc, s11, s22, s12, nq(i)
+            if (twoDstruc_3D) then
+               ! Compute 2D structure factor in xy plane for 3D systems with confinement, using 5-point moving average to reduce noise
+               write (120, '(15f16.7)') i*dq, (sum(sqfxy(i - 2:i + 2,j),dim=1)/(Nconf&
+               &*real(5*nq(i))), j=1, nslice)
+               do j=1, nsp
+                  write (130+j, '(15f16.7)') i*dq, sum(sqfpxy(i - 2:i + 2, j, 1:nslice),dim=1)/(Nconf&
+                  &*real(5*nq(i)))
+               end do
             else
-               write (100, '(2f15.7,i12)') i*dq, sum(sqf(i - 2:i + 2)/(Nmol*Nconf*real(nq(i - 2:i + 2))))/5, nq(i)
-            end if
-            write (110, '(15f16.7)') i*dq, (sum(sqfp(i - 2:i + 2, j)/(ntype(j)*Nconf&
-            &*real(nq(i - 2:i + 2))))/5, j=1, nsp)
+               ! Compute partial structure factors and concentration-concentration
+               ! structure factor for binary mixtures with bsc=1,
+               ! using 5-point moving average to reduce noise
+               if (nsp == 2 .and. bsc_one) then
+                  s11 = x1*sum(sqfp(i - 2:i + 2, 1)/(ntype(1)*Nconf*real(nq(i - 2:i + 2))))/5
+                  s22 = x2*sum(sqfp(i - 2:i + 2, 2)/(ntype(2)*Nconf*real(nq(i - 2:i + 2))))/5
+                  s12 = 0.5*(sum(sqf(i - 2:i + 2)/(Nmol*Nconf*real(nq(i - 2:i + 2))))/5 - s11 - s22)
+                  scc = x2**2*s11 + x1**2*s22 - 2*x1*x2*s12
+                  write (100, '(6f15.7,i12)') i*dq, sum(sqf(i - 2:i + 2)/(Nmol*Nconf*real(nq(i - 2:i + 2))))/5&
+                  &, scc, s11, s22, s12, nq(i)
+               else
+                  write (100, '(2f15.7,i12)') i*dq, sum(sqf(i - 2:i + 2)/(Nmol*Nconf*real(nq(i - 2:i + 2))))/5, nq(i)
+               end if
+               write (110, '(15f16.7)') i*dq, (sum(sqfp(i - 2:i + 2, j)/(ntype(j)*Nconf&
+               &*real(nq(i - 2:i + 2))))/5, j=1, nsp)
+            endif
          end do
       end if
       close (100)
       close (110)
+      if (idir>0) then
+         close (120)
+         do j=1, nsp
+            close (130+j)
+         end do
+      end if
    end subroutine printSQ
 
    subroutine printrdf(rcl, lsmax)
@@ -381,18 +422,31 @@ contains
       !
       implicit none
       real(myprec), intent(IN) :: rcl
-      Real(myprec) :: gmix(nspmax, nspmax), deltav, ri, xfj
+      Real(myprec) :: gmix(nspmax, nspmax), deltav, ri, xfj, xfi
       integer, intent(in) :: lsmax
-      integer :: i, j, l, k
-      if (nsp<=6) then
-         fname99 = 'gmixsim.dat'
-         Open (99, file=fname99)
+      integer :: i, j, l, k, count, iunit
+      character(len=128) :: fname99
+      if (twoDstruc_3D) then
+         count=0
+         do i=1, nsp
+            do j=i, nsp
+               write(fname99,'("gxy_",i1,"-",i1,".dat")') i,j
+               open (130+count, file=trim(adjustl(fname99))//'.dat')
+               write (130+count, "('#     r        ',3x,16('g_xy(r,',f8.3,')',8x:))") zslice(1:nslice)
+               count = count + 1
+            end do
+         end do  
       else
-         do k=1, nsp
-            write(fname99,'("gmixsim",i1,".dat")') k
-            open(887+k,file=fname99)
-         enddo
-      endif
+         if (nsp<=6) then
+            fname99 = 'gmixsim.dat'
+            Open (99, file=fname99)
+         else
+            do k=1, nsp
+               write(fname99,'("gmixsim",i1,".dat")') k
+               open(887+k,file=fname99)
+            enddo
+         endif
+      endif 
       if (nrandom>0) Open (199, file="s2n.dat")
       if (run_clusters.and.maxcln>cl_thresh) then
          if (geometry) then 
@@ -404,6 +458,7 @@ contains
          endif
          if (nrandom>0)  write (199, "('#       r',16x,'s2n(cl)       s2n')")
       else
+         if (.not.twoDstruc_3D) then
          if (nsp<=6) then
             write (99, "('#       r        ',9x,16('g_',2i1,'(r)',9x:))") (((j, k), k=j, nsp), j=1, nsp)
          else
@@ -411,64 +466,96 @@ contains
                write (887+k, "('#       r        ',9x,16('g_',2i1,'(r)',9x:))") ((k, j), j=1, nsp)
             enddo
          endif
+      endif
          if (nrandom>0)  write (199, "('#       r',16x,'s2n')")
       end if
-
       Do i = 1, lsmax - 2
          ri = i*deltar
          !
          ! Compute 3d ad 2d normalizations factors
          !
          if (ndim == 3) then
-            deltaV = 4*pi*((ri + deltar/2)**3 - (ri - deltar/2)**3)/3.0
+            if (twoDstruc_3D) then
+               ! For 2D rdf din xy plane of 3D systems with confinement, use cylindrical shell volume for normalization
+               deltaV = pi*((ri + deltar/2)**2 - (ri - deltar/2)**2)*zgrid
+            else
+               ! For 3D systems, use spherical shell volume for normalization
+               deltaV = 4*pi*((ri + deltar/2)**3 - (ri - deltar/2)**3)/3.0
+            endif
          else
+            ! For 2D systems, use circular shell area for normalization
             deltaV = pi*((ri + deltar/2)**2 - (ri - deltar/2)**2)
          end if
          !
          Do j = 1, nsp
-
             Do l = j, nsp
-               xfj = real(ntype(j), kind=8)/Real(natms, kind=8)
-               gmix(j, l) = (j/l + 1)*volumen*histomix(i, j, l)/(deltaV*ntype(l)*ntype(j)*Nconf)
-               gmix(l,j) = gmix(j,l)
-               if (idir > 0) gmix(j, l) = densty*gmix(j, l)/rdenst
-
+               if (twoDstruc_3D) then
+                  ! Compute 2D rdf in xy plane for 3D systems with confinement, using appropriate normalization for cylindrical shells and accounting for slice thickness
+                  gmix_xy(j,l,:) = (j/l + 1)*volumen*(zgrid/sidel(3))*histomix_xy(i, j, l,:)/(deltaV*Nconf)
+                  gmix_xy(l,j,:) = gmix_xy(j,l,:)
+               else
+                  gmix(j, l) = (j/l + 1)*volumen*histomix(i, j, l)/(deltaV*ntype(l)*ntype(j)*Nconf)
+                  gmix(l,j) = gmix(j,l)
+               endif 
             End Do
          End Do
-         if (i<lsmax) then
-            if (nrandom>0) then
+         ! Print number fluctuations to check for hyperuniformity, if requested
+         if (nrandom>0) then
+            if (i<lsmax) then
                if (run_clusters) then
-                  Write (199, '(18f16.5)') i*deltar,  gclr2(i)/(Nconf*nrandom)-(gclr(i)/(Nconf*nrandom))**2,&
+                  Write (199, '(18f16.5)') ri,  gclr2(i)/(Nconf*nrandom)-(gclr(i)/(Nconf*nrandom))**2,&
                   & g2i(i)/(Nconf*nrandom)-(gi(i)/(Nconf*nrandom))**2
                else
-                  Write (199, '(18f16.5)') i*deltar,  g2i(i)/(Nconf*nrandom)-(gi(i)/(Nconf*nrandom))**2
+                  Write (199, '(18f16.5)') ri,  g2i(i)/(Nconf*nrandom)-(gi(i)/(Nconf*nrandom))**2
                endif
             endif
          endif
+         ! Print rdf's, with different formats for cluster vs. non-cluster analysis and for 2D vs. 3D systems
          if (run_clusters.and.maxcln>cl_thresh) then
             if (geometry) then
-               Write (99, '(28f16.5)') i*deltar,&
+               Write (99, '(28f16.5)') ri,&
                & gclustav(i)/(deltaV*Nconf), 2*gclcl(i)/(deltaV*Nconf),(gmix(j, j:nsp), j=1, nsp)
             else
-               Write (99, '(28f16.5)') i*deltar,&
+               Write (99, '(28f16.5)') ri,&
                & (gmix(j, j:nsp), j=1, nsp)
             endif
          else
-            if (nsp <= 6) then
-               Write (99, '(16f16.5)') i*deltar,  (gmix(j, j:nsp), j=1, nsp)
+            if (twoDstruc_3D) then
+               iunit = 130
+               do k = 1, nsp
+                  do j=k, nsp
+                     write (iunit, '(15f16.7)') ri, (gmix_xy(k, j, 1:nslice))
+                  iunit = iunit + 1
+                  end do
+               end do 
             else
-               do k=1, nsp
-                  write(887+k,'(16f16.5)') i*deltar,  gmix(k, 1:nsp)
-               enddo
-            endif
+               if (nsp <= 6) then
+                  Write (99, '(16f16.5)') ri,  (gmix(j, j:nsp), j=1, nsp)
+               else
+                  do k=1, nsp
+                     write(887+k,'(16f16.5)') ri,  gmix(k, 1:nsp)
+                  end do
+               endif
+            endif 
          end if
-      End Do
-      if (nsp<=6) then
-         close (99)
-      else
-         do k=1,nsp
-            close(887+k)
+      end do
+      ! Close files for rdf output, with different handling for 2D vs. 3D systems and for cluster vs. non-cluster analysis
+      if (twoDstruc_3D) then 
+         count = 0
+         do i = 1, nsp
+            do j=i, nsp
+               close(130+count)
+               count = count + 1
+            end do
          end do
+      else
+         if (nsp<=6) then
+            close (99)
+         else
+            do k=1,nsp
+               close(887+k)
+            end do
+         endif
       endif
       if (nrandom>0) close (199)
    end subroutine printrdf

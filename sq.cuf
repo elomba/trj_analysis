@@ -66,16 +66,25 @@ contains
       istat = cudaEventRecord(startEvent, 0)
       ! Full q-space sampling for small q (uniform fluid)
       if (nqmin > 1) then
-         call sqfnD<<<tBlock, grid>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqf_d, sqfp_d,&
-         & nsp, nqmax, qmin2, dq)
-         ! Directional sampling for large q (computational efficiency)
-         if (ndim == 3) then
+         if (idir==0) then
+            ! Isotropic sampling for small q (spherical averaging)
+            call sqfnD<<<tBlock, grid>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqf_d, sqfp_d,&
+            & nsp, nqmax, qmin2, dq)
+            ! For large q, use directional sampling for computational efficiency
             call sqfact<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d,&
             & sqf_d, sqfp_d, nsp, nqmax, nqmin + 1)
-         else
-            call sqfact2<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d,&
-            & sqf_d, sqfp_d, nsp, nqmax, nqmin + 1)
-         end if
+         else  
+            ! Directional sampling for small q (2D slices in 3D)
+            if (ndim==2) then
+               write(*,*) " *** Error: S(Q) calculation using directional sampling in 2D (x and y) not implemented ***"
+               stop
+            endif
+             call sqf3xy<<<tBlock, grid>>>(Nmol, ndim, ntype_d, bsc_d, fk_d, &
+             & nsp, nqmax, qmin2, dq, nslice, zgrid, zsliced)
+               ! For large q, use directional sampling for computational efficiency
+             call sqf2xy<<<nqmax/nthread + 1, nthread>>>(Nmol, ndim, ntype_d, bsc_d, fk_d,& 
+             & nsp, nqmax, nqmin + 1, nslice, zgrid, zsliced)
+         endif
          ierrSync = cudaGetLastError()
          if (ierrSync /= cudaSuccess) write(*,*) &
             "SQ kernel error:", cudaGetErrorString(ierrSync)
@@ -85,8 +94,13 @@ contains
          ! just sample   (1,0,0),(0,1,0),(0,0,1) directions
          !
          if (ndim == 3) then
-            call sqfact<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqf_d, &
+            if (idir == 0) then
+               call sqfact<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqf_d, &
                sqfp_d, nsp, nqmax, nqmin)
+            else
+               call sqf2xy<<<nqmax/nthread + 1, nthread>>>(Nmol, ndim, ntype_d, bsc_d, fk_d, &
+               & nsp, nqmax, nqmin + 1, nslice, zgrid, zsliced)
+            end if
          else
             call sqfact2<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqf_d, &
                sqfp_d, nsp, nqmax, nqmin)
@@ -103,7 +117,10 @@ contains
       sqf(1:nqmax) = sqf_d(1:nqmax)
       if (run_clusters .and. run_sq .and. geometry) sqfcl(1:nqmax) = sqfcl_d(1:nqmax)
       sqfp(1:nqmax, 1:nsp) = sqfp_d(1:nqmax, 1:nsp)
-
+      if (idir>0) then
+         sqfxy(1:nqmax, 1:nslice) = sqfxy_d(1:nqmax, 1:nslice)
+         sqfpxy(1:nqmax, 1:nsp, 1:nslice) = sqfpxy_d(1:nqmax, 1:nsp, 1:nslice)
+      end if
    end subroutine sq_transfer_gpu_cpu
 
    subroutine sq_init(nmol, nsp, nbcuda)
@@ -118,7 +135,7 @@ contains
       lmaxy = nint(qmin/(2*pi/sidel(2)))
       if (ndim == 3) lmaxz = nint(qmin/(2*pi/sidel(3)))
       ndg = 4
-      if (ndim == 3) then
+      if (ndim == 3.and.idir>0) then
          grid = dim3(ndg, ndg, ndg)
          if (mod(lmaxx, ndg) .ne. 0) lmaxx = lmaxx - ndg + mod(lmaxx, ndg)
          if (mod(lmaxy, ndg) .ne. 0) lmaxy = lmaxy - ndg + mod(lmaxy, ndg)
@@ -141,14 +158,25 @@ contains
          lmaxz = 1
       end if
       qmin = lmaxx*fk(1)
-      Allocate (sqf(nqmax), sqfp(nqmax, nsp), nq(0:nqmax))
+      if (twoDstruc_3D .and. ndim==3) then
+         Allocate (nq(0:nqmax))
+      else
+         Allocate (sqf(nqmax), sqfp(nqmax, nsp), nq(0:nqmax))
+      endif
       if (run_clusters .and. run_sq .and. geometry) then
          Allocate(sqcl(nqmax), sqfcl(nqmax))
          Allocate(sqfcl_d(nqmax))
          sqfcl_d(:) = 0.0
          sqfcl(:) = 0.0d0
       endif
-      Allocate (sqf_d(nqmax), sqfp_d(nqmax, nsp))
+
+      if (twoDstruc_3D) then
+         allocate(sqfxy(nqmax,nslice), sqfpxy(nqmax,nsp, nslice))
+         allocate(sqfxy_d(nqmax,nslice), sqfpxy_d(nqmax,nsp,nslice))
+         if (.not.allocated(zsliced)) allocate(zsliced(nslice))
+      else
+         Allocate (sqf_d(nqmax), sqfp_d(nqmax, nsp))
+      endif
       gclustav(:) = 0.0
       rhoclus(:) = 0.0
       rhoclusav(:) = 0.0
@@ -160,13 +188,17 @@ contains
       sqf(:) = 0.0d0
       sqfp(:, :) = 0
       nq(:) = 0
+      if (idir>0) then
+         run_sqw=.false.
+         write(*,*) " *** S(Q,w) calculation disabled for directional sampling (idir>0) **"
+      endif
       if (run_sqw) Then
          iq = 0
          qmm = maxval(qw(1:nqw))
          ! Loop to determine the number of i,j,k that match the input qw to calculate S(Q,w)
          do i = 0, nint(qmm/(2*pi/sidel(1)))
             do j = 0, nint(qmm/(2*pi/sidel(2)))
-               if (ndim==3) then
+               if (ndim==3.and.idir>0) then
                   kmaxz = nint(qmm/(2*pi/sidel(3)))
                else
                   kmaxz = 0
@@ -226,7 +258,22 @@ contains
       endif
       if (nqmin > 10) then
          indm = 0
-         if (ndim == 3) then
+         if (ndim == 2.or.twoDstruc_3D) then
+            do i = 0, lmaxx - 1
+               do j = 0, lmaxy - 1
+                  if (i + j .ne. 0) then
+                     rr = sqrt((i*fk(1))**2 + (j*fk(2))**2)
+                     if (rr .lt. qmin) then
+                        ind = nint(rr/dq)
+                        if (ind > indm) indm = ind
+                        if (ind <= nqmax) nq(ind) = nq(ind) + 1
+                     end if
+                  end if
+               end do
+            end do
+            nq(indm + 1:nqmax) = 2
+            write (*, "(//' *** S(Q) calculation using ',i4,'x',i4,' vectors **'/)") lmaxx, lmaxy
+         else
             do i = 0, lmaxx - 1
                do j = 0, lmaxy - 1
                   do k = 0, lmaxz - 1
@@ -243,21 +290,6 @@ contains
             end do
             write (*, "(//' *** S(Q) calculation using ',i4,'x',i4,'x',i4,' vectors **')") lmaxx, lmaxy, lmaxz
             nq(indm + 1:nqmax) = 3
-         else
-            do i = 0, lmaxx - 1
-               do j = 0, lmaxy - 1
-                  if (i + j .ne. 0) then
-                     rr = sqrt((i*fk(1))**2 + (j*fk(2))**2)
-                     if (rr .lt. qmin) then
-                        ind = nint(rr/dq)
-                        if (ind > indm) indm = ind
-                        if (ind <= nqmax) nq(ind) = nq(ind) + 1
-                     end if
-                  end if
-               end do
-            end do
-            nq(indm + 1:nqmax) = 2
-            write (*, "(//' *** S(Q) calculation using ',i4,'x',i4,' vectors **'/)") lmaxx, lmaxy
          end if
          qmin2 = qmin**2
          if (tunits == 'lj') then
@@ -266,10 +298,10 @@ contains
             write (*, "(' *** Averaging over all q-vectors for q <',f10.6,' A^-1 **')") qmin
          endif
       else
-         if (ndim == 3) then
-            nq(1:nqmax) = 3
-         else
+         if (ndim == 2.or.twoDstruc_3D) then
             nq(1:nqmax) = 2
+         else
+            nq(1:nqmax) = 3
          end if
          nqmin = 1
          write (*, "(' *** Averaging over (100), (010) and (001)  q-vectors  **')")
@@ -462,15 +494,141 @@ end if
 end subroutine sqfnD
 
 
+attributes(global) subroutine sqf3xy(Nmol, dim, ntype, bsc, fk, nsp, kmax, q2max, dq, nslice, zgrid, zslice)
+integer, intent(IN) :: ntype(nsp)
+integer, value, intent(IN) :: Nmol, dim, nsp, kmax, nslice
+real(kind=4), intent(IN) :: bsc(nsp)
+real(kind=4) :: rkxyz, fk1, fk2, fk3, kf1, kf2, kf3,  q, suma(nslice), tsum(nslice)
+real(kind=8) :: sumcx(nslice), sumsx(nslice), sumcpx(nslice), sumspx(nslice), q2, bs
+real(kind=4), intent(IN) :: fk(dim), zslice(nslice)
+real(kind=4), value, intent(IN) ::  dq, q2max, zgrid
+real(kind=4) :: z
+integer :: i, j, it, kx, ky, kz, ind, ia, islice, count, countsp 
+kx = (blockidx%x - 1)*blockdim%x + threadidx%x - 1
+ky = (blockidx%y - 1)*blockdim%y + threadidx%y - 1
+fk1 = fk(1)
+fk2 = fk(2)
+kf1 = kx*fk1
+kf2 = ky*fk2
+q2 = kf1*kf1 + kf2*kf2
+if (q2 > 0.0 .and. q2 <= q2max) then
+   sumcx = 0
+   sumsx = 0
+   q = sqrt(q2)
+   ind = int(q/dq+0.501)
+   i = 0
+   count = 0
+   do j = 1, nsp
+      sumcpx(:) = 0
+      sumspx(:) = 0
+      bs = bsc(j)
+      countsp = 0
+      do it = 1, ntype(j)
+         i = i + 1
+         z = r_d(3, i)
+         islice = minloc(abs(zslice - z),dim=1)   
+         if (abs(zslice(islice) - z) <= zgrid/2.0) then
+            ! to be modified
+            count = count + 1
+            countsp = countsp + 1
+            rkxyz = r_d(2, i)*kf2+r_d(1, i)*kf1
+            sumcpx(islice) = sumcpx(islice) + __cosf(rkxyz)
+            sumspx(islice) = sumspx(islice) + __sinf(rkxyz)
+         endif
+      end do
+      sumcx(:) = sumcx(:) + bs*sumcpx(:)
+      sumsx(:) = sumsx(:) + bs*sumspx(:)
+      if (countsp>0) suma(:) = (sumcpx(:)**2 + sumspx(:)**2)/countsp
+      if (ind<=kmax) then
+         do islice = 1, nslice
+            ia = atomicadd(sqfpxy_d(ind, j, islice), suma(islice))
+         end do
+      endif
+   end do
+   tsum(:) = (sumcx(:)**2 + sumsx(:)**2)/count
+   if (ind<=kmax) then
+      do islice = 1, nslice
+         ia = atomicadd(sqfxy_d(ind, islice), tsum(islice))
+      end do
+   endif
+end if
+end subroutine sqf3xy
+
+attributes(global) subroutine sqf2xy(Nmol, dim, ntype, bsc, fk, nsp, kmax, minPts, nslice, zgrid, zslice)
+integer, value, intent(IN) :: Nmol, dim, nsp, kmax, minPts, nslice
+integer, intent(IN) :: ntype(nsp)
+real, intent(in), value :: zgrid
+real(kind=4), intent(IN) ::bsc(nsp), zslice(nslice)
+real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, suma(nslice), bs, z
+real(kind=8) :: sumcx(nslice), sumsx(nslice), sumcy(nslice), sumsy(nslice), sumcpx(nslice), sumspx(nslice), sumcpy(nslice), sumspy(nslice)
+real(kind=4), intent(IN) :: fk(dim)
+integer :: i, j, k, ind, it, ia, islice, count,countsp
+k = (blockidx%x - 1)*blockdim%x + threadidx%x
+if (k .le. kmax .and. k .ge. minPts) then
+   fk1 = fk(1)
+   fk2 = fk(2)
+   sumcx = 0
+   sumsx = 0
+   sumcy = 0
+   sumsy = 0
+   kf1 = k*fk1
+   kf2 = k*fk2
+   i = 0
+   count = 0
+   do j = 1, nsp
+      sumcpx = 0
+      sumspx = 0
+      sumcpy = 0
+      sumspy = 0
+      bs = bsc(j)
+      countsp = 0
+      do it = 1, ntype(j)
+         i = i + 1
+         z = r_d(3, i)
+         islice = minloc(abs(zslice(:) - z),dim=1)   
+         if (abs(zslice(islice) - z) <= zgrid/2.0) then
+            count = count + 1
+            countsp = countsp + 1
+            rkx = r_d(1, i)*kf1
+            rky = r_d(2, i)*kf2
+            sumcpx(islice) = sumcpx(islice) + __cosf(rkx)
+            sumspx(islice) = sumspx(islice) + __sinf(rkx)
+            sumcpy(islice) = sumcpy(islice) + __cosf(rky)
+            sumspy(islice) = sumspy(islice) + __sinf(rky)
+         endif
+      end do
+      sumcx(:) = sumcx(:) + bs*sumcpx(:)
+      sumsx(:) = sumsx(:) + bs*sumspx(:)
+      sumcy(:) = sumcy(:) + bs*sumcpy(:)
+      sumsy(:) = sumsy(:) + bs*sumspy(:)
+      if (countsp>0) suma(:) = (sumcpx(:)**2 + sumspx(:)**2 + sumcpy(:)**2 + sumspy(:)**2)/countsp
+      if (ind<=kmax) then
+         do islice = 1, nslice
+            ia = atomicadd(sqfpxy_d(k, j, islice), suma(islice))
+         end do
+      endif
+   end do
+   sqfxy_d(k,:) = sqfxy_d(k,:) + (sumcx(:)**2 + sumsx(:)**2 + sumcy(:)**2 + sumsy(:)**2)/count
+end if
+end subroutine sqf2xy
+
+
 subroutine sq_clear()
    implicit none
 
    ! Clean house
-   deallocate (sqf)
-   deallocate (sqfp)
    deallocate (nq)
-   deallocate (sqf_d)
-   deallocate (sqfp_d)
+   if (twoDstruc_3D) then
+      deallocate(sqfxy)
+      deallocate(sqfxy_d)
+      deallocate(sqfpxy)
+      deallocate(sqfpxy_d)
+   else
+      deallocate(sqf_d)
+      deallocate(sqfp_d)
+      deallocate(sqf)
+      deallocate(sqfp)
+   endif
    if (run_clusters.and.geometry) then
       deallocate (sqfcl)
       deallocate (sqfcl_d)

@@ -99,6 +99,16 @@ contains
         !
         ! Cell size extends up to rcut (clustering distance)
         !
+         if (rcl <= 0.0) then
+            write(*,'("*** Error: rcl (NN distance) must be defined to compute cell lists !")')
+            stop
+         endif
+         if (use_cell) then
+             print *, " Initializing linked cell structure with rcl = ", rcl
+         else
+             print *, " Linked cell method disabled: use_cell = .false."
+             return
+         endif
         maxi = Int(sidel(1)/rcl)
         maxj = int(sidel(2)/rcl)
         maxk = 1

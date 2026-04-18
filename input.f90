@@ -61,13 +61,13 @@ module mod_input
    !
    ! Input namelists
    namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread,  &
-      & ncfs_from_to,  rdf_sq_cl_dyn_sqw_conf_ord, nqw, norder, ener_name, &
+      & ncfs_from_to,  rdf_sq_cl_dyn_sqw_conf_ord, nqw, nslice, norder, ener_name, &
       & press_name, potnbins, potengmargin, rcl, periodic, nprint
    namelist /INPUT_SP/ sp_types_selected, mat
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
    namelist /INPUT_SQ/ qmax, qmin, bsc
    namelist /INPUT_CL/ dcl, minPts, ndrclus, cl_thresh, geometry
-   namelist /INPUT_CONF/ idir
+   namelist /INPUT_CONF/ idir, zslice, zgrid
    namelist /INPUT_DYN/ nbuffer, tmax, tmaxp, tlimit, jump
    namelist /INPUT_SQW/ qw, tmqw
    namelist /INPUT_ORDER/ orderp, print_orderp, nnbond, rclcl
@@ -144,8 +144,30 @@ contains
       endif
       idir = 0
       if (rdf_sq_cl_dyn_sqw_conf_ord(6) == .true.) then
+         if (ndim /= 3) then
+            write(*,'("*** Error: system must be 3D to compute confinement properties !")')
+            stop
+         endif
+         if (nslice < 1) then
+            nslice = 1
+            write(*,'("*** Warning: nslice (number of slices for confinement profile) reset to 1 !")')
+            ! Definition of z-slices postponed until we read first configuration to 
+            ! get box size in z
+            auto_zslice = .true.
+         endif
+         allocate(zslice(nslice),countslice(nslice))
+         allocate(countpslice(nsp, nslice))
          read (unit=io_input_file, nml=INPUT_CONF)
+         countslice(:) = 0
+         countsliced(:) = 0
+         if (idir /=3) then
+            write(*,'("*** Error: confinement direction idir must be set to 3 (z) !")')
+            stop
+         endif
          confined = .true.
+         if (rdf_sq_cl_dyn_sqw_conf_ord(1) == .true. .or. rdf_sq_cl_dyn_sqw_conf_ord(2) == .true.) then
+            twoDstruc_3D = .true.
+         endif
       endif
       if (rdf_sq_cl_dyn_sqw_conf_ord(7) == .true.) then
          if (norder < 1) then

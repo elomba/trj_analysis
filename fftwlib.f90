@@ -114,6 +114,7 @@ Subroutine fftw1(in,out,n,forward)
    Call dfftw_destroy_plan(plan)
    ! Scale output and use symmetry to extract real part
    out(1) = out(1)*dfact
+   ! For k=2 to N/2, use symmetry: F(k) = F*(-k) for real input, so we can combine them
    Forall (i=2:n/2)
       ! FT(k_x) = 2*(Real(F(k_x))+Real(F(-K_x)) and we make use of the symmetry 
       out(i) = (out(i)+out(n-i+2))*dfact/2

@@ -32,7 +32,7 @@ module mod_nc
    use mod_precision
    use mod_common, Only : ex_vel, ex_force, ex_stress, run_thermo, &
       u_p, stress, ex_mol, ex_qc, periodic, voigt, &
-      ener_name, press_name, pwall, pwallp, tunits, vunits, nstep
+      ener_name, press_name, pwall, pwallp, tunits, vunits, nstep, auto_zslice, zslice, zgrid
    use mod_input, only : idir
    interface
       subroutine read_nc_cfg(ncid, ncstart, io, unit)
@@ -324,14 +324,25 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
                   if (k == idir) then
                      pwall = minval(r(k,1:natoms,1)) - 6.0
                      pwallp = pwall + cell(k,1)
+                     if (auto_zslice) then
+                        zslice(1) = (maxval(r(k,1:natoms,1)) + minval(r(k,1:natoms,1)))/2.0
+                        zgrid = (maxval(r(k,1:natoms,1)) - minval(r(k,1:natoms,1)))/real(10)
+                        write(*,'(" ** Auto-defined z-slices: zslice(1) = ",F8.2,", zgrid = ",F8.2)') zslice(1), zgrid
+                     endif
                   endif
                endif
-               if (minval(r(k, 1:natoms, 1)) < pwall) then
-                  write(*,'(///"*** Error: some particles have coodinates ",f8.2," left of  ",f8.2," !")') minval(r(k, 1:natoms, 1)), pwall
+               if (idir == k) then
+                  if (minval(r(k, 1:natoms, 1)) < -5.0 .or. maxval(r(k, 1:natoms, 1)) > 125) then
+                     write(*,'("*** Warning: some particles have coodinates outside of the box along direction ",i0," !")') k
+                     print *, minval(r(k, 1:natoms, 1)), maxval(r(k, 1:natoms, 1)), pwall, pwallp, -5.0, 125.0
+                  endif
+               endif
+               if (minval(r(idir, 1:natoms, 1)) < pwall) then
+                  write(*,'(///"*** Error: some particles have coodinates ",f8.2," left of  ",f8.2," !")') minval(r(idir, 1:natoms, 1)), pwall
                   stop(" Out of box coordinates detected, check your trajectory file and input parameters, or equilibration !")
                endif
-               if (maxval(r(k, 1:natoms, 1)) > pwallp) then
-                  write(*,'(///"*** Error: some particles have coodinates ",f8.2," right of ",f8.2," !")') maxval(r(k, 1:natoms, 1)), pwallp
+               if (maxval(r(idir, 1:natoms, 1)) > pwallp) then
+                  write(*,'(///"*** Error: some particles have coodinates ",f8.2," right of ",f8.2," !")') maxval(r(idir, 1:natoms, 1)), pwallp
                   stop(" Out of box coordinates detected, check your trajectory file and input parameters, or equilibration !")
                endif
             end if
