@@ -331,12 +331,18 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
                      endif
                   endif
                endif
-               if (minval(r(k, 1:natoms, 1)) < pwall) then
-                  write(*,'(///"*** Error: some particles have coodinates ",f8.2," left of  ",f8.2," !")') minval(r(k, 1:natoms, 1)), pwall
+               if (idir == k) then
+                  if (minval(r(k, 1:natoms, 1)) < -5.0 .or. maxval(r(k, 1:natoms, 1)) > 125) then
+                     write(*,'("*** Warning: some particles have coodinates outside of the box along direction ",i0," !")') k
+                     print *, minval(r(k, 1:natoms, 1)), maxval(r(k, 1:natoms, 1)), pwall, pwallp, -5.0, 125.0
+                  endif
+               endif
+               if (minval(r(idir, 1:natoms, 1)) < pwall) then
+                  write(*,'(///"*** Error: some particles have coodinates ",f8.2," left of  ",f8.2," !")') minval(r(idir, 1:natoms, 1)), pwall
                   stop(" Out of box coordinates detected, check your trajectory file and input parameters, or equilibration !")
                endif
-               if (maxval(r(k, 1:natoms, 1)) > pwallp) then
-                  write(*,'(///"*** Error: some particles have coodinates ",f8.2," right of ",f8.2," !")') maxval(r(k, 1:natoms, 1)), pwallp
+               if (maxval(r(idir, 1:natoms, 1)) > pwallp) then
+                  write(*,'(///"*** Error: some particles have coodinates ",f8.2," right of ",f8.2," !")') maxval(r(idir, 1:natoms, 1)), pwallp
                   stop(" Out of box coordinates detected, check your trajectory file and input parameters, or equilibration !")
                endif
             end if

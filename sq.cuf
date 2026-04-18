@@ -79,10 +79,11 @@ contains
                write(*,*) " *** Error: S(Q) calculation using directional sampling in 2D (x and y) not implemented ***"
                stop
             endif
-             call sqf3xy<<<tBlock, grid>>>(Nmol, ndim, ntype_d, bsc_d, fk_d, sqfxy_d, sqfpxy_d,&
-             & nsp, nqmax, qmin2, dq, nslice, zgrid, zsliced, countpslice_d, countsliced)
-             call sqf2xy<<<nqmax/nthread + 1, nthread>>>(Nmol, ndim, ntype_d, bsc_d, fk_d, sqfxy_d, sqfpxy_d,&
-             & nsp, nqmax, nqmin + 1, nslice, zgrid, zsliced, countpslice_d, countsliced)
+             call sqf3xy<<<tBlock, grid>>>(Nmol, ndim, ntype_d, bsc_d, fk_d, &
+             & nsp, nqmax, qmin2, dq, nslice, zgrid, zsliced)
+               ! For large q, use directional sampling for computational efficiency
+             call sqf2xy<<<nqmax/nthread + 1, nthread>>>(Nmol, ndim, ntype_d, bsc_d, fk_d,& 
+             & nsp, nqmax, nqmin + 1, nslice, zgrid, zsliced)
          endif
          ierrSync = cudaGetLastError()
          if (ierrSync /= cudaSuccess) write(*,*) &
@@ -97,7 +98,7 @@ contains
                call sqfact<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqf_d, &
                sqfp_d, nsp, nqmax, nqmin)
             else
-               call sqf2xy<<<nqmax/nthread + 1, nthread>>>(r_d, Nmol, ndim, itype_d, ntype_d, bsc_d, ipos_d, fk_d, sqfxy_d, sqfpxy_d,&
+               call sqf2xy<<<nqmax/nthread + 1, nthread>>>(Nmol, ndim, ntype_d, bsc_d, fk_d, &
                & nsp, nqmax, nqmin + 1, nslice, zgrid, zsliced)
             end if
          else
@@ -172,8 +173,7 @@ contains
       if (twoDstruc_3D) then
          allocate(sqfxy(nqmax,nslice), sqfpxy(nqmax,nsp, nslice))
          allocate(sqfxy_d(nqmax,nslice), sqfpxy_d(nqmax,nsp,nslice))
-         if (not.allocated(zsliced)) allocate(zsliced(nslice)
-         if (not.allocated(countpslice_d)) allocate(countpslice_d(nsp,nslice))
+         if (.not.allocated(zsliced)) allocate(zsliced(nslice))
       else
          Allocate (sqf_d(nqmax), sqfp_d(nqmax, nsp))
       endif
@@ -494,18 +494,16 @@ end if
 end subroutine sqfnD
 
 
-attributes(global) subroutine sqf3xy(Nmol, dim, ntype, bsc, fk, sqf, sqfp, nsp, kmax, q2max, dq, nslice, zgrid, zslice, count, countp)
-integer, intent(IN) :: ntype(nsp), countp(nsp, nslice), count(nslice)
+attributes(global) subroutine sqf3xy(Nmol, dim, ntype, bsc, fk, nsp, kmax, q2max, dq, nslice, zgrid, zslice)
+integer, intent(IN) :: ntype(nsp)
 integer, value, intent(IN) :: Nmol, dim, nsp, kmax, nslice
-real, dimension(dim, Nmol), intent(IN) :: r_d
 real(kind=4), intent(IN) :: bsc(nsp)
-real(kind=4), intent(INOUT) :: sqf(kmax,nslice), sqfp(kmax, nsp, nslice)
 real(kind=4) :: rkxyz, fk1, fk2, fk3, kf1, kf2, kf3,  q, suma(nslice), tsum(nslice)
 real(kind=8) :: sumcx(nslice), sumsx(nslice), sumcpx(nslice), sumspx(nslice), q2, bs
 real(kind=4), intent(IN) :: fk(dim), zslice(nslice)
-real(kind=4), value, intent(IN) ::  dq, q2max, zgrid 
+real(kind=4), value, intent(IN) ::  dq, q2max, zgrid
 real(kind=4) :: z
-integer :: i, j, it, kx, ky, kz, ind, ia, islice
+integer :: i, j, it, kx, ky, kz, ind, ia, islice, count, countsp 
 kx = (blockidx%x - 1)*blockdim%x + threadidx%x - 1
 ky = (blockidx%y - 1)*blockdim%y + threadidx%y - 1
 fk1 = fk(1)
@@ -530,6 +528,7 @@ if (q2 > 0.0 .and. q2 <= q2max) then
          z = r_d(3, i)
          islice = minloc(abs(zslice - z),dim=1)   
          if (abs(zslice(islice) - z) <= zgrid/2.0) then
+            ! to be modified
             count = count + 1
             countsp = countsp + 1
             rkxyz = r_d(2, i)*kf2+r_d(1, i)*kf1
@@ -542,25 +541,23 @@ if (q2 > 0.0 .and. q2 <= q2max) then
       if (countsp>0) suma(:) = (sumcpx(:)**2 + sumspx(:)**2)/countsp
       if (ind<=kmax) then
          do islice = 1, nslice
-            ia = atomicadd(sqfp(ind, j, islice), suma(islice))
+            ia = atomicadd(sqfpxy_d(ind, j, islice), suma(islice))
          end do
       endif
    end do
    tsum(:) = (sumcx(:)**2 + sumsx(:)**2)/count
    if (ind<=kmax) then
       do islice = 1, nslice
-         ia = atomicadd(sqf(ind, islice), tsum(islice))
+         ia = atomicadd(sqfxy_d(ind, islice), tsum(islice))
       end do
    endif
 end if
 end subroutine sqf3xy
 
-attributes(global) subroutine sqf2xy(r_d, Nmol, dim, itype, ntype, bsc, ipos, fk, sqf, sqfp, nsp, kmax, minPts, nslice, zgrid, zslice)
+attributes(global) subroutine sqf2xy(Nmol, dim, ntype, bsc, fk, nsp, kmax, minPts, nslice, zgrid, zslice)
 integer, value, intent(IN) :: Nmol, dim, nsp, kmax, minPts, nslice
-integer, intent(IN) :: itype(Nmol), ntype(nsp), ipos(nsp, Nmol)
-real, dimension(2, Nmol), intent(IN) :: r_d
+integer, intent(IN) :: ntype(nsp)
 real, intent(in), value :: zgrid
-real(kind=4), intent(INOUT) :: sqf(kmax, nslice), sqfp(kmax, nsp, nslice)
 real(kind=4), intent(IN) ::bsc(nsp), zslice(nslice)
 real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, suma(nslice), bs, z
 real(kind=8) :: sumcx(nslice), sumsx(nslice), sumcy(nslice), sumsy(nslice), sumcpx(nslice), sumspx(nslice), sumcpy(nslice), sumspy(nslice)
@@ -588,7 +585,7 @@ if (k .le. kmax .and. k .ge. minPts) then
       do it = 1, ntype(j)
          i = i + 1
          z = r_d(3, i)
-         islice = minloc(abs(zslice - z),dim=1)   
+         islice = minloc(abs(zslice(:) - z),dim=1)   
          if (abs(zslice(islice) - z) <= zgrid/2.0) then
             count = count + 1
             countsp = countsp + 1
@@ -607,11 +604,11 @@ if (k .le. kmax .and. k .ge. minPts) then
       if (countsp>0) suma(:) = (sumcpx(:)**2 + sumspx(:)**2 + sumcpy(:)**2 + sumspy(:)**2)/countsp
       if (ind<=kmax) then
          do islice = 1, nslice
-            ia = atomicadd(sqfp(k, j, islice), suma(islice))
+            ia = atomicadd(sqfpxy_d(k, j, islice), suma(islice))
          end do
       endif
    end do
-   sqf(k,:) = sqf(k,:) + (sumcx(:)**2 + sumsx(:)**2 + sumcy(:)**2 + sumsy(:)**2)/count
+   sqfxy_d(k,:) = sqfxy_d(k,:) + (sumcx(:)**2 + sumsx(:)**2 + sumcy(:)**2 + sumsy(:)**2)/count
 end if
 end subroutine sqf2xy
 

@@ -220,7 +220,7 @@ program trj_analysis
         if (ex_vel) call thermo_kin(i, ndim)
 
         ! Compute density profile along idir direction
-        if (confined) call profile_comp(nthread, ndim, idir, pwall, deltar)
+        if (confined) call profile_comp(ndim, idir, pwall, deltar)
   
         ! Compute potential energy
         if (run_thermo) call poteng(i, natoms)
