@@ -72,12 +72,12 @@ module mod_common
    real(myprec), dimension(3, 3) :: cell
    real(myprec), allocatable, dimension(:) :: masa, bscat, sig2n, gaver, u_p, zslice, gtot
    real(myprec), allocatable, dimension(:,:,:) :: gmix_xy
-   real(kind=8), allocatable, dimension(:) :: gi, g2i, gii, g2ii, qcharge
-   real(myprec), device, allocatable, dimension(:) :: sqf_d, sqfcl_d, bsc_d, zsliced
-   real(myprec), allocatable, dimension(:, :) :: r, vel, force, densprof, gtotxy
+   real(kind=8), allocatable, dimension(:) :: gi, g2i, gii, g2ii, qcharge, gcc, gpp, gmm, scc, spp, smm
+   real(myprec), device, allocatable, dimension(:) :: sqf_d, sqfcl_d, bsc_d, zsliced, gcc_d, gpp_d, gmm_d, scc_c, spp_d, smm_d
+   real(myprec), allocatable, dimension(:, :) :: r, vel, force, densprof, gtotxy, gccxy, gppxy, gmmxy
    real(double), allocatable, dimension(:) :: qdensprof, dqminus, dqplus
    real(double),allocatable, dimension(:, :) :: stress
-   real, device, allocatable, dimension(:, :) :: r_d, v_d, rclxyzd, sqfp_d, sqfxy_d
+   real, device, allocatable, dimension(:, :) :: r_d, v_d, rclxyzd, sqfp_d, sqfxy_d, gccxy_d, gppxy_d, gmmxy_d
    real, device, allocatable, dimension(:,:,:) :: sqfpxy_d
    logical, allocatable, dimension(:) :: bigcl
    logical,  device, allocatable, dimension(:) :: bigcl_d
