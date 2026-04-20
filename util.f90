@@ -77,11 +77,6 @@ contains
       ! Print GPU properties
       call printDevPropShort(gpu_properties, gpudevice,6)
       call printDevPropShort(gpu_properties, gpudevice,io_log_file)
-      ! Check that maximum number of threads is not surpassed
-      if (nthread > maxthread/8) then
-         nthread = maxthread/8
-         write(*,'(" !! *** Warning: number of threads reset to",I3)')nthread
-      endif
    end subroutine gpu_and_header
 
    

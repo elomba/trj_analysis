@@ -344,15 +344,15 @@ contains
          ! express tstep in ps for better readability in log output
          tstep = factor*0.001
          kelvinfactor = kelvintokcal
-         write(*,'(" *** Time units in fs: assuming real units !!")')
+         write(*,'(/" *** Time units in fs: assuming real units !!")')
       else if (units == 'picosecond') then
          tuniti = 1.0d-12
          ! tstep comes in ps, so no need to convert, but print it for log readability
          tstep = factor
          kelvinfactor = kelvintoeV
-         write(*,'(" *** Time units in ps: assuming metal units !!")')
+         write(*,'(/" *** Time units in ps: assuming metal units !!")')
       else if (units == 'lj') then
-         write(*,'(" *** Time units in LJ: assuming reduced units !!")')
+         write(*,'(/" *** Time units in LJ: assuming reduced units !!")')
          tuniti = 1.0d-12
          tstep = factor
       else

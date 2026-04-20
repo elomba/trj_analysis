@@ -48,7 +48,7 @@ module mod_input
    !
    ! nthread : number of threads for CUDA kernels is preset to 64 by default, beware of larger values for big systems
    !
-   integer :: nthread=128, ndim, minPts,  idir=0, nsp, nbuffer=2, potnbins=100, nqw=0, &
+   integer :: nthread=64, ndim, minPts,  idir=0, nsp, nbuffer=2, potnbins=100, nqw=0, &
             & jump=1, norder=1, nnbond=0, cl_thresh=10, nprint=10
    logical :: use_cell = .true., run_order = .false., print_orderp=.false., &
                geometry=.true.
@@ -97,7 +97,7 @@ contains
       ! Read species-specific parameters
       read (unit=io_input_file, nml=INPUT_SP)
       !
-     
+      print *, ' nthread = ', nthread
       ! Check existence of trajectory file
       inquire (file=trj_input_file, exist=trj_file_exists)
       if (.not. trj_file_exists) then

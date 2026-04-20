@@ -211,7 +211,7 @@ program trj_analysis
         if (run_clusters) call cluster_search()
         
         ! Compute SQ
-        !if (run_sq) call SQcalc()
+        if (run_sq) call SQcalc()
          
         ! Compute cluster properties
         if (run_clusters) call cluster_analysis(i)

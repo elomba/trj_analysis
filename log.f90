@@ -326,32 +326,31 @@ contains
       character(len=128) :: fname99
       baver = sum(ntype(1:nsp)*bsc(1:nsp))/Nmol
       b2aver = sum(ntype(1:nsp)*bsc(1:nsp)**2)/Nmol
-      sqf(:) = sqf(:)/baver**2
+      if (.not.twoDstruc_3D) sqf(:) = sqf(:)/baver**2
       do i = 1, nsp
          if (abs(bsc(i)-1.0) > 1.0e-4) bsc_one=.false.
       enddo
-      open (100, file='sq.dat')
-      open (110, file='sqmix.dat')
-      if (idir>0) then
+      if (twoDstruc_3D) then
          open (120, file='sqxy.dat')
-         write (120, "('#     Q        ',9x,16('S_xy(Q,',f8.3,')',8x:))") zslice(1:nslice)
+         write (120, "('#     Q        ',3x,16('S_xy(Q,',f7.2,')',3x:))") zslice(1:nslice)
          do j=1, nsp
             write(fname99,'("sqpxy_",i1,"-",i1,".dat")') j, j
-            open (130+j, file=trim(adjustl(fname99))//'.dat')
-            write (130+j, "('#     Q        ',9x,16('S_xy(Q,',f8.3,')',8x:))") zslice(1:nslice)
+            open (130+j, file=trim(adjustl(fname99)))
+            write (130+j, "('#     Q        ',3x,16('S_xy(Q,',f7.2,')',3x:))") zslice(1:nslice)
          end do
-      end if
-      if (nsp == 2 .and. bsc_one) then
-         x1 = (real(ntype(1))/real(Nmol))
-         x2 = (real(ntype(2))/real(Nmol))
-         write (100, "('#           Q        S_NN(Q)          S_cc(Q)       S_11(Q)        S_22(Q)           S_12(Q)         n(Q)')")
       else
-         write (100, "('#           Q       S_NN(Q)          n(Q)')")
+         open (100, file='sq.dat')
+         open (110, file='sqmix.dat')
+         if (nsp == 2 .and. bsc_one) then
+            x1 = (real(ntype(1))/real(Nmol))
+            x2 = (real(ntype(2))/real(Nmol))
+            write (100, "('#           Q        S_NN(Q)          S_cc(Q)       S_11(Q)        S_22(Q)           S_12(Q)         n(Q)')")
+         else
+            write (100, "('#           Q       S_NN(Q)          n(Q)')")
+         end if
+         write (110, "('#       Q',14x,15('S_',2i1,'(Q)',9x:))") ((j, j), j=1, nsp)
       end if
-      write (110, "('#       Q',14x,15('S_',2i1,'(Q)',9x:))") ((j, j), j=1, nsp)
       do i = 1, nqmax
-         if (i*dq <= qmin .or. dq > 0.2) then
-            ! For small q, print all data points. For larger q, print every 3rd point to reduce file size and noise.
             if (twoDstruc_3D) then
                ! Compute 2D structure factor in xy plane for 3D systems with confinement
                write (120, '(15f16.7)') i*dq, sqfxy(i, 1:nslice)/(Nconf*real(nq(i)))
@@ -375,44 +374,15 @@ contains
                write (110, '(15f16.7)') i*dq, (sqfp(i, j)/(ntype(j)*Nconf&
                &*real(nq(i))), j=1, nsp)
             endif
-         end if
       end do
-      if (dq <= 0.2) then
-         do i = nint(qmin/dq) + 1, nqmax - 2, 3
-            if (twoDstruc_3D) then
-               ! Compute 2D structure factor in xy plane for 3D systems with confinement, using 5-point moving average to reduce noise
-               write (120, '(15f16.7)') i*dq, (sum(sqfxy(i - 2:i + 2,j),dim=1)/(Nconf&
-               &*real(5*nq(i))), j=1, nslice)
-               do j=1, nsp
-                  write (130+j, '(15f16.7)') i*dq, sum(sqfpxy(i - 2:i + 2, j, 1:nslice),dim=1)/(Nconf&
-                  &*real(5*nq(i)))
-               end do
-            else
-               ! Compute partial structure factors and concentration-concentration
-               ! structure factor for binary mixtures with bsc=1,
-               ! using 5-point moving average to reduce noise
-               if (nsp == 2 .and. bsc_one) then
-                  s11 = x1*sum(sqfp(i - 2:i + 2, 1)/(ntype(1)*Nconf*real(nq(i - 2:i + 2))))/5
-                  s22 = x2*sum(sqfp(i - 2:i + 2, 2)/(ntype(2)*Nconf*real(nq(i - 2:i + 2))))/5
-                  s12 = 0.5*(sum(sqf(i - 2:i + 2)/(Nmol*Nconf*real(nq(i - 2:i + 2))))/5 - s11 - s22)
-                  scc = x2**2*s11 + x1**2*s22 - 2*x1*x2*s12
-                  write (100, '(6f15.7,i12)') i*dq, sum(sqf(i - 2:i + 2)/(Nmol*Nconf*real(nq(i - 2:i + 2))))/5&
-                  &, scc, s11, s22, s12, nq(i)
-               else
-                  write (100, '(2f15.7,i12)') i*dq, sum(sqf(i - 2:i + 2)/(Nmol*Nconf*real(nq(i - 2:i + 2))))/5, nq(i)
-               end if
-               write (110, '(15f16.7)') i*dq, (sum(sqfp(i - 2:i + 2, j)/(ntype(j)*Nconf&
-               &*real(nq(i - 2:i + 2))))/5, j=1, nsp)
-            endif
-         end do
-      end if
-      close (100)
-      close (110)
-      if (idir>0) then
+      if (twoDstruc_3D) then
          close (120)
          do j=1, nsp
             close (130+j)
          end do
+      else
+         close (100)
+         close (110)
       end if
    end subroutine printSQ
 
@@ -431,8 +401,8 @@ contains
          do i=1, nsp
             do j=i, nsp
                write(fname99,'("gxy_",i1,"-",i1,".dat")') i,j
-               open (130+count, file=trim(adjustl(fname99))//'.dat')
-               write (130+count, "('#     r        ',3x,16('g_xy(r,',f8.3,')',8x:))") zslice(1:nslice)
+               open (130+count, file=trim(adjustl(fname99)))
+               write (130+count, "('#     r        ',3x,16('g_xy(r,',f7.2,')',3x:))") zslice(1:nslice)
                count = count + 1
             end do
          end do  
