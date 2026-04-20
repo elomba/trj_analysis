@@ -71,9 +71,20 @@ contains
          Allocate (histomix_xyi(lsmax, nit, nslice))
          allocate(zsliced(nslice),countsliced(nslice),countpslice_d(nsp,nslice))
          zsliced(:) = zslice(:)
+         if (ex_qc) then
+            Allocate(gccxy(lsmax, nslice), gppxy(lsmax, nslice), gmmxy(lsmax, nslice),gmix_cc_xy(nslice))
+            gccxy(:,:) = 0
+            gppxy(:,:) = 0
+            gmmxy(:,:) = 0
+            Allocate(gccxy_d(lsmax, nslice), gppxy_d(lsmax, nslice), gmmxy_d(lsmax, nslice))
+         endif
       else
          Allocate (histomix(lsmax, nsp, nsp), gtot(0:lsmax), histomixi(nbcuda*lsmax, nit))
          Allocate (histomix_d(nbcuda*lsmax, nit))
+         if (ex_qc) then
+            Allocate(gcc(lsmax), gpp(lsmax), gmm(lsmax))
+            Allocate(gcc_d(lsmax), gpp_d(lsmax), gmm_d(lsmax)) 
+         endif
       end if
       dim_hist = nbcuda*lsmax
       ! Allocate arrays for number fluctuation analysis if requested
@@ -120,11 +131,27 @@ contains
          if (allocated(zslice)) deallocate (zslice)
          if (allocated(countslice)) deallocate (countslice)
          if (allocated(countslice)) deallocate (countslice)
+         if (ex_qc) then
+            if (allocated(gccxy)) deallocate (gccxy)
+            if (allocated(gccxy_d)) deallocate (gccxy_d)
+            if (allocated(gppxy)) deallocate (gppxy)
+            if (allocated(gppxy_d)) deallocate (gppxy_d)
+            if (allocated(gmmxy)) deallocate (gmmxy)
+            if (allocated(gmmxy_d)) deallocate (gmmxy_d)
+         endif 
       else
          if(allocated(histomix)) deallocate (histomix)
          if(allocated(gtot)) deallocate (gtot)
          if(allocated(histomixi)) deallocate (histomixi)
          if(allocated(histomix_d)) deallocate (histomix_d)
+         if (ex_qc) then
+            if(allocated(gcc)) deallocate (gcc)
+            if(allocated(gcc_d)) deallocate (gcc_d)
+            if(allocated(gpp)) deallocate (gpp)
+            if(allocated(gpp_d)) deallocate (gpp_d)
+            if(allocated(gmm)) deallocate (gmm)
+            if(allocated(gmm_d)) deallocate (gmm_d)
+         endif
       end if
       if (nrandom>0) then
          if(allocated(gii)) deallocate (gii)
@@ -156,7 +183,7 @@ contains
       integer, intent(IN) :: Nmol, Iconf, nbcuda, nthread
       character(len=20), intent(IN) :: units
       integer :: istart, i, ind, k, j, l, istat=0, ierrSync, rdfb, rdfth, islice
-      real :: time_gpu, suma, deltaV, ri
+      real :: time_gpu, suma, deltaV, ri, avq2
       ! Initialize histograms to zero for this configuration
       if (allocated(histomix_d)) histomix_d(:, :) = 0
       if (allocated(histomix_xy_d)) histomix_xy_d(:, :, :) = 0
@@ -187,14 +214,19 @@ contains
             zsliced(:) = zslice(:)
             countsliced(:) = 0
             countpslice_d(:,:) = 0
-            call rdfxy<<<rdfb, rdfth>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced, countpslice_d)
+            if (ex_qc) then 
+               gccxy_d(:,:) = 0
+               avq2 = sum(qcharge(:)**2)/real(Nmol)
+               qcharge_d(:) = qcharge(:)
+            endif
+            call rdfxy<<<rdfb, rdfth>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced, countpslice_d, ex_qc)
            
             call printcudaerror(" *** Warning: 3D rdfxy GPU kernel exit with errors: reduce nthread",istat)
             countslice(:) = countsliced(:)
             countpslice(:,:) = countpslice_d(:,:)
          else
             ! Note: for 3D RDF, we use a single histogram array that accumulates contributions from all blocks, so we can directly copy it to host after the kernel execution
-            call rdf_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar )
+            call rdf_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, ex_qc)
             call printcudaerror(" *** Warning: 3D rdf_sh GPU kernel exit with errors: reduce nthread",istat)
             if (istat /= 0) stop(" *** Fatal error in rdf_sh kernel!!")
             ! Sampling fluctuations in particle number for hyperuniformity analysis (if nrandom > 0)
@@ -203,7 +235,7 @@ contains
          endif
       else
          ! 2D RDF calculation
-         call rdf2_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar )
+         call rdf2_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar ,ex_qc)
          call printcudaerror(" *** Warning: 2D rdf2_sh GPU kernel exit with errors: reduce nthread", istat)
          if (istat /= 0) stop(" *** Fatal error in rdf2_sh kernel!!")
          if (nrandom>0) call s2D2_sh<<<nrandom,nthread,(lsmax+1)*4>>>(r_d, Nmol, ndim, gii_d, g2ii_d, lsmax &
@@ -216,6 +248,11 @@ contains
       ! Block histograms back from device to host
       if (twoDstruc_3D) then
          histomix_xyi(:, :, :) = histomix_xy_d(:, :, :)
+         if (ex_qc) then
+            do islice=1, nslice
+               gccxy(:, islice) = gccxy_d(:, islice)/(countslice(islice)**2*avq2)+gccxy(:, islice)
+            end do
+         endif
       else
          ! For 3D RDF, histomix_d contains the sum of all histograms from each block, so we can directly copy it to host
          histomixi(:, :) = histomix_d(:, :)
@@ -366,17 +403,18 @@ contains
       end do
    end subroutine rdfclcl2
 
-   attributes(global) subroutine rdf_sh(Nmol, dim, nit, nsp, lsmax, side2, sidel, deltar )
+   attributes(global) subroutine rdf_sh(Nmol, dim, nit, nsp, lsmax, side2, sidel, deltar,ex_qc )
    use curand_device
    !
    ! Mossively parallel rdf calculation using shared memory
    !
    integer, value, intent(IN) :: Nmol, dim, nit, lsmax,  nsp
    integer i, j, ind, ia, fact, iti, itj, istart, ij, ix
-   real ::  rr2, rr, xi, yi, zi, xd, yd, zd, xrd1, xrd2, xrd3
+   real ::  rr2, rr, xi, yi, zi, xd, yd, zd, xrd1, xrd2, xrd3, qci, qcj
    real, dimension(3) :: rv
    real, value, intent(IN) :: side2, deltar
    real, intent(IN) :: sidel(3)
+   logical, value, intent(IN) :: ex_qc
    ! Assumed size histogram (memory size must be assigned in the kernel call)
    integer, shared :: histomix_s(lsmax, nit)
    i = (blockidx%x - 1)*blockdim%x + threadidx%x
@@ -384,6 +422,9 @@ contains
 
    if (i <= Nmol) then
       iti = itype_d(i)
+      if (ex_qc) then
+         qci = qcharge_d(i)
+      end if
       xi = r_d(1, i)
       yi = r_d(2, i)
       zi = r_d(3, i)
@@ -400,16 +441,17 @@ contains
             rr = __fsqrt_rn(rr2)
             ind = Nint(rr/deltar)
             if (ind <= lsmax .and. ind > 0) then
-            !
-            ! Use shared memory histogram to speed calculations
-            !
-            ij = ind_ij(iti, itj, nsp)
-            if (ij > nit) Then
-               print *, " Error: wrong index in rdf_sh kernel ", ij, nit, iti, itj
+               !
+               ! Use shared memory histogram to speed calculations
+               !
+               ij = ind_ij(iti, itj, nsp)
+               ia = atomicadd(histomix_s(ind, ij), 1)
+               if (ex_qc) then
+                  qcj = qcharge_d(j)
+                  ia = atomicadd(gcc_d(ind), qci*qcj)
+               endif
             end if
-            ia = atomicadd(histomix_s(ind, ij), 1)
-         endif
-         end if
+         endif 
       End do
       call syncthreads()
       if (threadidx%x == 1) then
@@ -418,9 +460,6 @@ contains
          ! Store each block's shared memory histogram on different positions
          ! in global memory
          !
-         if (istart + lsmax > dim_hist) then
-            print *, " Error: wrong index in rdf_sh kernel storing histograms ", istart, lsmax
-         end if
          histomix_d(istart + 1:istart + lsmax, :) = histomix_s(1:lsmax, :) + histomix_d(istart + 1:istart + lsmax, :)
       end if
    end if
@@ -555,13 +594,14 @@ end if
 
 end subroutine s2D2_sh
 
-attributes(global) subroutine rdf2_sh(Nmol, dim, nit, nsp, lsmax, side2, sidel, deltar ) 
+attributes(global) subroutine rdf2_sh(Nmol, dim, nit, nsp, lsmax, side2, sidel, deltar, ex_qc ) 
 !
 ! Masively parallel rdf calculation using shared memory (2D)
 !
 integer, value, intent(IN) :: Nmol, dim, nit, lsmax, nsp
+logical, value, intent(IN) :: ex_qc
 integer i, j, ind, ia, fact, iti, itj, istart, ij
-real ::  rr2, rr, xi, yi, zi, xd, yd, zd
+real ::  rr2, rr, xi, yi, zi, xd, yd, zd, qci, qcj
 real, dimension(3) :: rv
 real, value, intent(IN) :: side2, deltar
 real, intent(IN) :: sidel(3)
@@ -571,6 +611,9 @@ histomix_s(:, :) = 0
 i = (blockidx%x - 1)*blockdim%x + threadidx%x
 if (i <= Nmol - 1) then
    iti = itype_d(i)
+   if (ex_qc) then
+      qci = qcharge_d(i)
+   end if
    xi = r_d(1, i)
    yi = r_d(2, i)
    Do j = i + 1, Nmol
@@ -588,6 +631,10 @@ if (i <= Nmol - 1) then
          ! Use atomics over shared memory to minimize collisions
          !
          ia = atomicadd(histomix_s(ind, ij), 1)
+         if (ex_qc) then
+            qcj = qcharge_d(j)
+            ia = atomicadd(gcc_d(ind), qci*qcj)
+         endif
       end if
    End do
    call syncthreads()
@@ -602,7 +649,7 @@ if (i <= Nmol - 1) then
 end if
 end subroutine rdf2_sh
 
-attributes(global) subroutine rdfxy(Nmol, dim, nit, nsp, lsmax, side2, sidel, deltar, nslice, zgrid, zslice, count, countp)
+attributes(global) subroutine rdfxy(Nmol, dim, nit, nsp, lsmax, side2, sidel, deltar, nslice, zgrid, zslice, count, countp, ex_qc)
 
 !
 ! Masively parallel rdf calculation using shared memory (2D)
@@ -610,11 +657,12 @@ attributes(global) subroutine rdfxy(Nmol, dim, nit, nsp, lsmax, side2, sidel, de
 integer, value, intent(IN) :: Nmol, dim, nit, lsmax, nsp
 integer, intent(IN), value :: nslice
 integer i, j, ind, ia, fact, iti, itj, istart, ij, islice, jslice 
-real ::  rr2, rr, xi, yi, zi, xd, yd, zj
+real ::  rr2, rr, xi, yi, zi, xd, yd, zj, qci, qcj
 real, dimension(3) :: rv
 real, value, intent(IN) :: side2, deltar, zgrid 
 real, intent(IN) :: sidel(3), zslice(nslice)
 integer, intent(INOUT) :: count(nslice), countp(nsp,nslice)
+logical, value, intent(IN) :: ex_qc
 ! Assumed size histogram (memory size must be assigned in the kernel call)
 i = (blockidx%x - 1)*blockdim%x + threadidx%x
 if (i <= Nmol - 1) then
@@ -627,6 +675,8 @@ if (i <= Nmol - 1) then
    end if     
    if (abs(zslice(islice) - zi) <= zgrid/2.0) then
       iti = itype_d(i)
+      if(ex_qc) qci = qcharge_d(i)
+       !
       ! Count number of particles in each slice to normalize later
       ia = atomicadd(count(islice), 1)
       ia = atomicadd(countp(iti,islice), 1)
@@ -648,13 +698,17 @@ if (i <= Nmol - 1) then
             If (rr2 .Lt. side2) Then
                itj = itype_d(j)
                rr = __fsqrt_rn(rr2)
-               ind = Nint(rr/deltar)
+               ind = int(rr/deltar)+1
                ij = ind_ij(iti, itj, nsp)
                 !
                 ! Use atomics 
                 !
                if (ind <= lsmax .and. ind > 0) then
                   ia = atomicadd(histomix_xy_d(ind, ij, islice), 1)
+                  if (ex_qc) then
+                     qcj = qcharge_d(j)
+                     ia = atomicadd(gccxy_d(ind,islice), qci*qcj)
+                  endif
                end if
             end if
          endif 

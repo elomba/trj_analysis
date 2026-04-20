@@ -406,6 +406,10 @@ contains
                count = count + 1
             end do
          end do  
+         if (ex_qc) then 
+            open (240, file='gxy_cc.dat')
+            write (240, "('#     r        ',3x,16('g_xy_cc(r,',f7.2,')',4x:))") zslice(1:nslice)
+         endif 
       else
          if (nsp<=6) then
             fname99 = 'gmixsim.dat'
@@ -463,12 +467,19 @@ contains
                   ! Compute 2D rdf in xy plane for 3D systems with confinement, using appropriate normalization for cylindrical shells and accounting for slice thickness
                   gmix_xy(j,l,:) = (j/l + 1)*volumen*(zgrid/sidel(3))*histomix_xy(i, j, l,:)/(deltaV*Nconf)
                   gmix_xy(l,j,:) = gmix_xy(j,l,:)
+ 
                else
                   gmix(j, l) = (j/l + 1)*volumen*histomix(i, j, l)/(deltaV*ntype(l)*ntype(j)*Nconf)
                   gmix(l,j) = gmix(j,l)
                endif 
             End Do
          End Do
+         if (twoDstruc_3D) then
+            if (ex_qc) then
+               ! Compute 2D concentration-concentration rdf in xy plane for 3D systems with confinement, using appropriate normalization for cylindrical shells and accounting for slice thickness
+               gmix_cc_xy(:) = volumen*(zgrid/sidel(3))*gccxy(i,:)/(deltaV*Nconf)
+            endif
+         endif
          ! Print number fluctuations to check for hyperuniformity, if requested
          if (nrandom>0) then
             if (i<lsmax) then
@@ -498,6 +509,9 @@ contains
                   iunit = iunit + 1
                   end do
                end do 
+               if (ex_qc) then
+                  write (240, '(15f16.7)') ri, (gmix_cc_xy(1:nslice))
+               endif
             else
                if (nsp <= 6) then
                   Write (99, '(16f16.5)') ri,  (gmix(j, j:nsp), j=1, nsp)
@@ -518,6 +532,7 @@ contains
                count = count + 1
             end do
          end do
+         if (ex_qc) close(240)
       else
          if (nsp<=6) then
             close (99)
