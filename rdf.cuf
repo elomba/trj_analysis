@@ -84,6 +84,12 @@ contains
          if (ex_qc) then
             Allocate(gqq(lsmax), gpp(lsmax), gmm(lsmax))
             Allocate(gqq_d(lsmax), gpp_d(lsmax), gmm_d(lsmax)) 
+            gqq(:) = 0
+            gpp(:) = 0
+            gmm(:) = 0
+            gqq_d(:) = 0
+            gpp_d(:) = 0
+            gmm_d(:) = 0
          endif
       end if
       dim_hist = nbcuda*lsmax
@@ -226,6 +232,10 @@ contains
             countslice(:) = countsliced(:)
             countpslice(:,:) = countpslice_d(:,:)
          else
+            if (ex_qc) then
+               gqq_d(:) = 0
+               qcharge_d(:) = qcharge(:)
+            endif
             ! Note: for 3D RDF, we use a single histogram array that accumulates contributions from all blocks, so we can directly copy it to host after the kernel execution
             call rdf_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, ex_qc)
             call printcudaerror(" *** Warning: 3D rdf_sh GPU kernel exit with errors: reduce nthread",istat)
