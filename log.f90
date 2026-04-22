@@ -333,6 +333,10 @@ contains
       if (twoDstruc_3D) then
          open (120, file='sqxy.dat')
          write (120, "('#     Q        ',3x,16('S_xy(Q,',f7.2,')',3x:))") zslice(1:nslice)
+         if (ex_qc) then
+            open (240, file='sqxy_qq.dat')
+            write (240, "('#     Q        ',3x,16('S_xy_qq(Q,',f7.2,')',3x:))") zslice(1:nslice)
+         endif
          do j=1, nsp
             write(fname99,'("sqpxy_",i1,"-",i1,".dat")') j, j
             open (130+j, file=trim(adjustl(fname99)))
@@ -344,9 +348,17 @@ contains
          if (nsp == 2 .and. bsc_one) then
             x1 = (real(ntype(1))/real(Nmol))
             x2 = (real(ntype(2))/real(Nmol))
-            write (100, "('#           Q        S_NN(Q)          S_cc(Q)       S_11(Q)        S_22(Q)           S_12(Q)         n(Q)')")
+            if (ex_qc) then
+               write (100, "('#           Q        S_NN(Q)          S_qq(Q)          S_cc(Q)       S_11(Q)        S_22(Q)           S_12(Q)         n(Q)')")
+            else
+               write (100, "('#           Q        S_NN(Q)          S_cc(Q)       S_11(Q)        S_22(Q)           S_12(Q)         n(Q)')")
+            endif
          else
-            write (100, "('#           Q       S_NN(Q)          n(Q)')")
+            if (ex_qc) then
+               write (100, "('#           Q       S_NN(Q)          S_qq(Q)          n(Q)')")
+            else  
+               write (100, "('#           Q       S_NN(Q)          n(Q)')")
+            endif
          end if
          write (110, "('#       Q',14x,15('S_',2i1,'(Q)',9x:))") ((j, j), j=1, nsp)
       end if
@@ -354,6 +366,10 @@ contains
             if (twoDstruc_3D) then
                ! Compute 2D structure factor in xy plane for 3D systems with confinement
                write (120, '(15f16.7)') i*dq, sqfxy(i, 1:nslice)/(Nconf*real(nq(i)))
+               if (ex_qc) then
+                  write (240, '(15f16.7)') i*dq, sqfqxy(i, 1:nslice)/(Nconf&
+                  &*real(nq(i)))
+               endif
                do j=1, nsp
                   write (130+j, '(15f16.7)') i*dq, sqfpxy(i, j, 1:nslice)/(Nconf&
                   &*real(nq(i)))
@@ -366,10 +382,18 @@ contains
                   s22 = x2*sqfp(i, 2)/(ntype(2)*Nconf*real(nq(i)))
                   s12 = 0.5*(sqf(i)/(Nmol*Nconf*real(nq(i))) - s11 - s22)
                   scc = x2**2*s11 + x1**2*s22 - 2*x1*x2*s12
-                  write (100, '(6f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i)))&
-                  &, scc, s11, s22, s12, nq(i)
+                  if (ex_qc) then
+                     write (100, '(7f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i))), sqfq(i)/(Nmol*Nconf*real(nq(i))), scc, s11, s22, s12, nq(i)
+                  else  
+                     write (100, '(6f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i)))&
+                     &, scc, s11, s22, s12, nq(i)
+                  endif
                else
-                  write (100, '(2f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i))), nq(i)
+                  if (ex_qc) then
+                     write (100, '(3f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i))), sqfq(i)/(Nmol*Nconf*real(nq(i))), nq(i)
+                  else  
+                     write (100, '(2f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i))), nq(i)
+                  endif
                end if
                write (110, '(15f16.7)') i*dq, (sqfp(i, j)/(ntype(j)*Nconf&
                &*real(nq(i))), j=1, nsp)
@@ -380,6 +404,7 @@ contains
          do j=1, nsp
             close (130+j)
          end do
+         if (ex_qc) close(240)
       else
          close (100)
          close (110)
@@ -392,7 +417,7 @@ contains
       !
       implicit none
       real(myprec), intent(IN) :: rcl
-      Real(myprec) :: gmix(nspmax, nspmax), deltav, ri, xfj, xfi
+      Real(myprec) :: gmix(nspmax, nspmax), deltav, ri, xfj, xfi, gchch
       integer, intent(in) :: lsmax
       integer :: i, j, l, k, count, iunit
       character(len=128) :: fname99
@@ -427,17 +452,30 @@ contains
             write (99, "('#       r',16x,'g_cl(r)        g_cl-cl(r)    ',5x,16('g_',2i1,'(r)',8x:))")&
             & (((j, k), k=j, nsp), j=1, nsp)
          else
-            write (99, "('#       r',9x,16('g_',2i1,'(r)',8x:))")&
-            & (((j, k), k=j, nsp), j=1, nsp)
+            if (ex_qc) then
+               write (99, "('#       r',9x,'g_qq(r)',9x,16('g_',2i1,'(r)',8x:))")&
+               & (((j, k), k=j, nsp), j=1, nsp)
+            else  
+               write (99, "('#       r',9x,16('g_',2i1,'(r)',8x:))")&
+               & (((j, k), k=j, nsp), j=1, nsp)
+            endif
          endif
          if (nrandom>0)  write (199, "('#       r',16x,'s2n(cl)       s2n')")
       else
          if (.not.twoDstruc_3D) then
          if (nsp<=6) then
-            write (99, "('#       r        ',9x,16('g_',2i1,'(r)',9x:))") (((j, k), k=j, nsp), j=1, nsp)
+            if (ex_qc) then
+               write (99, "('#       r        ',9x,'g_qq(r)',9x,16('g_',2i1,'(r)',9x:))") (((j, k), k=j, nsp), j=1, nsp)
+            else  
+               write (99, "('#       r        ',9x,16('g_',2i1,'(r)',9x:))") (((j, k), k=j, nsp), j=1, nsp)
+            endif
          else
             do k=1, nsp
-               write (887+k, "('#       r        ',9x,16('g_',2i1,'(r)',9x:))") ((k, j), j=1, nsp)
+               if (ex_qc.and.k==1) then
+                  write (887+k, "('#       r        ',9x,'g_qq(r)',9x,16('g_',2i1,'(r)',9x:))") ((k, j), j=1, nsp)
+               else
+                  write (887+k, "('#       r        ',9x,16('g_',2i1,'(r)',9x:))") ((k, j), j=1, nsp)
+               endif
             enddo
          endif
       endif
@@ -461,6 +499,10 @@ contains
             deltaV = pi*((ri + deltar/2)**2 - (ri - deltar/2)**2)
          end if
          !
+         if (.not.twoDstruc_3D.and.ex_qc) then
+            gchch = 2*volumen*gqq(i)/(Nmol**2*deltaV*Nconf)
+         endif
+            ! Compu
          Do j = 1, nsp
             Do l = j, nsp
                if (twoDstruc_3D) then
@@ -477,7 +519,7 @@ contains
          if (twoDstruc_3D) then
             if (ex_qc) then
                ! Compute 2D concentration-concentration rdf in xy plane for 3D systems with confinement, using appropriate normalization for cylindrical shells and accounting for slice thickness
-               gmix_cc_xy(:) = volumen*(zgrid/sidel(3))*gccxy(i,:)/(deltaV*Nconf)
+               gmix_cc_xy(:) = volumen*(zgrid/sidel(3))*gqqxy(i,:)/(deltaV*Nconf)
             endif
          endif
          ! Print number fluctuations to check for hyperuniformity, if requested
@@ -514,10 +556,18 @@ contains
                endif
             else
                if (nsp <= 6) then
-                  Write (99, '(16f16.5)') ri,  (gmix(j, j:nsp), j=1, nsp)
+                  if (ex_qc) then 
+                     write (99, '(16f16.6') ri, gchch, (gmix(j, j:nsp), j=1, nsp)
+                  else  
+                     Write (99, '(16f16.5)') ri,  (gmix(j, j:nsp), j=1, nsp)
+                  endif
                else
                   do k=1, nsp
-                     write(887+k,'(16f16.5)') ri,  gmix(k, 1:nsp)
+                     if (ex_qc.and.k==1) then 
+                        write(887+k,'(16f16.5)') ri,  gchch,  gmix(k, 1:nsp)
+                     else
+                        write(887+k,'(16f16.5)') ri,  gmix(k, 1:nsp)
+                     endif
                   end do
                endif
             endif 

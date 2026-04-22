@@ -32,7 +32,7 @@ if command -v apt-get &> /dev/null; then
     apt-get update && apt-get install -y wget make m4 g++ libhdf5-dev curl libcurl4-openssl-dev zlib1g-dev libxml2-dev
     HDF5_DIR="/usr"
 elif command -v dnf &> /dev/null; then
-    dnf install -y wget make m4 gcc-c++ hdf5-devel curl libcurl-devel zlib-devel libxml2-devel
+    dnf install -y wget make m4 gqq-c++ hdf5-devel curl libcurl-devel zlib-devel libxml2-devel
     HDF5_DIR="/usr"
 fi
 

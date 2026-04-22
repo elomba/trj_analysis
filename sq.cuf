@@ -52,18 +52,23 @@ module mod_sq
    use mod_input
    use cudafor
    implicit none
-
+ 
 contains
 
    subroutine SQcalc()
       implicit none
-      integer :: istat, ierrSync
-      real :: time_gpu
+      integer :: istat, ierrSync, islice, i
+      real :: time_gpu, zi
       !
       ! Sample all 3D vectors for q<qmin and
       ! (1,0,0),(0,1,0),(0,0,1) beyond
       !
       istat = cudaEventRecord(startEvent, 0)
+      if (ex_qc) qcharge_d(:) = qcharge(:)
+      if (twoDstruc_3D.and.ex_qc) then
+         call count_q_slice()
+      endif 
+      !
       ! Full q-space sampling for small q (uniform fluid)
       if (nqmin > 1) then
          if (twoDstruc_3D) then
@@ -73,24 +78,24 @@ contains
                stop
             endif
             call sqf3xy<<<tBlock, grid>>>(Nmol, ndim, ntype_d, bsc_d, fk_d, &
-            & nsp, nqmax, qmin2, dq, nslice, zgrid, zsliced)
+            & nsp, nqmax, qmin2, dq, nslice, zgrid, zsliced,ex_qc)
                call printcudaerror(" *** Warning: 3D sqf3xy GPU kernel exit with errors: reduce nthread",istat)
                ! For large q, use directional sampling for computational efficiency
             call sqf2xy<<<nqmax/nthread + 1, nthread>>>(Nmol, ndim, ntype_d, bsc_d, fk_d,& 
-            & nsp, nqmax, nqmin + 1, nslice, zgrid, zsliced)
+            & nsp, nqmax, nqmin + 1, nslice, zgrid, zsliced,ex_qc)
                call printcudaerror(" *** Warning: 3D sqf2xy GPU kernel exit with errors: reduce nthread",istat)
          else
             ! Isotropic sampling for small q (spherical averaging)
             call sqfnD<<<tBlock, grid>>>(Nmol, ndim, ntype_d, bsc_d, fk_d,&
-            & nsp, nqmax, qmin2, dq)
+            & nsp, nqmax, qmin2, dq,ex_qc)
             call printcudaerror(" *** Warning: 3D sqfnD GPU kernel exit with errors: reduce nthread",istat)
             ! For large q, use directional sampling for computational efficiency
             if (ndim == 3) then
                call sqfact<<<nqmax/nthread + 1, nthread>>>(Nmol, ndim, ntype_d, bsc_d, fk_d,&
-            &  nsp, nqmax, nqmin + 1)
+            &  nsp, nqmax, nqmin + 1,ex_qc)
             else
                call sqfact2<<<nqmax/nthread + 1, nthread>>>(Nmol, ndim, ntype_d, bsc_d, fk_d,&
-            &  nsp, nqmax, nqmin + 1)
+            &  nsp, nqmax, nqmin + 1,ex_qc)
             endif
             call printcudaerror(" *** Warning: 3D/2D sqfact GPU kernel exit with errors: reduce nthread",istat)
          endif
@@ -105,14 +110,14 @@ contains
          if (ndim == 3) then
             if (idir == 0) then
                call sqfact<<<nqmax/nthread + 1, nthread>>>(Nmol, ndim, ntype_d, bsc_d, fk_d, &
-               nsp, nqmax, nqmin)
+               nsp, nqmax, nqmin,ex_qc)
             else
                call sqf2xy<<<nqmax/nthread + 1, nthread>>>(Nmol, ndim, ntype_d, bsc_d, fk_d, &
-               & nsp, nqmax, nqmin + 1, nslice, zgrid, zsliced)
+               & nsp, nqmax, nqmin + 1, nslice, zgrid, zsliced, ex_qc)
             end if
          else
             call sqfact2<<<nqmax/nthread + 1, nthread>>>(Nmol, ndim, ntype_d, bsc_d, fk_d, &
-               nsp, nqmax, nqmin)
+               nsp, nqmax, nqmin, ex_qc)
          end if
       end if
       ! Record GPU execution time
@@ -127,9 +132,18 @@ contains
       if (twoDstruc_3D) then
          sqfxy(0:nqmax, 1:nslice) = sqfxy_d(0:nqmax, 1:nslice)
          sqfpxy(0:nqmax, 1:nsp, 1:nslice) =  sqfpxy_d(0:nqmax, 1:nsp, 1:nslice)
+         if (ex_qc) then
+            ! Broadcast q2slice across the 0:nqmax dimension
+            sqfqxy(0:nqmax, 1:nslice) = sqfqxy_d(0:nqmax, 1:nslice) / &
+                            SPREAD(q2slice(1:nslice), DIM=1, NCOPIES=nqmax+1)
+         endif 
       else
          sqfp(0:nqmax, 1:nsp) = sqfp_d(0:nqmax, 1:nsp)
          sqf(0:nqmax) = sqf_d(0:nqmax)
+         if (ex_qc) then
+            avq2 = sum(qcharge(:)**2)/Nmol
+            sqfq(0:nqmax) = sqfq_d(0:nqmax)/avq2
+         endif
       end if
    end subroutine sq_transfer_gpu_cpu
 
@@ -200,8 +214,18 @@ contains
          allocate(sqfxy(0:nqmax,nslice), sqfpxy(0:nqmax,nsp, nslice))
          allocate(sqfxy_d(0:nqmax,nslice), sqfpxy_d(0:nqmax,nsp,nslice))
          if (.not.allocated(zsliced)) allocate(zsliced(nslice))
+         if (ex_qc) then
+            allocate(sqfqxy(0:nqmax,nslice), sqfqxy_d(0:nqmax,nslice))
+            sqfqxy_d(:,:) = 0.0
+            sqfqxy(:,:) = 0.0d0
+         endif
       else
          Allocate (sqf_d(0:nqmax), sqfp_d(0:nqmax, nsp))
+         if (ex_qc) then
+            allocate(sqfq(0:nqmax), sqfq_d(0:nqmax))
+            sqfq_d(:) = 0.0
+            sqfq(:) = 0.0d0
+         endif
          sqf_d(:) = 0.
          sqfp_d(:, :) = 0
          sqf(:) = 0.0d0
@@ -300,7 +324,6 @@ contains
                end do
             end do
             nq(indm + 1:nqmax) = 2
-            write (*, "(//' *** S(Q) calculation using ',i4,'x',i4,' vectors **'/)") lmaxx, lmaxy
          else
             do i = 0, lmaxx - 1
                do j = 0, lmaxy - 1
@@ -316,12 +339,18 @@ contains
                   end do
                end do
             end do
+            nq(indm + 1:nqmax) = 3
          end if
          qmin2 = qmin**2
          if (tunits == 'lj') then
             write (*, "(' *** Averaging over all q-vectors for q <',f10.6,' sigma^-1 **')") qmin
          else
             write (*, "(' *** Averaging over all q-vectors for q <',f10.6,' A^-1 **')") qmin
+         endif
+         if (twoDstruc_3D.or.ndim==2) then
+            write (*, "(//' *** S(Q) calculation using ',i4,'x',i4,' vectors **'/)") lmaxx, lmaxy
+         else 
+            write (*, "(//' *** S(Q) calculation using ',i4,'x',i4,'x',i4,' vectors **'/)") lmaxx, lmaxy, lmaxz
          endif
       end if
 
@@ -340,15 +369,16 @@ contains
    end subroutine sq_init
 
 
-   attributes(global) subroutine sqfact(Nmol, dim, ntype, bsc, fk, nsp, kmax, minPts)
+   attributes(global) subroutine sqfact(Nmol, dim, ntype, bsc, fk, nsp, kmax, minPts,ex_qc)
    integer, value, intent(IN) :: Nmol, dim, nsp, kmax, minPts
    integer, intent(IN) :: ntype(nsp)
    real(kind=4), intent(IN) :: bsc(nsp)
-   real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, suma, bs
+   real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, suma, bs, qci, cfkx, sfkx, cfky, sfky, cfkz, sfkz
    real(kind=8) :: sumcx, sumsx, sumcy, sumsy, sumcz, sumsz,  &
-   & sumcpx, sumspx, sumcpy, sumspy, sumcpz, sumspz
+   & sumcpx, sumspx, sumcpy, sumspy, sumcpz, sumspz, sumqcx, sumqsx, sumqcy, sumqsy, sumqcz, sumqsz
    real(kind=4), intent(IN) :: fk(dim)
    integer :: i, j, k, ind, it, ia
+   logical, value :: ex_qc
    k = (blockidx%x - 1)*blockdim%x + threadidx%x
    if (k .le. kmax .and. k .ge. minPts) then
       fk1 = fk(1)
@@ -360,6 +390,14 @@ contains
       sumsy = 0
       sumcz = 0
       sumsz = 0
+      if (ex_qc) then
+         sumqcx = 0
+         sumqsx = 0
+         sumqcy = 0
+         sumqsy = 0
+         sumqcz = 0
+         sumqsz = 0
+      endif
       kf1 = k*fk1
       kf2 = k*fk2
       kf3 = k*fk3
@@ -377,12 +415,27 @@ contains
             rkx = r_d(1, i)*kf1
             rky = r_d(2, i)*kf2
             rkz = r_d(3, i)*kf3
-            sumcpx = sumcpx + __cosf(rkx)
-            sumspx = sumspx + __sinf(rkx)
-            sumcpy = sumcpy + __cosf(rky)
-            sumspy = sumspy + __sinf(rky)
-            sumcpz = sumcpz + __cosf(rkz)
-            sumspz = sumspz + __sinf(rkz)
+            cfkx = __cosf(rkx)
+            sfkx = __sinf(rkx)
+            cfky = __cosf(rky)
+            sfky = __sinf(rky)
+            cfkz = __cosf(rkz)
+            sfkz = __sinf(rkz)
+            if (ex_qc) then
+               qci = qcharge_d(i)
+               sumqcx = sumqcx + qci*cfkx
+               sumqsx = sumqsx + qci*sfkx
+               sumqcy = sumqcy + qci*cfky
+               sumqsy = sumqsy + qci*sfky
+               sumqcz = sumqcz + qci*cfkz
+               sumqsz = sumqsz + qci*sfkz 
+            endif
+            sumcpx = sumcpx + cfkx
+            sumspx = sumspx + sfkx
+            sumcpy = sumcpy + cfky
+            sumspy = sumspy + sfky
+            sumcpz = sumcpz + cfkz
+            sumspz = sumspz + sfkz
          end do
          sumcx = sumcx + bs*sumcpx
          sumsx = sumsx + bs*sumspx
@@ -394,17 +447,22 @@ contains
          ia = atomicadd(sqfp_d(k, j), suma)
       end do
       sqf_d(k) = sqf_d(k) + (sumcx**2 + sumsx**2 + sumcy**2 + sumsy**2 + sumcz**2 + sumsz**2)
+      if (ex_qc) then
+         sqfq_d(k) = sqfq_d(k) +(sumqcx**2 + sumqsx**2 + sumqcy**2 + sumqsy**2 + sumqcz**2 + sumqsz**2)
+      endif
    end if
 end subroutine sqfact
 
-attributes(global) subroutine sqfact2(Nmol, dim, ntype, bsc, fk, nsp, kmax, minPts)
+attributes(global) subroutine sqfact2(Nmol, dim, ntype, bsc, fk, nsp, kmax, minPts, ex_qc)
 integer, value, intent(IN) :: Nmol, dim, nsp, kmax, minPts
 integer, intent(IN) :: ntype(nsp)
 real(kind=4), intent(IN) ::bsc(nsp)
-real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, suma, bs
-real(kind=8) :: sumcx, sumsx, sumcy, sumsy, sumcpx, sumspx, sumcpy, sumspy
+real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, suma, bs, qci, cfkx, sfkx, cfky, sfky
+real(kind=8) :: sumcx, sumsx, sumcy, sumsy, sumcpx, sumspx, sumcpy, sumspy, sumqcx, sumqsx, sumqcy, sumqsy
 real(kind=4), intent(IN) :: fk(dim)
 integer :: i, j, k, ind, it, ia
+logical, value :: ex_qc
+
 k = (blockidx%x - 1)*blockdim%x + threadidx%x
 if (k .le. kmax .and. k .ge. minPts) then
    fk1 = fk(1)
@@ -413,6 +471,12 @@ if (k .le. kmax .and. k .ge. minPts) then
    sumsx = 0
    sumcy = 0
    sumsy = 0
+   if (ex_qc) then
+      sumqcx = 0
+      sumqsx = 0
+      sumqcy = 0
+      sumqsy = 0
+   endif
    kf1 = k*fk1
    kf2 = k*fk2
    i = 0
@@ -426,10 +490,21 @@ if (k .le. kmax .and. k .ge. minPts) then
          i = i + 1
          rkx = r_d(1, i)*kf1
          rky = r_d(2, i)*kf2
-         sumcpx = sumcpx + __cosf(rkx)
-         sumspx = sumspx + __sinf(rkx)
-         sumcpy = sumcpy + __cosf(rky)
-         sumspy = sumspy + __sinf(rky)
+         cfkx = __cosf(rkx)
+         sfkx = __sinf(rkx)
+         cfky = __cosf(rky)
+         sfky = __sinf(rky)
+         if (ex_qc) then
+            qci = qcharge_d(i)
+            sumqcx = sumqcx + qci*cfkx
+            sumqsx = sumqsx + qci*sfkx
+            sumqcy = sumqcy + qci*cfky
+            sumqsy = sumqsy + qci*sfky
+         endif
+         sumcpx = sumcpx + cfkx
+         sumspx = sumspx + sfkx
+         sumcpy = sumcpy + cfky
+         sumspy = sumspy + sfky
       end do
       sumcx = sumcx + bs*sumcpx
       sumsx = sumsx + bs*sumspx
@@ -439,18 +514,21 @@ if (k .le. kmax .and. k .ge. minPts) then
       ia = atomicadd(sqfp_d(k, j), suma)
    end do
    sqf_d(k) = sqf_d(k) + (sumcx**2 + sumsx**2 + sumcy**2 + sumsy**2)
+   if (ex_qc) then
+      sqfq_d(k) = sqfq_d(k) +(sumqcx**2 + sumqsx**2 + sumqcy**2 + sumqsy**2)
+   endif 
 end if
 end subroutine sqfact2
 
-attributes(global) subroutine sqfnD(Nmol, dim, ntype, bsc, fk, nsp, kmax, q2max, dq)
+attributes(global) subroutine sqfnD(Nmol, dim, ntype, bsc, fk, nsp, kmax, q2max, dq, ex_qc)
 integer, intent(IN) :: ntype(nsp)
 integer, value, intent(IN) :: Nmol, dim, nsp, kmax
 real(kind=4), intent(IN) :: bsc(nsp)
-real(kind=4) :: rkxyz, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma
-real(kind=8) :: sumcx, sumsx, sumcpx, sumspx, q2, bs
+real(kind=4) :: rkxyz, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma, qci, cfk, sfk
+real(kind=8) :: sumcx, sumsx, sumcpx, sumspx, q2, bs, sumqcx, sumqsx
 real(kind=4), intent(IN) :: fk(dim)
 real(kind=4), value, intent(IN) ::  dq, q2max
-
+logical, value :: ex_qc
 integer :: i, j, it, kx, ky, kz, ind, ia
 kx = (blockidx%x - 1)*blockdim%x + threadidx%x - 1
 ky = (blockidx%y - 1)*blockdim%y + threadidx%y - 1
@@ -469,6 +547,10 @@ endif
 if (q2 > 0.0 .and. q2 <= q2max) then
    sumcx = 0
    sumsx = 0
+   if (ex_qc) then
+      sumqcx = 0
+      sumqsx = 0
+   endif
    q = sqrt(q2)
    ind = int(q/dq+0.501)
    i = 0
@@ -478,14 +560,17 @@ if (q2 > 0.0 .and. q2 <= q2max) then
       bs = bsc(j)
       do it = 1, ntype(j)
          i = i + 1
-         if (blockidx%x==3 .and. blockidx%y==3 .and. blockidx%z==3) then
-            if (threadidx%x==1 .and. threadidx%y==1.and.threadidx%z==1) then
-            endif
-         endif
          rkxyz = r_d(2, i)*kf2+r_d(1, i)*kf1
          if(dim==3) rkxyz = rkxyz + r_d(3, i)*kf3
-         sumcpx = sumcpx + __cosf(rkxyz)
-         sumspx = sumspx + __sinf(rkxyz)
+         cfk = __cosf(rkxyz)
+         sfk = __sinf(rkxyz)
+         sumcpx = sumcpx + cfk
+         sumspx = sumspx + sfk
+         if (ex_qc) then
+            qci = qcharge_d(i)
+            sumqcx = sumqcx + qci*cfk
+            sumqsx = sumqsx + qci*sfk
+         endif
       end do
       sumcx = sumcx + bs*sumcpx
       sumsx = sumsx + bs*sumspx
@@ -497,22 +582,28 @@ if (q2 > 0.0 .and. q2 <= q2max) then
    tsum = (sumcx**2 + sumsx**2)
    if (ind<=kmax) then
       ia = atomicadd(sqf_d(ind), tsum)
+      if (ex_qc) then
+         suma = (sumqcx**2 + sumqsx**2)
+         ia = atomicadd(sqfq_d(ind), suma)
+      endif
    endif
 end if
 end subroutine sqfnD
 
 
-attributes(global) subroutine sqf3xy(Nmol, dim, ntype, bsc, fk, nsp, kmax, q2max, dq, nslice, zgrid, zslice)
+attributes(global) subroutine sqf3xy(Nmol, dim, ntype, bsc, fk, nsp, kmax, q2max, dq, nslice, zgrid, zslice, ex_qc)
 integer, intent(IN) :: ntype(nsp)
 integer, value, intent(IN) :: Nmol, dim, nsp, kmax, nslice
 real(kind=4), intent(IN) :: bsc(nsp)
-real(kind=4) :: rkxyz, fk1, fk2, fk3, kf1, kf2, kf3,  q, suma(nslice), tsum(nslice)
+real(kind=4) :: rkxyz, fk1, fk2, fk3, kf1, kf2, kf3,  q, suma(nslice), tsum, qsum, qci
 real(kind=8) :: sumcx(nslice), sumsx(nslice), sumcpx(nslice), sumspx(nslice), q2, bs
+real(kind=8) :: sumqcx(nslice),sumqsx(nslice)
 real(kind=4), intent(IN) :: fk(dim), zslice(nslice)
 real(kind=4), value, intent(IN) ::  dq, q2max, zgrid
 real(kind=4) :: z
 integer :: i, j, it, kx, ky, kz, ind, ia, islice
 integer :: count(nslice), countsp(nslice,nsp)
+logical, value :: ex_qc
 kx = (blockidx%x - 1)*blockdim%x + threadidx%x - 1
 ky = (blockidx%y - 1)*blockdim%y + threadidx%y - 1
 fk1 = fk(1)
@@ -523,6 +614,10 @@ q2 = kf1*kf1 + kf2*kf2
 if (q2 > 0.0 .and. q2 <= q2max) then
    sumcx = 0
    sumsx = 0
+   if (ex_qc) then
+      sumqcx = 0
+      sumqsx = 0
+   endif
    q = sqrt(q2)
    ind = nint(q/dq)
    i = 0
@@ -538,12 +633,18 @@ if (q2 > 0.0 .and. q2 <= q2max) then
          z = r_d(3, i)
          islice = minloc(abs(zslice - z),dim=1)   
          if (abs(zslice(islice) - z) <= zgrid/2.0) then
-            ! to be modified
+            ! 
+            if (ex_qc) qci = qcharge_d(i)
+            !
             count(islice) = count(islice) + 1
             countsp(islice, j) = countsp(islice, j) + 1
             rkxyz = r_d(2, i)*kf2+r_d(1, i)*kf1
             sumcpx(islice) = sumcpx(islice) + __cosf(rkxyz)
             sumspx(islice) = sumspx(islice) + __sinf(rkxyz)
+            if (ex_qc) then
+               sumqcx(islice) = sumqcx(islice) + qci*__cosf(rkxyz)
+               sumqsx(islice) = sumqsx(islice) + qci*__sinf(rkxyz)
+            endif 
          endif
       end do
       sumcx(:) = sumcx(:) + bs*sumcpx(:)
@@ -557,28 +658,34 @@ if (q2 > 0.0 .and. q2 <= q2max) then
    end do
    do islice = 1, nslice
       if (count(islice)>0)  then   
-         tsum(islice) = (sumcx(islice)**2 + sumsx(islice)**2)/count(islice)
+         tsum = (sumcx(islice)**2 + sumsx(islice)**2)/count(islice)
+         if (ex_qc) qsum = (sumqcx(islice)**2 + sumqsx(islice)**2)/count(islice) 
       else
-         tsum(islice) = 0.0
+         tsum = 0.0
       endif
       if (ind<=kmax) then
-         ia = atomicadd(sqfxy_d(ind, islice), tsum(islice))
+         ia = atomicadd(sqfxy_d(ind, islice), tsum)
+         if (ex_qc) then
+            ia = atomicadd(sqfqxy_d(ind, islice), qsum)
+         endif
       end if
    end do
 end if
 end subroutine sqf3xy
 
-attributes(global) subroutine sqf2xy(Nmol, dim, ntype, bsc, fk, nsp, kmax, minPts, nslice, zgrid, zslice)
+attributes(global) subroutine sqf2xy(Nmol, dim, ntype, bsc, fk, nsp, kmax, minPts, nslice, zgrid, zslice, ex_qc)
 integer, value, intent(IN) :: Nmol, dim, nsp, kmax, minPts, nslice
 integer, intent(IN) :: ntype(nsp)
 real, intent(in), value :: zgrid
 real(kind=4), intent(IN) ::bsc(nsp), zslice(nslice)
-real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, suma(nslice), bs, z
+real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, suma(nslice), bs, z, qci
 real(kind=8) :: sumcx(nslice), sumsx(nslice), sumcy(nslice), sumsy(nslice), sumcpx(nslice), sumspx(nslice), sumcpy(nslice), sumspy(nslice)
-real(myprec) :: tsum(nslice)
+real(kind=8) :: sumqcx(nslice), sumqsx(nslice), sumqcy(nslice), sumqsy(nslice)
+real(myprec) :: tsum, qsum, ckx, skx, cky, sky 
 real(kind=4), intent(IN) :: fk(dim)
 integer :: i, j, k, ind, it, ia, islice
 integer :: count(nslice), countsp(nslice,nsp)
+logical, value :: ex_qc
 k = (blockidx%x - 1)*blockdim%x + threadidx%x
 if (k .le. kmax .and. k .ge. minPts) then
    fk1 = fk(1)
@@ -587,6 +694,12 @@ if (k .le. kmax .and. k .ge. minPts) then
    sumsx = 0
    sumcy = 0
    sumsy = 0
+   if (ex_qc) then
+      sumqcx = 0
+      sumqsx = 0
+      sumqcy = 0
+      sumqsy = 0
+   endif
    kf1 = k*fk1
    kf2 = k*fk2
    i = 0
@@ -601,16 +714,27 @@ if (k .le. kmax .and. k .ge. minPts) then
       do it = 1, ntype(j)
          i = i + 1
          z = r_d(3, i)
+         if (ex_qc) qci = qcharge_d(i)
          islice = minloc(abs(zslice(:) - z),dim=1)   
          if (abs(zslice(islice) - z) <= zgrid/2.0) then
             count(islice) = count(islice) + 1
             countsp(islice, j) = countsp(islice, j) + 1
             rkx = r_d(1, i)*kf1
             rky = r_d(2, i)*kf2
-            sumcpx(islice) = sumcpx(islice) + __cosf(rkx)
-            sumspx(islice) = sumspx(islice) + __sinf(rkx)
-            sumcpy(islice) = sumcpy(islice) + __cosf(rky)
-            sumspy(islice) = sumspy(islice) + __sinf(rky)
+            ckx = __cosf(rkx)
+            skx = __sinf(rkx)
+            cky = __cosf(rky)
+            sky = __sinf(rky)
+            sumcpx(islice) = sumcpx(islice) + ckx
+            sumspx(islice) = sumspx(islice) + skx
+            sumcpy(islice) = sumcpy(islice) + cky
+            sumspy(islice) = sumspy(islice) + sky
+            if (ex_qc) then
+               sumqcx(islice) = sumqcx(islice) + qci*ckx
+               sumqsx(islice) = sumqsx(islice) + qci*skx
+               sumqcy(islice) = sumqcy(islice) + qci*cky
+               sumqsy(islice) = sumqsy(islice) + qci*sky
+            endif
          endif
       end do
       sumcx(:) = sumcx(:) + bs*sumcpx(:)
@@ -628,12 +752,19 @@ if (k .le. kmax .and. k .ge. minPts) then
    end do
    do islice = 1, nslice
       if (count(islice)>0) then
-         tsum(islice) = (sumcx(islice)**2 + sumsx(islice)**2 + sumcy(islice)**2 + sumsy(islice)**2)/count(islice)
+         tsum = (sumcx(islice)**2 + sumsx(islice)**2 + sumcy(islice)**2 + sumsy(islice)**2)/count(islice)
+         if (ex_qc) then
+            qsum = (sumqcx(islice)**2 + sumqsx(islice)**2 + sumqcy(islice)**2 + sumqsy(islice)**2)/count(islice)
+         endif
       else
-         tsum(islice) = 0.0
+         tsum = 0.0
+         qsum = 0.0
       endif
       if (ind<=kmax) then
-         ia = atomicadd(sqfxy_d(k, islice), tsum(islice))
+         ia = atomicadd(sqfxy_d(k, islice), tsum)
+         if (ex_qc) then
+            ia = atomicadd(sqfqxy_d(k, islice), qsum) 
+         endif
       end if
    end do   
 end if

@@ -97,7 +97,6 @@ contains
       ! Read species-specific parameters
       read (unit=io_input_file, nml=INPUT_SP)
       !
-      print *, ' nthread = ', nthread
       ! Check existence of trajectory file
       inquire (file=trj_input_file, exist=trj_file_exists)
       if (.not. trj_file_exists) then

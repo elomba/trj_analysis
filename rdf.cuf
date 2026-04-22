@@ -72,18 +72,18 @@ contains
          allocate(zsliced(nslice),countsliced(nslice),countpslice_d(nsp,nslice))
          zsliced(:) = zslice(:)
          if (ex_qc) then
-            Allocate(gccxy(lsmax, nslice), gppxy(lsmax, nslice), gmmxy(lsmax, nslice),gmix_cc_xy(nslice))
-            gccxy(:,:) = 0
+            Allocate(gqqxy(lsmax, nslice), gppxy(lsmax, nslice), gmmxy(lsmax, nslice),gmix_cc_xy(nslice))
+            gqqxy(:,:) = 0
             gppxy(:,:) = 0
             gmmxy(:,:) = 0
-            Allocate(gccxy_d(lsmax, nslice), gppxy_d(lsmax, nslice), gmmxy_d(lsmax, nslice))
+            Allocate(gqqxy_d(lsmax, nslice), gppxy_d(lsmax, nslice), gmmxy_d(lsmax, nslice))
          endif
       else
          Allocate (histomix(lsmax, nsp, nsp), gtot(0:lsmax), histomixi(nbcuda*lsmax, nit))
          Allocate (histomix_d(nbcuda*lsmax, nit))
          if (ex_qc) then
-            Allocate(gcc(lsmax), gpp(lsmax), gmm(lsmax))
-            Allocate(gcc_d(lsmax), gpp_d(lsmax), gmm_d(lsmax)) 
+            Allocate(gqq(lsmax), gpp(lsmax), gmm(lsmax))
+            Allocate(gqq_d(lsmax), gpp_d(lsmax), gmm_d(lsmax)) 
          endif
       end if
       dim_hist = nbcuda*lsmax
@@ -132,8 +132,8 @@ contains
          if (allocated(countslice)) deallocate (countslice)
          if (allocated(countslice)) deallocate (countslice)
          if (ex_qc) then
-            if (allocated(gccxy)) deallocate (gccxy)
-            if (allocated(gccxy_d)) deallocate (gccxy_d)
+            if (allocated(gqqxy)) deallocate (gqqxy)
+            if (allocated(gqqxy_d)) deallocate (gqqxy_d)
             if (allocated(gppxy)) deallocate (gppxy)
             if (allocated(gppxy_d)) deallocate (gppxy_d)
             if (allocated(gmmxy)) deallocate (gmmxy)
@@ -145,8 +145,8 @@ contains
          if(allocated(histomixi)) deallocate (histomixi)
          if(allocated(histomix_d)) deallocate (histomix_d)
          if (ex_qc) then
-            if(allocated(gcc)) deallocate (gcc)
-            if(allocated(gcc_d)) deallocate (gcc_d)
+            if(allocated(gqq)) deallocate (gqq)
+            if(allocated(gqq_d)) deallocate (gqq_d)
             if(allocated(gpp)) deallocate (gpp)
             if(allocated(gpp_d)) deallocate (gpp_d)
             if(allocated(gmm)) deallocate (gmm)
@@ -183,7 +183,7 @@ contains
       integer, intent(IN) :: Nmol, Iconf, nbcuda, nthread
       character(len=20), intent(IN) :: units
       integer :: istart, i, ind, k, j, l, istat=0, ierrSync, rdfb, rdfth, islice
-      real :: time_gpu, suma, deltaV, ri, avq2
+      real :: time_gpu, suma, deltaV, ri
       ! Initialize histograms to zero for this configuration
       if (allocated(histomix_d)) histomix_d(:, :) = 0
       if (allocated(histomix_xy_d)) histomix_xy_d(:, :, :) = 0
@@ -206,6 +206,8 @@ contains
          rdfth = nthread*4
          rdfb = nbcuda/4 + 1
       end if
+      if (ex_qc) qcharge_d(:) = qcharge(:)
+      
       ! Call appropriate GPU kernel for dimensionality
       if (ndim == 3) then
          if (twoDstruc_3D) then
@@ -215,8 +217,7 @@ contains
             countsliced(:) = 0
             countpslice_d(:,:) = 0
             if (ex_qc) then 
-               gccxy_d(:,:) = 0
-               avq2 = sum(qcharge(:)**2)/real(Nmol)
+               gqqxy_d(:,:) = 0
                qcharge_d(:) = qcharge(:)
             endif
             call rdfxy<<<rdfb, rdfth>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced, countpslice_d, ex_qc)
@@ -249,14 +250,21 @@ contains
       if (twoDstruc_3D) then
          histomix_xyi(:, :, :) = histomix_xy_d(:, :, :)
          if (ex_qc) then
+            call count_q_slice()
             do islice=1, nslice
-               gccxy(:, islice) = gccxy_d(:, islice)/(countslice(islice)**2*avq2)+gccxy(:, islice)
+               gqqxy(:, islice) = gqqxy_d(:, islice)/(countslice(islice)**2*avq2)+gqqxy(:, islice)
             end do
          endif
       else
          ! For 3D RDF, histomix_d contains the sum of all histograms from each block, so we can directly copy it to host
          histomixi(:, :) = histomix_d(:, :)
-      endif
+         if (ex_qc) then   
+            avq2 = sum(qcharge(:)**2)/Nmol
+            gqq(:) = gqq(:)+gqq_d(:)/avq2
+         endif
+      end if
+      !
+      ! Initializing and storing g(r) data for this configuration for number fluctuation analysis if requested
       if (nrandom>0) then
          gii(:) = gii_d(:)
          g2ii(:) = g2ii_d(:)
@@ -264,6 +272,8 @@ contains
          g2i(:) = g2i(:)+g2ii(:)
       endif
       if (twoDstruc_3D) then
+         ! Gather histograms from each slice in z-direction
+
          ind=1
          do k=1, nsp
             do j=k, nsp
@@ -448,7 +458,7 @@ contains
                ia = atomicadd(histomix_s(ind, ij), 1)
                if (ex_qc) then
                   qcj = qcharge_d(j)
-                  ia = atomicadd(gcc_d(ind), qci*qcj)
+                  ia = atomicadd(gqq_d(ind), qci*qcj)
                endif
             end if
          endif 
@@ -633,7 +643,7 @@ if (i <= Nmol - 1) then
          ia = atomicadd(histomix_s(ind, ij), 1)
          if (ex_qc) then
             qcj = qcharge_d(j)
-            ia = atomicadd(gcc_d(ind), qci*qcj)
+            ia = atomicadd(gqq_d(ind), qci*qcj)
          endif
       end if
    End do
@@ -707,7 +717,7 @@ if (i <= Nmol - 1) then
                   ia = atomicadd(histomix_xy_d(ind, ij, islice), 1)
                   if (ex_qc) then
                      qcj = qcharge_d(j)
-                     ia = atomicadd(gccxy_d(ind,islice), qci*qcj)
+                     ia = atomicadd(gqqxy_d(ind,islice), qci*qcj)
                   endif
                end if
             end if

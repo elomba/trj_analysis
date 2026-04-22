@@ -72,21 +72,21 @@ module mod_common
    real(myprec), dimension(3, 3) :: cell
    real(myprec), allocatable, dimension(:) :: masa, bscat, sig2n, gaver, u_p, zslice, gtot, gmix_cc_xy
    real(myprec), allocatable, dimension(:,:,:) :: gmix_xy
-   real(kind=8), allocatable, dimension(:) :: gi, g2i, gii, g2ii, qcharge, gcc, gpp, gmm, scc, spp, smm
-   real(myprec), device, allocatable, dimension(:) :: sqf_d, sqfcl_d, bsc_d, zsliced, gcc_d, gpp_d, gmm_d, scc_c, spp_d, smm_d, qcharge_d
-   real(myprec), allocatable, dimension(:, :) :: r, vel, force, densprof, gtotxy, gccxy, gppxy, gmmxy
+   real(kind=8), allocatable, dimension(:) :: gi, g2i, gii, g2ii, qcharge, gqq, gpp, gmm, scc, spp, smm
+   real(myprec), device, allocatable, dimension(:) :: sqf_d, sqfq_d, sqfcl_d, bsc_d, zsliced, gqq_d, gpp_d, gmm_d, scc_c, spp_d, smm_d, qcharge_d
+   real(myprec), allocatable, dimension(:, :) :: r, vel, force, densprof, gtotxy, gqqxy, gppxy, gmmxy
    real(double), allocatable, dimension(:) :: qdensprof, dqminus, dqplus
    real(double),allocatable, dimension(:, :) :: stress
-   real, device, allocatable, dimension(:,:) :: r_d, v_d, rclxyzd, sqfp_d, sqfxy_d, gccxy_d, gppxy_d, gmmxy_d
+   real, device, allocatable, dimension(:,:) :: r_d, v_d, rclxyzd, sqfp_d, sqfxy_d, sqfqxy_d, gqqxy_d, gppxy_d, gmmxy_d
    real, device, allocatable, dimension(:,:,:) :: sqfpxy_d
    logical, allocatable, dimension(:) :: bigcl
    logical,  device, allocatable, dimension(:) :: bigcl_d
    real(double), allocatable, dimension(:) :: engcls, gclr, gclr2
    real ::  qmin2, cpu0, cpu1
    real, dimension(3) :: fk
-   real, allocatable, dimension(:) :: sqf, sqfcl, gcluster, gclustav, gclcl, gclt, rhoclus, &
+   real, allocatable, dimension(:) :: sqf, sqfq, sqfcl, gcluster, gclustav, gclcl, gclt, rhoclus, &
       rhoclusav, sqcl
-   real, allocatable, dimension(:, :) :: sqfp, iqfxyp, sqfxy
+   real, allocatable, dimension(:, :) :: sqfp, sqfxyp, sqfxy, sqfqxy 
    real, allocatable, dimension(:, :, :) :: histomix, sqfpxy
    real, allocatable, dimension(:, :, :, :) :: histomix_xy
    logical :: pdir(3) = .true., run_clusters = .false., run_rdf = .false., &
@@ -149,7 +149,9 @@ module mod_common
    Integer, device, Dimension(:), Allocatable :: headd, listad
    Integer, device, Dimension(:, :), Allocatable:: neighd
    Integer, device :: ncelld, maxid, maxjd, maxkd, nnd
-
+   real(myprec) :: avq2
+   real(myprec), allocatable, dimension(:) :: q2slice
+   integer, allocatable, dimension(:) :: counts
    interface
       function vector_product(a, b) result(vv)
          use mod_precision
@@ -172,6 +174,27 @@ module mod_common
    end interface
 
 contains
+
+subroutine count_q_slice()
+   implicit none
+   integer :: i, islice
+   real(myprec) :: zi
+            if(.not.allocated(q2slice)) then
+               allocate(q2slice(nslice),counts(nslice))
+            endif
+            q2slice(:) = 0.0
+            counts(:) = 0
+            do i=1,  nmol
+               zi = r(3, i)
+               islice = minloc(abs(zslice(1:nslice) - zi),dim=1)   
+               if (abs(zslice(islice) - zi) <= zgrid/2.0) then
+                  counts(islice)  = counts(islice) +1
+                  q2slice(islice) = q2slice(islice) + qcharge(i)**2
+               endif
+            enddo
+            q2slice(:) = q2slice(:)/counts(:)
+end subroutine count_q_slice
+
    subroutine printcudaerror(routine,retcode)
       use cudafor
       character(*) :: routine
