@@ -8,339 +8,170 @@ This program performs advanced structural, thermodynamic, and dynamic analysis o
 
 ## Authors
 
-**A. Díaz-Pozuelo** & **E. Lomba**  & **R. Lomba** (G-DBSCAN optimization)
-Instituto de Química Física Blas Cabrera, CSIC (Madrid)  
-Universidade de Santiago de Compostela (USC)  
-March 2026
+**A. Díaz-Pozuelo** & **E. Lomba** (Main developers)  
+**R. Lomba** (Optimized G-DBSCAN implementation)  
+Instituto de Química Física Blas Cabrera, CSIC (Madrid) / Universidade de Santiago de Compostela (USC)  
+April 2026
+
+---
 
 ## Features
 
 ### Structural Analysis
-- **Radial Distribution Functions (RDF)**: Pair correlation functions with species resolution
-- **Static Structure Factors**: S(Q) calculations with adaptive Q-sampling strategies
-- **Orientational Order Parameters**: Steinhardt order parameters (Ql) with spatial profiling
-- **Cluster Analysis**: DBSCAN-based identification, size/shape distributions, center-of-mass trajectories
-
-### Thermodynamic Properties
-- **Temperature**: Kinetic energy via equipartition theorem
-- **Pressure**: Stress tensor trace from virial contributions
-- **Potential Energy**: Per-atom and cluster-averaged energies
-- **Energy Distributions**: Histograms for cluster internal energies
-
-### Dynamic Analysis
-- **Time Correlation Functions**: Mean squared displacement (MSD), velocity autocorrelation
-- **Dynamic Structure Factors**: F(Q,t), Fs(Q,t), S(Q,ω), Ss(Q,ω)
-- **Viscosity**: Shear viscosity from stress tensor autocorrelation
-- **Multi-buffer Algorithm**: Efficient temporal sampling with configurable origins
-
-### Specialized Capabilities
-- **Confinement Profiles**: Density and charge profiles for confined systems
-- **Hyperuniformity Testing**: Particle and cluster number fluctuation analysis
-- **Cluster-Cluster Correlations**: RDF and structure factors between clusters
-
-## Requirements
-
-### Software Dependencies
-- **NVIDIA CUDA Toolkit**: ≥ 13.0
-- **NVIDIA HPC SDK**: nvfortran compiler (version 25.9 or later recommended)
-- **NetCDF**: v4.9 (C and Fortran libraries)
-- **FFTW3**: v3.3+ (for Fourier transforms)
-
-### Hardware
-- NVIDIA GPU with CUDA compute capability ≥ 5.0
-
-### LAMMPS Configuration
-To enable full analysis capabilities, include the following in your LAMMPS script:
-
-```lammps
-compute stress all stress/atom NULL
-compute ener all pe/atom
-dump trj1 all netcdf ${Ndump} run.nc id type x y z vx vy vz q c_stress[*] c_ener
-```
-
-**Minimum trajectory requirements** (positions only):
-```lammps
-dump trj1 all netcdf ${Ndump} run.nc id type x y z
-```
-
-## Installation
-
-### Prerequisites
-
-1. **NVIDIA HPC SDK** with nvfortran compiler (required for NetCDF compilation)
-
-2. **NetCDF with nvfortran support**:
-   
-   NetCDF must be compiled with the nvfortran compiler for compatibility. Use the provided installation script:
-   
-   ```bash
-   sudo ./install_netCDF_nvfortran.sh
-   ```
-   
-   This script will:
-   - Install NVIDIA HPC SDK 26.1 (if not present)
-   - Compile NetCDF-C 4.9.2 with nvfortran
-   - Compile NetCDF-Fortran 4.6.1 with nvfortran bindings
-   - Set up required environment variables
-   
-   For detailed instructions, see:
-   - English: `NetCDF_Installation_Guide_en-US.pdf`
-   - Español: `NetCDF_Installation_Guide_es-ES.pdf`
-
-3. **FFTW3**:
-   ```bash
-   sudo apt-get install libfftw3-dev
-   ```
-
-### Compilation
-
-1. **Compile the program** (set NVIDIA and NetCDF paths first):
-   ```bash
-   export NVBIN=/usr/local/modules/x64_v4/software/NVHPC/25.3-CUDA-12.8.0/Linux_x86_64/25.3/compilers/bin
-   export NVINCLUDE=/usr/local/modules/x64_v4/software/NVHPC/25.3-CUDA-12.8.0/Linux_x86_64/25.3/compilers/include
-   export NVLIBS=/usr/local/modules/x64_v4/software/NVHPC/25.3-CUDA-12.8.0/Linux_x86_64/25.3/compilers/lib
-   export NETCDFLIB=/usr/local/modules/x64_v4/software/netCDF-Fortran/4.6.1-NVHPC-25.3-CUDA-12.8.0/lib64
-   export NETCDFINC=/usr/local/modules/x64_v4/software/netCDF-Fortran/4.6.1-NVHPC-25.3-CUDA-12.8.0/include
-   export FFTWINC=/usr/local/modules/x64_v4/software/FFTW/3.3.10-GCC-14.3.0/include
-   export FFTWLIB=/usr/local/modules/x64_v4/software/FFTW/3.3.10-gompi-2021b/lib
-   make -f Makefile
-   ```
-   
-   For debugging version:
-   ```bash
-   make -f Makefile.debug
-   ```
-
-2. **Set environment variables** (if NetCDF was installed to custom location):
-   ```bash
-   export PATH="$NVBIN:$PATH"
-   export LD_LIBRARY_PATH="$NETCDFLIB:$LD_LIBRARY_PATH"
-   ```
-
-
-## Restrictions
-
-- **Trajectory format**: NetCDF only (use LAMMPS `dump netcdf` command)
-- **Simulation cell**: Orthogonal boxes only (triclinic cells not supported)
-- **Particle number**: Must remain constant (NpT allowed, but ΔQ = 2π/L variations introduce minor S(Q) errors)
-- **Units**: LAMMPS "real", "metal", or "lj" units (conversion for other LAMMPS unit systems pending)
-- **Molecular analysis**: Atoms are analyzed individually; internal molecular degrees of freedom not considered   
-
-## Usage
-
-```bash
-./trj_analysis.exe input.nml GPU_DEVICE_NUMBER (optional, reverts to 0 if absent)
-```
-
-Where `input.nml` contains a sequence of Fortran namelists defining analysis parameters.
-
-## Input Configuration
-
-The input file uses Fortran namelist format. Sample configurations are provided in:
-- `examples/2D/sarl/input.nml` - 2D system example for a SALR system
-- `examples/3D/sarl/input.nml` - 3D system example for a SALR system
-- `examples/3D/sarl/dyn/input.nml` - 3D system example for a SALR system dynamic properties 
-- `examples/3D/Conf/input.nml` - 3D confined system (electrolyte within plates)
-- `examples/3D/meam-dyn/input.nml` - Binary SiC MEAM mixture, including dynamics
-- `examples/3D/LJmix/input.nml` - Binary Lennard-Jones mixture
-
-### Namelist Reference
-
-#### `/INPUT/` - General Parameters
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `log_output_file` | character | Name of log output file |
-| `trj_input_file` | character | NetCDF trajectory filename |
-| `ndim` | integer | Spatial dimensions (2 or 3) |
-| `nsp` | integer | Number of species to analyze |
-| `norder` | integer | Maximum order for Steinhardt parameters |
-| `nthread` | integer | CUDA threads per block (default: 128) |
-| `ncfs_from_to(3)` | integer | Configuration range [start, end] |
-| `rcl` | real | Cutoff distance for cluster identification & neighbor analysis |
-| `rdf_sq_cl_dyn_sqw_conf_ord` | logical(7) | Enable modules: RDF, S(Q), clusters, dynamics, S(Q,ω), confinement, order parameters |
-| `nqw` | integer | Number of Q-values for dynamic analysis |
-| `ener_name` | character | LAMMPS compute name for potential energy (optional) |
-| `press_name` | character | LAMMPS compute name for stress tensor (optional) |
-| `potnbins` | integer | Bins for energy histograms (default: 100) |
-| `potengmargin` | real | Energy histogram margin (default: 0) |
-| `periodic(ndim)` | logical | Periodic boundary conditions per dimension (default: `.true.`) |
-| `nprint`| Printout frequency (defaults to 10)
-
-#### `/INPUT_SP/` - Species Selection
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `sp_types_selected` | integer(:) | LAMMPS type IDs for selected species |
-| `mat` | real(:) | Atomic masses |
-
-#### `/INPUT_RDF/` - Radial Distribution Functions
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `deltar` | real | Radial grid spacing |
-| `rcrdf` | real | RDF cutoff (default: Lbox/2) |
-| `nrandom` | integer | Number of random origins for fluctuation analysis |
-
-#### `/INPUT_SQ/` - Structure Factors
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `qmax` | real | Maximum Q value |
-| `qmin` | real | Threshold for full Q-sampling (all directions for Q ≤ qmin) |
-| `bsc` | real(:) | Coherent scattering lengths |
-
-#### `/INPUT_CL/` - Cluster Analysis
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `dcl` | real | Grid spacing for cluster distributions (no. of clusters) |
-| `minPts` | integer | Minimum cluster size for analysis (defaults to 2*ndim+1)|
-| `ndrclus` | integer | Bins for cluster radial profiles (defaults to 100) |
-| `cl_thresh` | integer | Minimum cluster count for correlations (defaults to 10) |
-| `geometry` | logical | Controls whether geometry & correlation are computed (defaults to .t.) |
-
-#### `/INPUT_ORD/` - Order Parameters
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `orderp` | logical | Compute order parameters (default: `.true.`) |
-| `print_orderp` | logical | Output per-particle values (default: `.false.`) |
-| `rclcl` | real | Cutoff for inter-cluster neighbors (default: rcl) |
-| `nnbond` | integer | Fixed neighbor count (0 = all within cutoff) |
-
-#### `/INPUT_CONF/` - Confinement Analysis
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `idir` | integer | Confinement direction (1=x, 2=y, 3=z) |
-
-#### `/INPUT_DYN/` - Dynamics
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `nbuffer` | integer | Number of time origins for correlation averaging |
-| `jump` | integer | Configuration stride between buffers (default: 1) |
-| `tmax` | real | Maximum time for correlations (ps); windowing applied for FFT |
-| `tmaxp` | real | Maximum time for viscosity windowing (default: tmax) |
-| `tlimit` | real | Time limit for buffer averaging (auto-calculated if omitted) |
-
-#### `/INPUT_SQW/` - Dynamic Structure Factors
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `qw(:)` | real | Q-values for F(Q,t) and S(Q,ω) calculations |
-| `tmqw(:)` | real | Maximum times per Q (default: tmax) |
-
-## Output Files
-
-All outputs are written to the working directory with descriptive filenames.
-
-### Thermodynamics
-- `thermo_run.dat` - Time series of instantaneous temperature, pressure, potential energy
-
-### Structure
-- `gmixsim.dat` - Pair distribution functions g_αβ(r); cluster-cluster g(r) if cluster analysis enabled
-- `sq.dat` - Total and partial static structure factors S(Q)
-- `sqcl.dat` - Cluster-cluster structure factor
-- `sqmix.dat` - Species-resolved structure factors
-- `order.dat` - Averaged Steinhardt order parameters ⟨Ql⟩
-- `order_per_mol.dat` - Per-particle order parameters ⟨ql⟩ (if `print_orderp=.true.`)
-- `last_clconf.dat` - Final configuration with cluster IDs
-- `last_conf.lammpstrj` - Final complete configuration with orginal IDs
-
-### Dynamics
-- `dyn.dat` - Mean squared displacement, velocity autocorrelation function
-- `dynw.dat` - Frequency-resolved impedance Z(ω)
-- `fkt.dat` - Intermediate scattering function F(Q,t)
-- `fskt.dat` - Self-intermediate scattering function Fs(Q,t)
-- `sqw.dat` - Dynamic structure factors S(Q,ω) and Ss(Q,ω)
-- `viscor.dat` - Stress autocorrelation and shear viscosity η(t)
+* **Radial Distribution Functions (RDF)**: $g_{\alpha\beta}(r)$ pair correlation functions with species resolution.
+* **Static Structure Factors**: $S(Q)$ calculations with adaptive Q-sampling strategies.
+* **Orientational Order Parameters**: Steinhardt parameters ($Q_l$) for 2D and 3D systems.
+* **Confinement Profiles**: Density and charge density profiles for systems in slit-pore geometries.
+* **Cluster-Cluster Correlations**: RDF and structure factors calculated between cluster centers.
 
 ### Cluster Analysis
-- `rhoprof.dat` - Average cluster density profile (finite clusters only)
-- `radii.dat` - Distribution of cluster radii of gyration
-- `clustdistr.dat` - Cluster size distribution
-- `distUcl_N.dat` - Distribution of internal energy per particle
-- `distUcltot.dat` - Distribution of total cluster internal energy
-- `clusevol.dat` - Time evolution: configuration index, cluster count, clustered particle fraction
-- `fshape.dat` - Cluster shape descriptors (0,0 = sphere; >0,0 = cylinder)
-- `ordprof_clust.dat` - Steinhardt parameter profiles across cluster slices
-- `ordprof_clcum.dat` - Cumulative Steinhardt profiles
-- `order_per_cl.dat` - Average order parameters per cluster
-- `centers.lammpstrj` - Cluster center-of-mass trajectory (LAMMPS format for Ovito visualization)
+* **G-DBSCAN Optimization**: Highly optimized density-based spatial clustering.
+* **Cluster Distributions**: Analysis of cluster sizes and radii of gyration.
+* **Geometric Descriptors**: Cluster shape descriptors including sphericity and cylindricity.
+* **Internal Energy**: Distributions of potential energy per particle and total energy within clusters.
+* **Spatial Profiling**: Average cluster density and Steinhardt profiles across cluster slices.
+* **Trajectories**: Generation of cluster center-of-mass trajectories in LAMMPS format.
 
-### Confinement
-- `densprof.dat` - Density profile along the confinement direction per species
-- `qdens.dat` - Charge density profile along the confinement direction, total, + and -
+### Dynamic Analysis
+* **Time Correlation Functions**: Mean squared displacement (MSD) and velocity autocorrelation (VACF).
+* **Dynamic Structure Factors**: Coherent $F(Q,t)$, $S(Q,\omega)$ and self-part $F_s(Q,t)$, $S_s(Q,\omega)$.
+* **Viscosity**: Shear viscosity $\eta(t)$ derived from stress tensor autocorrelation.
+* **Multi-buffer Algorithm**: Efficient temporal sampling using configurable origins and windowing.
 
-
-## Example Workflow
-
-1. **Run LAMMPS simulation** with NetCDF output:
-   ```lammps
-   dump trj1 all netcdf 100 run.nc id type x y z vx vy vz
-   run 100000
-   ```
-
-2. **Create input file** (`input.nml`):
-   ```fortran
-   &INPUT
-      log_output_file = 'analysis.log'
-      trj_input_file = 'run.nc'
-      ndim = 3
-      nsp = 1
-      ncfs_from_to = 1 1000
-      rdf_sq_cl_dyn_sqw_conf_ord = .true. .true. .false. .false. .false. .false. .false.
-      periodic = .true. .true. true.
-   /
-   
-   &INPUT_SP
-      sp_types_selected = 1
-      mat = 39.948
-   /
-   
-   &INPUT_RDF
-      deltar = 0.05
-   /
-   
-   &INPUT_SQ
-      qmax = 20.0
-      qmin = 5.0
-   /
-   ```
-
-3. **Run analysis**:
-   ```bash
-   ./trj_analysis.exe input.nml
-   ```
-
-4. **Visualize results** using your preferred plotting tool (gnuplot, Python matplotlib, etc.)
-
-## Performance Notes
-
-- GPU acceleration provides 10-100× speedup vs CPU for large systems (N > 10,000 particles)
-- Optimal CUDA thread count depends on GPU architecture (128-256 threads recommended)
-- Dynamic analysis memory scales as O(N × nbuffer × tlimit)
-- For very large trajectories, process in configuration chunks using `ncfs_from_to`
-
-## Contributing
-
-Contributions are welcome. Please ensure code follows the existing style and includes appropriate documentation.
-
-## Citation
-
-If you use this software in your research, please cite:
-```
-A. Díaz-Pozuelo, R. Lomba-Moreno, and E. Lomba, "Trajectory Analysis: GPU-accelerated LAMMPS 
-trajectory analysis toolkit", CSIC-Madrid/USC Santiago de Compostela (to be published, 2026)
-```
-
-## License
-
-GNU GENERAL PUBLIC LICENSE Version 3
+### Thermodynamic Properties
+* **Temperature**: Kinetic energy calculation from particle velocities.
+* **Pressure**: Full stress tensor trace from virial contributions.
+* **Potential Energy**: Analysis of per-atom potential energy and energy histograms.
 
 ---
 
-## Project Status
+## Input Configuration Reference
 
-**Version 1.3** - Production ready (March 2026)
+The input uses Fortran namelist format. All variables found in the source code are documented below.
 
-## Support
+### `/INPUT/` - General Parameters
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `log_output_file` | char | - | Name of the log output file. |
+| `trj_input_file` | char | - | NetCDF trajectory filename. |
+| `ndim` | int | - | Spatial dimensions (2 or 3). |
+| `nsp` | int | - | Number of species to analyze. |
+| `nthread` | int | 64 | CUDA threads per block. |
+| `ncfs_from_to(3)` | int | 0,0,0 | Config range: [start, end, stride]. |
+| `rdf_sq_cl_dyn_sqw_conf_ord` | log(7) | False | Enable modules: RDF, S(Q), CL, DYN, SQW, CONF, ORD. |
+| `nqw` | int | 0 | Number of Q-values for dynamic analysis. |
+| `nslice` | int | 1 | Number of slices for confinement or profiling. |
+| `norder` | int | 1 | Maximum order for Steinhardt parameters. |
+| `ener_name` | char | - | LAMMPS compute name for potential energy. |
+| `press_name` | char | - | LAMMPS compute name for stress tensor. |
+| `potnbins` | int | 100 | Bins for energy histograms. |
+| `potengmargin` | real | 0.0 | Energy histogram margin. |
+| `rcl` | real | - | General cutoff for clustering and neighbors. |
+| `periodic(ndim)` | log | True | Periodic boundary conditions per dimension. |
+| `nprint` | int | 10 | Printout frequency. |
 
-For bug reports and feature requests, please contact the authors or open an issue in the repository.
+### `/INPUT_SP/` - Species Selection
+| Parameter | Type | Description |
+| :--- | :--- | :--- |
+| `sp_types_selected` | int(:) | LAMMPS type IDs for selected species. |
+| `mat` | real(:) | Atomic masses for each selected species. |
 
-## Acknowledgments
+### `/INPUT_RDF/` - RDF Parameters
+| Parameter | Type | Description |
+| :--- | :--- | :--- |
+| `deltar` | real | Radial grid spacing. |
+| `rcrdf` | real | RDF cutoff distance. |
+| `nrandom` | int | Number of random origins for fluctuation analysis. |
 
-This work was supported by computational resources provided by CSIC and CESGA.
+### `/INPUT_SQ/` - Structure Factor
+| Parameter | Type | Description |
+| :--- | : :--- | :--- |
+| `qmax` | real | Maximum Q value. |
+| `qmin` | real | Threshold for isotropic Q-sampling. |
+| `bsc` | real(:) | Coherent scattering lengths per species. |
+
+### `/INPUT_CL/` - Cluster Analysis
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `dcl` | real | - | Grid spacing for cluster distributions. |
+| `minPts` | int | 2*ndim+1 | Minimum cluster size. |
+| `ndrclus` | int | - | Bins for cluster radial profiles. |
+| `cl_thresh` | int | 10 | Min cluster count for correlations. |
+| `geometry` | log | True | Enable geometry and correlation computations. |
+
+### `/INPUT_ORDER/` - Order Parameters
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `orderp` | int(:) | - | Array of L-indices for Steinhardt parameters. |
+| `print_orderp` | log | False | Output per-particle order values. |
+| `nnbond` | int | 0 | Fixed neighbor count (0 = use cutoff `rcl`). |
+| `rclcl` | real | 0.0 | Cutoff for inter-cluster neighbors. |
+
+### `/INPUT_CONF/` - Confinement
+| Parameter | Type | Description |
+| :--- | :--- | :--- |
+| `idir` | int | Confinement direction (must be 3 for Z-axis). |
+| `zslice` | real(:) | Explicit slice positions. |
+| `zgrid` | real | Grid spacing for profiles. |
+
+### `/INPUT_DYN/` - Dynamics
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `nbuffer` | int | 2 | Number of time origins for correlation. |
+| `tmax` | real | -1.0 | Max time window for correlations (ps). |
+| `tmaxp` | real | -1.0 | Max time for viscosity windowing. |
+| `tlimit` | real | -1.0 | Global time limit for buffer averaging. |
+| `jump` | int | 1 | Config stride between buffers. |
+
+### `/INPUT_SQW/` - Dynamic Structure Factors
+| Parameter | Type | Description |
+| :--- | :--- | :--- |
+| `qw` | real(:) | Q-values for $F(Q,t)$ and $S(Q,\omega)$. |
+| `tmqw` | real(:) | Maximum times per specific Q-value. |
+
+---
+
+## Output Files Reference
+
+### Thermodynamics
+* `thermo_run.dat`: Time series of instantaneous $T$, $P$, and potential energy.
+
+### Structure
+* `gmixsim.dat`: Pair distribution functions $g_{\alpha\beta}(r)$.
+* `sq.dat`: Total static structure factor $S(Q)$, and for binary mixtures $S_{NN}(Q)$, $S_{cc}(Q)$ etc..
+* `sqmix.dat`: Species-resolved partial structure factors.
+* `sqcl.dat`: Cluster-center structure factor $S_{cl}(Q)$.
+* `order.dat`: Averaged Steinhardt order parameters $\langle Q_l \rangle$.
+* `order_per_mol.dat`: Per-particle order parameters (if `print_orderp=.true.`).
+* `s2n.dat`: Number fluctuation data (if `nrandom > 0`).
+
+### Directional & Confinement Analysis
+* `densprof.dat`: Density profile along the confinement direction (idir).
+* `qdens.dat`: Total and species-resolved charge density profiles (if charges present).
+* `gxy_i-j.dat`: 2D RDFs calculated within slices in the xy plane.
+* `gxy_cc.dat`: 2D concentration-concentration RDF in the xy plane.
+* `sqxy.dat`: 2D structure factor calculated within slices in the xy plane.
+* `sqxy_qq.dat`: 2D charge-charge structure factor in the xy plane.
+* `sqpxy_i-i.dat`: Partial 2D structure factors per species in the xy plane.
+
+### Dynamics
+* `dyn.dat`: Mean squared displacement and velocity autocorrelation.
+* `dynw.dat`: Frequency-resolved impedance $Z(\omega)$.
+* `fkt.dat`: Coherent intermediate scattering function $F(Q,t)$.
+* `fskt.dat`: Self-intermediate scattering function $F_s(Q,t)$.
+* `sqw.dat`: Dynamic structure factors $S(Q,\omega)$ and $S_s(Q,\omega)$.
+* `viscor.dat`: Stress autocorrelation and shear viscosity $\eta(t)$.
+
+### Cluster Analysis
+* `clustdistr.dat`: Cluster size distribution.
+* `radii.dat`: Distribution of cluster radii of gyration.
+* `rhoprof.dat`: Average cluster radial density profiles.
+* `fshape.dat`: Cluster shape descriptors (sphericity, cylindricity).
+* `distUcl_N.dat`: Distribution of internal energy per particle.
+* `distUcltot.dat`: Distribution of total cluster internal energy.
+* `clusevol.dat`: Time evolution of cluster counts and clustered fractions.
+* `order_per_clust.dat`: Order parameters averaged per cluster.
+* `ordprof_clust.dat`: Steinhardt parameter profiles across cluster slices.
+* `ordprof_clcum.dat`: Cumulative Steinhardt profiles.
+* `centers.lammpstrj`: Cluster center-of-mass trajectory for visualization.
+* `last_clconf.lammpstrj`: Final configuration with particles colored by cluster ID.
