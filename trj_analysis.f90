@@ -6,12 +6,13 @@
 !   structural, thermodynamic, and dynamic characterization of molecular systems.
 !   Source: https://www.lammps.org/
 !
-! Analysis Capabilities:
+! Analysis Capabilities (full list in README.md):
 !   STRUCTURAL:
-!     - Radial distribution functions (RDF) g_αβ(r) with species resolution
-!     - Static structure factors S(Q) with adaptive Q-sampling
+!     - Radial distribution functions (RDF) g_αβ(r) with species resolutioni, and charge-charge g_qq(r)
+!     - Static structure factors S(Q) with adaptive Q-sampling, including partial S_αβ(Q), and charge-charge S_qq(Q)
 !     - Steinhardt orientational order parameters Q_l (2D and 3D)
 !     - Density and charge density profiles for confined systems
+!     - Correlation functions accross sections in confined systems
 !     - Cluster-cluster correlations (RDF and S(Q))
 !
 !   CLUSTER ANALYSIS:
@@ -66,7 +67,7 @@
 !
 ! Output Files:
 !   THERMODYNAMICS: thermo_run.dat
-!   STRUCTURE:      gmixsim.dat, sq.dat, sqmix.dat, sqcl.dat, order.dat
+!   STRUCTURE:      gmixsim.dat, g_xy.dat, sq_xy.dat, sq.dat, sqmix.dat, sqcl.dat, order.dat
 !   DYNAMICS:       dyn.dat, fkt.dat, fskt.dat, sqw.dat, viscor.dat, dynw.dat
 !   CLUSTERS:       rhoprof.dat, radii.dat, clustdistr.dat, distUcl_N.dat,
 !                   distUcltot.dat, clusevol.dat, fshape.dat, ordprof_clust.dat,
@@ -81,7 +82,7 @@
 ! Authors:
 !   A. Díaz-Pozuelo & E. Lomba (optimized G-DBSCAN contributed by R. Lomba)
 !   CSIC Madrid / USC Santiago de Compostela
-!   February 2026
+!   April 2026
 !
 ! Implementation:
 !   NVIDIA CUDA Fortran with GPU acceleration
