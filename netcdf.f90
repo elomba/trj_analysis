@@ -32,7 +32,7 @@ module mod_nc
    use mod_precision
    use mod_common, Only : ex_vel, ex_force, ex_stress, run_thermo, &
       u_p, stress, ex_mol, ex_qc, periodic, voigt, &
-      ener_name, press_name, pwall, pwallp, tunits, vunits, nstep, auto_zslice, zslice, zgrid
+      ener_name, press_name, pwall, pwallp, tunits, vunits, nstep, auto_zslice, zslice, zgrid, nslice
    use mod_input, only : idir
    interface
       subroutine read_nc_cfg(ncid, ncstart, io, unit)
@@ -330,7 +330,12 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
                         write(*,'(" ** Auto-defined z-slices: zslice(1) = ",F8.2,", zgrid = ",F8.2)') zslice(1), zgrid
                      else
                         if (minval(zslice(:)) < pwall .or. maxval(zslice(:)) > pwallp) then
+                           if (minval(zslice(:)) < -1000000) then
+                              write(*,'(" *** Fatal error: if nslice is defined, input values for zslice must be supplied !")')
+                              stop
+                           end if
                            write(*,'(" ** Error: z-slices out of box limits, check your input parameters !")')
+                           write(*,'(" zslice(1) = ",F8.2,", pwall = ",F8.2,", pwallp = ",F8.2,", zslice(nslice)=",F8.2)') zslice(1), pwall, pwallp, zslice(nslice)
                            stop
                         endif
                      endif

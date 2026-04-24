@@ -155,6 +155,8 @@ contains
             auto_zslice = .true.
          endif
          allocate(zslice(nslice),countslice(nslice))
+         ! Use absurdly large value de zslice to detect if it has not been defined
+         if (.not. auto_zslice) zslice(:) = -1000000000.0
          allocate(countpslice(nsp, nslice))
          read (unit=io_input_file, nml=INPUT_CONF)
          countslice(:) = 0
