@@ -22,7 +22,7 @@ GNU General Public License v3.0
 ## Introduction   
 ---
 
-## Features
+## Main Features
 
 ### Structural Analysis
 * **Radial Distribution Functions (RDF)**: $g_{\alpha\beta}(r)$ pair correlation functions with species resolution.
