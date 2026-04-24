@@ -328,6 +328,11 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
                         zslice(1) = (maxval(r(k,1:natoms,1)) + minval(r(k,1:natoms,1)))/2.0
                         zgrid = (maxval(r(k,1:natoms,1)) - minval(r(k,1:natoms,1)))/real(10)
                         write(*,'(" ** Auto-defined z-slices: zslice(1) = ",F8.2,", zgrid = ",F8.2)') zslice(1), zgrid
+                     else
+                        if (minval(zslice(:)) < pwall .or. maxval(zslice(:)) > pwallp) then
+                           write(*,'(" ** Error: z-slices out of box limits, check your input parameters !")')
+                           stop
+                        endif
                      endif
                   endif
                endif
