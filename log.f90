@@ -432,8 +432,8 @@ contains
             end do
          end do  
          if (ex_qc) then 
-            open (240, file='gxy_cc.dat')
-            write (240, "('#     r        ',3x,16('g_xy_cc(r,',f7.2,')',4x:))") zslice(1:nslice)
+            open (240, file='gxy_qq.dat')
+            write (240, "('#     r        ',3x,16('g_xy_qq(r,',f7.2,')',4x:))") zslice(1:nslice)
          endif 
       else
          if (nsp<=6) then
@@ -519,7 +519,7 @@ contains
          if (twoDstruc_3D) then
             if (ex_qc) then
                ! Compute 2D concentration-concentration rdf in xy plane for 3D systems with confinement, using appropriate normalization for cylindrical shells and accounting for slice thickness
-               gmix_cc_xy(:) = volumen*(zgrid/sidel(3))*gqqxy(i,:)/(deltaV*Nconf)
+               gmix_qq(:) = volumen*(zgrid/sidel(3))*gqqxy(i,:)/(deltaV*Nconf)
             endif
          endif
          ! Print number fluctuations to check for hyperuniformity, if requested
@@ -552,7 +552,7 @@ contains
                   end do
                end do 
                if (ex_qc) then
-                  write (240, '(15f16.7)') ri, (gmix_cc_xy(1:nslice))
+                  write (240, '(15f16.7)') ri, (gmix_qq(1:nslice))
                endif
             else
                if (nsp <= 6) then

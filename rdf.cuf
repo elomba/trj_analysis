@@ -72,7 +72,7 @@ contains
          allocate(zsliced(nslice),countsliced(nslice),countpslice_d(nsp,nslice))
          zsliced(:) = zslice(:)
          if (ex_qc) then
-            Allocate(gqqxy(lsmax, nslice), gppxy(lsmax, nslice), gmmxy(lsmax, nslice),gmix_cc_xy(nslice))
+            Allocate(gqqxy(lsmax, nslice), gppxy(lsmax, nslice), gmmxy(lsmax, nslice),gmix_qq(nslice))
             gqqxy(:,:) = 0
             gppxy(:,:) = 0
             gmmxy(:,:) = 0
@@ -262,7 +262,7 @@ contains
          if (ex_qc) then
             call count_q_slice()
             do islice=1, nslice
-               gqqxy(:, islice) = gqqxy_d(:, islice)/(countslice(islice)**2*avq2)+gqqxy(:, islice)
+               gqqxy(:, islice) = gqqxy_d(:, islice)/(countslice(islice)**2*q2slice(islice))+gqqxy(:, islice)
             end do
          endif
       else

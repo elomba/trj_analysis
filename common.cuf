@@ -70,7 +70,7 @@ module mod_common
    real(myprec), dimension(3) :: sidel, sidelv, rlow
    real, device, dimension(3) :: fk_d, sidel_d
    real(myprec), dimension(3, 3) :: cell
-   real(myprec), allocatable, dimension(:) :: masa, bscat, sig2n, gaver, u_p, zslice, gtot, gmix_cc_xy
+   real(myprec), allocatable, dimension(:) :: masa, bscat, sig2n, gaver, u_p, zslice, gtot, gmix_qq
    real(myprec), allocatable, dimension(:,:,:) :: gmix_xy
    real(kind=8), allocatable, dimension(:) :: gi, g2i, gii, g2ii, qcharge, gqq, gpp, gmm, scc, spp, smm
    real(myprec), device, allocatable, dimension(:) :: sqf_d, sqfq_d, sqfcl_d, bsc_d, zsliced, gqq_d, gpp_d, gmm_d, scc_c, spp_d, smm_d, qcharge_d

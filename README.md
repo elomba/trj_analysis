@@ -20,11 +20,12 @@ GNU General Public License v3.0
 ---
 
 ## Introduction   
----
+
 
 ## Main Features
 
 ### Structural Analysis
+
 * **Radial Distribution Functions (RDF)**: $g_{\alpha\beta}(r)$ pair correlation functions with species resolution.
 * **Static Structure Factors**: $S(Q)$ calculations with adaptive Q-sampling strategies.
 * **Orientational Order Parameters**: Steinhardt parameters ($Q_l$) for 2D and 3D systems.
@@ -32,6 +33,7 @@ GNU General Public License v3.0
 * **Cluster-Cluster Correlations**: RDF and structure factors calculated between cluster centers.
 
 ### Cluster Analysis
+
 * **G-DBSCAN Optimization**: Highly optimized density-based spatial clustering.
 * **Cluster Distributions**: Analysis of cluster sizes and radii of gyration.
 * **Geometric Descriptors**: Cluster shape descriptors including sphericity and cylindricity.
@@ -40,12 +42,14 @@ GNU General Public License v3.0
 * **Trajectories**: Generation of cluster center-of-mass trajectories in LAMMPS format.
 
 ### Dynamic Analysis
+
 * **Time Correlation Functions**: Mean squared displacement (MSD) and velocity autocorrelation (VACF).
 * **Dynamic Structure Factors**: Coherent $F(Q,t)$, $S(Q,\omega)$ and self-part $F_s(Q,t)$, $S_s(Q,\omega)$.
 * **Viscosity**: Shear viscosity $\eta(t)$ derived from stress tensor autocorrelation.
 * **Multi-buffer Algorithm**: Efficient temporal sampling using configurable origins and windowing.
 
 ### Thermodynamic Properties
+
 * **Temperature**: Kinetic energy calculation from particle velocities.
 * **Pressure**: Full stress tensor trace from virial contributions.
 * **Potential Energy**: Analysis of per-atom potential energy and energy histograms.
@@ -57,6 +61,7 @@ GNU General Public License v3.0
 The input uses Fortran namelist format. All variables found in the source code are documented below.
 
 ### `/INPUT/` - General Parameters
+
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `log_output_file` | char | - | Name of the log output file. |
@@ -78,12 +83,14 @@ The input uses Fortran namelist format. All variables found in the source code a
 | `nprint` | int | 10 | Printout frequency. |
 
 ### `/INPUT_SP/` - Species Selection
+
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
 | `sp_types_selected` | int(:) | LAMMPS type IDs for selected species. |
 | `mat` | real(:) | Atomic masses for each selected species. |
 
 ### `/INPUT_RDF/` - RDF Parameters
+
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
 | `deltar` | real | Radial grid spacing. |
@@ -91,6 +98,7 @@ The input uses Fortran namelist format. All variables found in the source code a
 | `nrandom` | int | Number of random origins for fluctuation analysis. |
 
 ### `/INPUT_SQ/` - Structure Factor
+
 | Parameter | Type | Description |
 | :--- | : :--- | :--- |
 | `qmax` | real | Maximum Q value. |
@@ -98,6 +106,7 @@ The input uses Fortran namelist format. All variables found in the source code a
 | `bsc` | real(:) | Coherent scattering lengths per species. |
 
 ### `/INPUT_CL/` - Cluster Analysis
+
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `dcl` | real | - | Grid spacing for cluster distributions. |
@@ -107,6 +116,7 @@ The input uses Fortran namelist format. All variables found in the source code a
 | `geometry` | log | True | Enable geometry and correlation computations. |
 
 ### `/INPUT_ORDER/` - Order Parameters
+
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `orderp` | int(:) | - | Array of L-indices for Steinhardt parameters. |
@@ -115,6 +125,7 @@ The input uses Fortran namelist format. All variables found in the source code a
 | `rclcl` | real | 0.0 | Cutoff for inter-cluster neighbors. |
 
 ### `/INPUT_CONF/` - Confinement
+
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
 | `idir` | int | Confinement direction (must be 3 for Z-axis). |
@@ -122,6 +133,7 @@ The input uses Fortran namelist format. All variables found in the source code a
 | `zgrid` | real | Grid spacing for profiles. |
 
 ### `/INPUT_DYN/` - Dynamics
+
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `nbuffer` | int | 2 | Number of time origins for correlation. |
@@ -131,6 +143,7 @@ The input uses Fortran namelist format. All variables found in the source code a
 | `jump` | int | 1 | Config stride between buffers. |
 
 ### `/INPUT_SQW/` - Dynamic Structure Factors
+
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
 | `qw` | real(:) | Q-values for $F(Q,t)$ and $S(Q,\omega)$. |
@@ -141,9 +154,11 @@ The input uses Fortran namelist format. All variables found in the source code a
 ## Output Files Reference
 
 ### Thermodynamics
+
 * `thermo_run.dat`: Time series of instantaneous $T$, $P$, and potential energy.
 
 ### Structure
+
 * `gmixsim.dat`: Pair distribution functions $g_{\alpha\beta}(r)$.
 * `sq.dat`: Total static structure factor $S(Q)$, and for binary mixtures $S_{NN}(Q)$, $S_{cc}(Q)$ etc..
 * `sqmix.dat`: Species-resolved partial structure factors.
@@ -153,15 +168,17 @@ The input uses Fortran namelist format. All variables found in the source code a
 * `s2n.dat`: Number fluctuation data (if `nrandom > 0`).
 
 ### Directional & Confinement Analysis
+
 * `densprof.dat`: Density profile along the confinement direction (idir).
 * `qdens.dat`: Total and species-resolved charge density profiles (if charges present).
 * `gxy_i-j.dat`: 2D RDFs calculated within slices in the xy plane.
-* `gxy_cc.dat`: 2D concentration-concentration RDF in the xy plane.
+* `gxy_qq.dat`: 2D charge-charge RDF calculated within slices in the xy plane.
 * `sqxy.dat`: 2D structure factor calculated within slices in the xy plane.
-* `sqxy_qq.dat`: 2D charge-charge structure factor in the xy plane.
+* `sqxy_qq.dat`: 2D charge-charge structure factor calculated within slices in the xy plane.
 * `sqpxy_i-i.dat`: Partial 2D structure factors per species in the xy plane.
 
 ### Dynamics
+
 * `dyn.dat`: Mean squared displacement and velocity autocorrelation.
 * `dynw.dat`: Frequency-resolved impedance $Z(\omega)$.
 * `fkt.dat`: Coherent intermediate scattering function $F(Q,t)$.
@@ -169,7 +186,8 @@ The input uses Fortran namelist format. All variables found in the source code a
 * `sqw.dat`: Dynamic structure factors $S(Q,\omega)$ and $S_s(Q,\omega)$.
 * `viscor.dat`: Stress autocorrelation and shear viscosity $\eta(t)$.
 
-### Cluster Analysis
+### Cluster Analysis files
+
 * `clustdistr.dat`: Cluster size distribution.
 * `radii.dat`: Distribution of cluster radii of gyration.
 * `rhoprof.dat`: Average cluster radial density profiles.
