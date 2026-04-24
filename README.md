@@ -11,6 +11,7 @@ This program performs advanced structural, thermodynamic, and dynamic analysis o
 * **Only LAMMPS NetCDF files are supported (use conversion tools such as Ovito or scripts tools/ directory)**
 * **Only orthorhombic simulation cells are contemplated**
 * **Confinement is restricted to the z-axis and only for 3D systems**
+* **Dynamic $S(q,\omega)$ and $F(q,t)$ computation disabled for confined systems**
 * **Charge-charge and density/correlation profiles across z-axis not enabled for cluster correlations**
 * **Units limited to LAMMPS `real`, `lj`, and `metal`**
 * **Constant particle number (NpT allowed with minor S(Q) errors)**
