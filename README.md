@@ -12,7 +12,7 @@ This program performs advanced structural, thermodynamic, and dynamic analysis o
 * **Only orthorhombic simulation cells are contemplated**
 * **Confinement is restricted to the z-axis and only for 3D systems**
 * **Charge-charge and density/correlation profiles across z-axis not enabled for cluster correlations**
-* **Units limited to LAMMPS $real$, $lj$, and $metal$**
+* **Units limited to LAMMPS `real`, `lj`, and `metal`**
 * **Constant particle number (NpT allowed with minor S(Q) errors)**
 * **Atomic-level analysis (molecular internal degrees of freedom not considered)**
 
@@ -31,7 +31,19 @@ GNU General Public License v3.0
 
 ## Usage
 
-trj_analysis input.nml GPU_ID (optional)
+`trj_analysis input.nml GPU_ID (optional)`
+
+## LAMMPS dump format (first two lines to compute energy and pressure)
+
+```
+compute stress all stress/atom NULL
+compute ener all pe/atom
+dump trj1 all netcdf ${Ndump} run.nc id type x y z vx vy vz q c_stress[*] c_ener
+```
+
+or  positions only:
+
+`dump trj1 all netcdf ${Ndump} run.nc id type x y z`
 
 ## Main Features
 
