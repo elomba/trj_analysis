@@ -128,7 +128,6 @@ The input uses Fortran namelist format. All variables found in the source code a
 
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
-| `idir` | int | Confinement direction (must be 3 for Z-axis). |
 | `zslice` | real(:) | Explicit slice positions. |
 | `zgrid` | real | Grid spacing for profiles. |
 
@@ -169,7 +168,7 @@ The input uses Fortran namelist format. All variables found in the source code a
 
 ### Directional & Confinement Analysis
 
-* `densprof.dat`: Density profile along the confinement direction (idir).
+* `densprof.dat`: Density profile along the confinement direction (z).
 * `qdens.dat`: Total and species-resolved charge density profiles (if charges present).
 * `gxy_i-j.dat`: 2D RDFs calculated within slices in the xy plane.
 * `gxy_qq.dat`: 2D charge-charge RDF calculated within slices in the xy plane.

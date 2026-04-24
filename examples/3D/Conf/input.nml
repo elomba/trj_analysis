@@ -4,6 +4,7 @@
   ndim=3
   nsp=7
   nthread=128
+  nslice=1
   ncfs_from_to=1000 1 1000
   rdf_sq_cl_dyn_sqw_conf_ord=T T F F F T F
 /
@@ -29,6 +30,7 @@ nbuffer=6
 tmax=20
 /
 &INPUT_CONF
-  idir=3
+zslice=0.0
+zgrid=4.0  
 /
 

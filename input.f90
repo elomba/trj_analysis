@@ -67,7 +67,7 @@ module mod_input
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
    namelist /INPUT_SQ/ qmax, qmin, bsc
    namelist /INPUT_CL/ dcl, minPts, ndrclus, cl_thresh, geometry
-   namelist /INPUT_CONF/ idir, zslice, zgrid
+   namelist /INPUT_CONF/ zslice, zgrid
    namelist /INPUT_DYN/ nbuffer, tmax, tmaxp, tlimit, jump
    namelist /INPUT_SQW/ qw, tmqw
    namelist /INPUT_ORDER/ orderp, print_orderp, nnbond, rclcl
@@ -159,10 +159,7 @@ contains
          read (unit=io_input_file, nml=INPUT_CONF)
          countslice(:) = 0
          countsliced(:) = 0
-         if (idir /=3) then
-            write(*,'("*** Error: confinement direction idir must be set to 3 (z) !")')
-            stop
-         endif
+         idir = 3
          confined = .true.
          if (rdf_sq_cl_dyn_sqw_conf_ord(1) == .true. .or. rdf_sq_cl_dyn_sqw_conf_ord(2) == .true.) then
             twoDstruc_3D = .true.

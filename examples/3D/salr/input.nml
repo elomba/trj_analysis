@@ -40,8 +40,3 @@ orderp=4 6 8 10 12
 print_orderp=.true.
 rclcl=110.0
 /
-&INPUT_CONF
-  idir=0
-  pwall=0.0
-  pwallp=0.0
-/
