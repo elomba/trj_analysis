@@ -13,6 +13,13 @@ This program performs advanced structural, thermodynamic, and dynamic analysis o
 Instituto de Química Física Blas Cabrera, CSIC (Madrid) / Universidade de Santiago de Compostela (USC)  
 April 2026
 
+## License
+
+GNU General Public License v3.0
+
+---
+
+## Introduction   
 ---
 
 ## Features
