@@ -80,14 +80,14 @@ contains
             case (3)
                write(unit,'(" ··· Flow control: ",A," module will be executed !")') "Cluster analysis"
             case (4)
-               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "Dynamics/Z(w)"
+               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "Dynamics/Z(w) diffusion"
             case (5)
                write(unit,'(" ··· Flow control: ",A," module will be executed !")') "F(q,t)/S(q,w)"
             case (6)
-               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "Confinement"
+               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "Confinement in the z-direction active"
             case (7)
-               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "Order parameters"
-         end select
+               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "Orientational order parameters"
+            end select
          endif
       end do
       if (unit == 6) then 

@@ -160,6 +160,7 @@ contains
          countslice(:) = 0
          countsliced(:) = 0
          idir = 3
+         !
          confined = .true.
          if (rdf_sq_cl_dyn_sqw_conf_ord(1) == .true. .or. rdf_sq_cl_dyn_sqw_conf_ord(2) == .true.) then
             twoDstruc_3D = .true.
