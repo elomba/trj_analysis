@@ -63,7 +63,7 @@
 !   - Orthogonal simulation cells only (no triclinic)
 !   - Constant particle number (NpT allowed with minor S(Q) errors)
 !   - Atomic-level analysis (molecular internal DOF not considered)
-!   - LAMMPS units: "real" or "lj" (automatic conversion)
+!   - LAMMPS units: "real", "metal", or "lj" (automatic conversion)
 !
 ! Output Files:
 !   THERMODYNAMICS: thermo_run.dat
