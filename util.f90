@@ -46,7 +46,7 @@ module mod_util
    use mod_input, only : input_clear, sp_types_selected, ncfs_from_to, rdf_sq_cl_dyn_sqw_conf_ord, rcl, run_order
    use mod_cells, only : cells_init_post_nc_read, cells_init_pre_nc_read, cells_clear, use_cell
    use mod_thermo, only : thermo_clear
-   use mod_nc_conf, only : wtypes, nmconf, orgty, wtypes, natoms
+   use mod_nc_conf, only : wtypes, nmconf, orgty, wtypes, natoms, trtypes
    use mod_order, only : order_init, order_clear, compute_order, norder
    use mod_precision
    implicit none
@@ -91,21 +91,21 @@ contains
       else if (nsp == ntypes) Then
          nmol = natoms
       else if (nsp < ntypes) then
-         write(*,'(" ** sp_types_selected: ",15i3)')sp_types_selected(1:nsp)
-         write(*,'(" ** Types in trajectory=",15i3/)')orgty(1:ntypes)
+         write(*,'(//," ** sp_types_selected: ",15i3)')sp_types_selected(1:nsp)
+         write(*,'(" ** Types in trajectory=",15i3/)')trtypes(1:ntypes)
          if (any(sp_types_selected == 0)) then
             write(*,'("*** Error: select the species to analyze")')
             write(*,'("    sp_types_selected MUST be defined from ")')
-            write(*,'("    types in trajectory =",15i3//)')orgty(1:ntypes)
+            write(*,'("    types in trajectory =",15i3//)')trtypes(1:ntypes)
             stop
          endif
          do i = 1, nsp 
-            if (any(orgty(1:ntypes) == sp_types_selected(i))) then
+            if (any(trtypes(1:ntypes) == sp_types_selected(i))) then
                continue
             else
                ! If the species type is not in the trajectory, stop
                write(   *,'(/"*** Error: species type ",i2," is not in trajectory")') sp_types_selected(i)
-               write(*,'("    types in trajectory=",15i3)')orgty(1:ntypes)
+               write(*,'("    types in trajectory=",15i3)')orgty(1:nsp)
                stop
             endif
          enddo

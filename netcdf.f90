@@ -143,11 +143,11 @@ module mod_nc_conf
    character(len=5), dimension(1:3) :: cell_ang
    character(len=55) :: fname, fnamew, attr
    integer, dimension(nf90_max_var_dims) :: rhDimIds, rdimId
-   integer :: vtype, nDims, nVars, nGlobalAtts, unlimDimID, step(1), ntypes, nmconf
+   integer :: vtype, nDims, nVars, nGlobalAtts, unlimDimID, step(1), ntypes, nmconf, nftypes
    integer :: start(3), count(3), starti(2), counti(2),&
    & cstart(2), ccount(2), csstart(1), cscount(1), ln, ntm&
    &, status, varid, numatts, numdims, natoms, nconf_i, nlen, nwty
-   integer, dimension(:), allocatable :: ndimid, nvarid, atypes, wtypes, orgty
+   integer, dimension(:), allocatable :: ndimid, nvarid, atypes, trtypes, wtypes, orgty
    integer, dimension(:), allocatable :: counter, nct
 end module mod_nc_conf
 
@@ -170,14 +170,15 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
    use mod_nc
    use netcdf
    use mod_nc_conf
-   use mod_input, only : nsp, ncfs_from_to
+   use mod_input, only : nsp, ncfs_from_to, mat, sp_types_selected
    implicit none
+   real , allocatable, dimension(:) :: nmass
    integer, intent(in) :: ncid, ncstart
    integer, intent(in), optional :: unit
    integer, intent(out) :: io
    integer, dimension(:), allocatable :: tempty
    logical, save :: first = .true., typedefined = .false.
-   integer :: i, j, tipo, iunit, k, ioerr, tmty(1)
+   integer :: i, j, tipo, iunit, k, ioerr, tmty(1), it(1)
    if (.not.present(unit)) then
       iunit = 6
    else
@@ -451,14 +452,25 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
    end do
    if (typedefined) then
       if (first) then
-         allocate(tempty(100),wtypes(nsp))
+         allocate(tempty(100),trtypes(100))
+         allocate(wtypes(nsp), nmass(100))
          tempty(:) = -1
+         trtypes(:) = -1
          tempty(1) = ity(1,1)
-         ntypes = 1
+         ntypes = 0
+         nftypes = 0
          do i = 1, natoms
+           if (.not. any(trtypes(1:nftypes) == ity(i,1))) then
+               nftypes = nftypes+1
+               trtypes(nftypes) = ity(i,1)
+           endif
             if (.not. any(tempty(1:ntypes) == ity(i,1))) then
-               ntypes = ntypes+1
-               tempty(ntypes) = ity(i,1)
+               it=findloc(sp_types_selected,ity(i,1))
+               if (it(1) > 0) then
+                  ntypes = ntypes+1
+                  tempty(ntypes) = ity(i,1)
+                  nmass(ntypes) = mat(it(1))
+               endif
             endif
          end do
          write (iunit,"(' *** Reading trajectory from file: ',A)") trim(adjustl(ncfname))
@@ -467,11 +479,30 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          write (*, "(' ** Number of configurations in file =',i)") nconf_i
          write (iunit, "(/' ** Number of atoms types =',i3)") ntypes
          write (*, "(' ** Number of atoms types =',i3)") ntypes
-
-         allocate (atypes(ntypes),orgty(ntypes))
+         allocate (atypes(nftypes),orgty(ntypes))
          orgty(1:ntypes) = tempty(1:ntypes)
-         if (nsp == ntypes) wtypes = orgty
+         if (nsp == ntypes) then
+            wtypes(1:nsp) = orgty(1:nsp)
+            mat(1:nsp) = nmass(1:nsp)
+         else
+            print *, " Error no. of species n input file", nsp," differ from no. in the trajectory  file:", ntypes
+            stop
+         endif
          deallocate(tempty)
+         atypes(:) = 0
+         do i = 1, natoms
+            ! Remap types
+            tmty = findloc(trtypes(1:nftypes),ity(i,1))
+            atypes(tmty(1)) = atypes(tmty(1)) + 1
+         end do
+         if (nftypes.ne. ntypes) then
+            write(*, "('*** Atom types in trajectory:',/ )")
+            write(iunit, "('*** Atom types in trajectory:',/ )")
+            do i = 1, nftypes
+               write (iunit, "('  ··Number of atoms of type ',i2,' (',i2,')=',i8)") i, trtypes(i),atypes(i)
+               write (*, "('  ··Number of atoms of type ',i2,' (',i2,')=',i8)") i, trtypes(i),atypes(i)
+            end do
+         endif
          atypes(:) = 0
          do i = 1, natoms
             ! Remap types
@@ -479,6 +510,8 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
             ity(i,1) = tmty(1)
             atypes(ity(i, 1)) = atypes(ity(i, 1)) + 1
          end do
+         write(*, "(//'*** Atom types selected in trajectory:',/ )")
+         write(iunit, "(//'*** Atom types selected in trajectory:',/ )")
          do i = 1, ntypes
             write (iunit, "('  ··Number of atoms of type ',i2,' (',i2,')=',i8)") i, orgty(i),atypes(i)
             write (*, "('  ··Number of atoms of type ',i2,' (',i2,')=',i8)") i, orgty(i),atypes(i)
@@ -491,9 +524,10 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
             tmty = findloc(orgty(1:ntypes),ity(i,1))
             ity(i,1) = tmty(1)
          end do
-      end if
+      endif
    else
-      print *, " **** Warning no atom types defined in trajectory file"
+      print *, " **** Fatal error: no atom types defined in trajectory file !!"
+      stop
    end if
    first = .false.
 end subroutine read_nc_cfg
@@ -516,9 +550,9 @@ subroutine reset_nmol(nmoln)
    enddo
    Nmoln = index
    if (Nmoln >0) then
-      write(*,"(' !!*** Only ',i7,' atoms selected: Nmol reset ...')") nmoln
+      write(*,"(//,' !!*** Only ',i7,' atoms selected: Nmol reset ...')") nmoln
    else
-      write(*,"(' !!*** Error: selected types not in netcdf trajectory file: ',8i3)")wtypes
+      write(*,"(//,/' !!*** Error: selected types not in netcdf trajectory file: ',8i3)")wtypes
       stop
    endif
 end subroutine reset_nmol
@@ -533,14 +567,13 @@ subroutine select_ncdfinput()
    use mod_common, only: vel, r, force, cell, sidel, sidelv, side, volumen, itype, bscat, tunit, &
       ntype, masa, nstep, vector_product, nmol, ex_vel, ex_force, ex_qc, &
       tuniti, side2, u_p, stress, voigt, run_thermo, ex_stress, qcharge, chgh, ncharge, cntch, periodic
-   use mod_input, only: ndim, mat, bsc, rcrdf, nsp, charge, idir
+   use mod_input, only: ndim, mat, bsc, rcrdf, nsp, charge, idir, sp_types_selected
    implicit none
    integer :: i, j, k, it(1), index, ipch(1)
    logical :: pass = .true., compcharge = .true., first=.true.
    if (.not.allocated(nct)) allocate(nct(nsp))
    if (.not.allocated(counter)) allocate(counter(nsp))
    nstep = nstep_in(1)
-  
    ! quick and dirty fix to avoid problems with non-periodic directions
    ! cell_in(:, 1) = 1.5*cell_in(:, 1)
    sidel(:) = cell_in(:, 1)
@@ -597,6 +630,7 @@ subroutine select_ncdfinput()
          if (run_thermo) u_p(j) = u_pi(i,1)
          if (ex_stress) stress(1:voigt,j)=stress_i(1:voigt,i,1)
          r(1:ndim, j) = r_in(1:ndim, i, 1)
+         ! Reorder charges 
          if (ex_qc) then
             qcharge(j) = qc(i,1)
             if (compcharge) then
@@ -626,7 +660,10 @@ subroutine select_ncdfinput()
          itype(j) = it(1)
       endif
    end do
+   counter(:) = nct(:)
+
    compcharge = .false.
+
    do i = 1, nsp
       masa(nct(i) + 1:nct(i) + ntype(i)) = mat(i)
       bscat(nct(i) + 1:nct(i) + ntype(i)) = bscat(i)

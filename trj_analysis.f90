@@ -147,7 +147,7 @@ program trj_analysis
         stop
     endif
     ! Set number of species from netcdf file or from selected species from namelist
-    call select_species(nsp, ntypes, nmol, natoms)
+    call select_species(nsp, nftypes, nmol, natoms)
     if (nstep == 0) then
         write(*,"(' !!*** Warning: initial configuration for step 0, skipping ...  ')")
         write(*,"(' !!*** Change ncfs_from_to to n 2 m in input file to avoid this message'/)") 

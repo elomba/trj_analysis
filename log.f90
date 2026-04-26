@@ -557,7 +557,7 @@ contains
             else
                if (nsp <= 6) then
                   if (ex_qc) then 
-                     write (99, '(16f16.6') ri, gchch, (gmix(j, j:nsp), j=1, nsp)
+                     write (99, '(16f16.5)') ri, gchch, (gmix(j, j:nsp), j=1, nsp)
                   else  
                      Write (99, '(16f16.5)') ri,  (gmix(j, j:nsp), j=1, nsp)
                   endif
