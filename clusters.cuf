@@ -106,7 +106,7 @@ module mod_clusters
    use mod_densprof
    use mod_thermo
    use cudafor
-   use mod_nc_conf, only : conf, wtypes, natoms, imol
+   use mod_nc_conf, only : conf, wtypes, imol
    implicit none
    integer :: io_centers_file=110, io_clusevol_file=111, io_shape_file=112, nmaxcl
    character(len=17) :: centers_filename = 'centers.lammpstrj'
@@ -164,7 +164,7 @@ contains
       !
       ! Initialize cluster structures
       !
-      if (iconf==1) call clusters_init(nmol)
+      if (iconf==1) call clusters_init(natoms)
       ! Cluster dynamics in picoseconds, to convert to velocity units if needed
       if (conf(4)%units == 'femtosecond' ) factorv = 0.001
       ! Correct cluster number if too small, to avoid problems with array allocation
@@ -266,7 +266,7 @@ contains
       ekclaver = ekclaver + ekincl
       ekinclsav = ekinclsav + ekincls
       write (io_clusevol_file, '(i7,i7,f15.7,8f8.4)') iconf, cluster_id, &
-      &      (suma/natms)*100, clmfracav(1:nsp-1)/iconf
+      &      (suma/natoms)*100, clmfracav(1:nsp-1)/iconf
       ! 
       ! resize arrays when needed
       if (iconf > 1) then
@@ -384,7 +384,8 @@ contains
          end if
       endif
       ! Potential Energy
-      if (run_thermo .and. iconf ==1 ) call thermo_init_cluster(natms, ndim, sidel, side2, maxcln, cluster)
+      if (run_thermo .and. iconf ==1 ) call thermo_init_cluster(natoms, ndim, sidel, side2, maxcln, cluster)
+
    end subroutine cluster_analysis
 
    subroutine cluster_geometry(Iconf)
@@ -508,7 +509,7 @@ contains
       ! 
       ! Assign perticles to clusters
       contador(:) = 0
-      do i = 1, Nmol
+      do i = 1, natoms
          j = mapcl(label(i))
          if (j > 0) then
             contador(j) = contador(j) + 1
@@ -522,7 +523,7 @@ contains
             clusid(cluster(i)%members(j)) = I
          end do
       end do
-      clusid_d(1:nmol) = clusid(1:nmol)
+      clusid_d(1:natoms) = clusid(1:natoms)
    end subroutine cluster_assign
 
    subroutine memory_manager_cluster(maxcln)
@@ -547,8 +548,8 @@ contains
             deallocate(engcls,bigcl)
          endif
       else
-         allocate(clusid(1:nmol))
-         allocate(clusid_d(1:nmol))
+         allocate(clusid(1:natoms))
+         allocate(clusid_d(1:natoms))
          allocate(molfrac(1:nsp), clmfrac(1:nsp), clmfracav(1:nsp))
          clmfracav(1:nsp) = 0.0
          clmfrac(:) = 0.0
@@ -641,9 +642,9 @@ contains
       !
       ! Neighbors are determined with and without a linked-cell method
       if (use_cell) then
-         call gpu_graph_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, minPts)
+         call gpu_graph_cell<<<nbcuda, nthread>>>(r_d, natoms, ndim, rcl**2, sidel_d, minPts)
       else
-         call gpu_graf<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d, minPts)
+         call gpu_graf<<<nbcuda, nthread>>>(r_d, natoms, ndim, rcl**2, sidel_d, minPts)
       end if
       time_gpu = gptime(stopEvent, startEvent)
       tgraph = tgraph + time_gpu
@@ -657,9 +658,7 @@ contains
       istat = cudaEventRecord(startEvent, 0)
       ! Use thrust scan to build and efficient offset 1D array
       goffset(:) = gneighbors(:)
-      call thrustscan(goffset, Nmol, 1)
-!      goffset(2:Nmol) = goffset(1:Nmol-1)
-!      goffset(1) = 0
+      call thrustscan(goffset, natoms, 1)
       time_gpu = gptime(stopEvent, startEvent)
       tthrus = tthrus + time_gpu
       ! Offset determines the origins of the list of neighbors
@@ -669,27 +668,13 @@ contains
       ! Build adjacency list 
       !
       if (use_cell) then
-         call gpu_adj_cell<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d)
+         call gpu_adj_cell<<<nbcuda, nthread>>>(r_d, natoms, ndim, rcl**2, sidel_d)
       else
-         call gpu_adj<<<nbcuda, nthread>>>(r_d, Nmol, ndim, rcl**2, sidel_d)
+         call gpu_adj<<<nbcuda, nthread>>>(r_d, natoms, ndim, rcl**2, sidel_d)
       end if
       time_gpu = gptime(stopEvent, startEvent)
       tadj = tadj + time_gpu
       adjacency(:) = gadjacency(:)
-   !    do i=1,Nmol
-   !          do k=offset(i), offset(i)+neighbors(i)-1
-   !             j=adjacency(k)
-   !             if (.not. is_neighbor(j,i)) then
-   !                print *, "ASYMMETRY:", i, j
-   !             endif
-   !       enddo
-   !       if (any(adjacency(offset(i):offset(i)+neighbors(i)-1)==i)) print *, "SELF NEIGHBOR:", i
-   !          if (neighbors(i) > 0) then
-   !             if (adjacency(offset(i)) == 0) then
-   !                print *, "BAD OFFSET:", i
-   !             endif
-   !       endif
-   ! enddo
    end subroutine neighbor_search
 
    logical function is_neighbor(j, i)
@@ -728,7 +713,7 @@ contains
       real :: time_gpu
       Character :: error_msg*64
       integer :: active
-      integer :: border_next(Nmol)
+      integer :: border_next(natoms)
       logical :: iactive
       logical, device :: iactive_d
       !
@@ -743,7 +728,7 @@ contains
       !
       ! Recursive BFS search of connected clusters
       ! Main loop over all particles
-      do i = 1, nmol
+      do i = 1, natoms
          ! If i is a core particle and not yet assigned to a cluster, start a new cluster and expand it with BFS
          if (neighbors(i)>=minPts-1 .and. label(i) == 0) then
             ! Try to inherit cluster ID from already-labeled neighbors
@@ -772,7 +757,7 @@ contains
             ! expanding until no more border nodes found.
             do while (iactive)
                iactive_d = .false.
-               call gbfs<<<nbcuda, nthread>>>(Nmol, cluster_id_local, minPts, iactive_d)
+               call gbfs<<<nbcuda, nthread>>>(natoms, cluster_id_local, minPts, iactive_d)
                istat = cudaDeviceSynchronize()
                iactive = iactive_d
             end do
@@ -792,14 +777,14 @@ contains
    end subroutine cluster_search
 
  
-   attributes(global) subroutine gbfs(Nmol, cluster_id, minPts, active)
+   attributes(global) subroutine gbfs(natms,cluster_id, minPts, active)
    ! GPU BFS routine, uses neighbor lists to run through adjacent nodes, marks visited nodes and border nodes.
    ! Starts from border nodes and border is being expanded. Completely parallel implementation.
-   integer, value, intent(IN) :: Nmol, cluster_id, minPts
+   integer, value, intent(IN) :: natms, cluster_id, minPts
    logical, intent(INOUT) :: active
    integer :: i, j, k, nbj, offj
    j = (blockidx%x - 1)*blockdim%x + threadidx%x
-   if (j <= Nmol) then
+   if (j <= natms) then
       if (gborder(j)==1.and.glabel(j) == 0) then
          ! Mark cluster id for j, which is a border node, and if it is a core node,
          ! mark its neighbors as border for the next iteration
@@ -1019,11 +1004,11 @@ subroutine clusters_sq_init()
 
 end subroutine clusters_sq_init
 
-subroutine clusters_init(nmol)
+subroutine clusters_init(natms)
    implicit none
-   integer, intent(in) :: nmol
+   integer, intent(in) :: natms
    ! Allocate CPU memory
-   allocate (sizedist(nmol))
+   allocate (sizedist(natms))
 
    ! Init variables
    sizedist(:) = 0.0

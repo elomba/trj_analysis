@@ -181,12 +181,12 @@ contains
 
    end subroutine rdf_clear
 
-   subroutine RDFcomp(Nmol, Iconf, nbcuda, nthread, units)
+   subroutine RDFcomp(natoms, Iconf, nbcuda, nthread, units)
       !
       ! Main call to compute pdfs and move data back and forth from device
       !
       implicit none
-      integer, intent(IN) :: Nmol, Iconf, nbcuda, nthread
+      integer, intent(IN) :: natoms, Iconf, nbcuda, nthread
       character(len=20), intent(IN) :: units
       integer :: istart, i, ind, k, j, l, istat=0, ierrSync, rdfb, rdfth, islice
       real :: time_gpu, suma, deltaV, ri
@@ -226,7 +226,7 @@ contains
                gqqxy_d(:,:) = 0
                qcharge_d(:) = qcharge(:)
             endif
-            call rdfxy<<<rdfb, rdfth>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced, countpslice_d, ex_qc)
+            call rdfxy<<<rdfb, rdfth>>>(natoms, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced, countpslice_d, ex_qc)
            
             call printcudaerror(" *** Warning: 3D rdfxy GPU kernel exit with errors: reduce nthread",istat)
             countslice(:) = countsliced(:)
@@ -237,19 +237,19 @@ contains
                qcharge_d(:) = qcharge(:)
             endif
             ! Note: for 3D RDF, we use a single histogram array that accumulates contributions from all blocks, so we can directly copy it to host after the kernel execution
-            call rdf_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, ex_qc)
+            call rdf_sh<<<rdfb, rdfth, lsmax*nit*4>>>(natoms, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, ex_qc)
             call printcudaerror(" *** Warning: 3D rdf_sh GPU kernel exit with errors: reduce nthread",istat)
             if (istat /= 0) stop(" *** Fatal error in rdf_sh kernel!!")
             ! Sampling fluctuations in particle number for hyperuniformity analysis (if nrandom > 0)
-            if (nrandom>0) call s2D3_sh<<<nrandom,nthread,(lsmax+1)*4>>>(r_d, Nmol, ndim, gii_d, g2ii_d, lsmax &
+            if (nrandom>0) call s2D3_sh<<<nrandom,nthread,(lsmax+1)*4>>>(r_d, natoms, ndim, gii_d, g2ii_d, lsmax &
             &, side2, sidel_d, deltar )
          endif
       else
          ! 2D RDF calculation
-         call rdf2_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nmol, ndim, nit, nsp, lsmax, side2, sidel_d, deltar ,ex_qc)
+         call rdf2_sh<<<rdfb, rdfth, lsmax*nit*4>>>(natoms, ndim, nit, nsp, lsmax, side2, sidel_d, deltar ,ex_qc)
          call printcudaerror(" *** Warning: 2D rdf2_sh GPU kernel exit with errors: reduce nthread", istat)
          if (istat /= 0) stop(" *** Fatal error in rdf2_sh kernel!!")
-         if (nrandom>0) call s2D2_sh<<<nrandom,nthread,(lsmax+1)*4>>>(r_d, Nmol, ndim, gii_d, g2ii_d, lsmax &
+         if (nrandom>0) call s2D2_sh<<<nrandom,nthread,(lsmax+1)*4>>>(r_d, natoms, ndim, gii_d, g2ii_d, lsmax &
          &, side2, sidel_d, deltar )
       end if
       time_gpu = gptime(stopEvent, startEvent)
@@ -269,7 +269,7 @@ contains
          ! For 3D RDF, histomix_d contains the sum of all histograms from each block, so we can directly copy it to host
          histomixi(:, :) = histomix_d(:, :)
          if (ex_qc) then   
-            avq2 = sum(qcharge(:)**2)/Nmol
+            avq2 = sum(qcharge(:)**2)/natoms
             gqq(:) = gqq(:)+gqq_d(:)/avq2
          endif
       end if
@@ -337,7 +337,7 @@ contains
          if (twoDstruc_3D) then
             gtotxy(i,:) = 2*volumen*(zgrid/sidel(3))*gtotxy(i,:)/(deltaV)
          else  
-            gtot(i) = 2*volumen*gtot(i)/(deltaV*natms*natms)
+            gtot(i) = 2*volumen*gtot(i)/(deltaV*natoms*natoms)
          end if
       end do
       if(.not.twoDstruc_3D) then
@@ -423,12 +423,12 @@ contains
       end do
    end subroutine rdfclcl2
 
-   attributes(global) subroutine rdf_sh(Nmol, dim, nit, nsp, lsmax, side2, sidel, deltar,ex_qc )
+   attributes(global) subroutine rdf_sh(natoms, dim, nit, nsp, lsmax, side2, sidel, deltar,ex_qc )
    use curand_device
    !
    ! Mossively parallel rdf calculation using shared memory
    !
-   integer, value, intent(IN) :: Nmol, dim, nit, lsmax,  nsp
+   integer, value, intent(IN) :: natoms, dim, nit, lsmax,  nsp
    integer i, j, ind, ia, fact, iti, itj, istart, ij, ix
    real ::  rr2, rr, xi, yi, zi, xd, yd, zd, xrd1, xrd2, xrd3, qci, qcj
    real, dimension(3) :: rv
@@ -440,7 +440,7 @@ contains
    i = (blockidx%x - 1)*blockdim%x + threadidx%x
    histomix_s(:, :) = 0
 
-   if (i <= Nmol) then
+   if (i <= natoms) then
       iti = itype_d(i)
       if (ex_qc) then
          qci = qcharge_d(i)
@@ -448,7 +448,7 @@ contains
       xi = r_d(1, i)
       yi = r_d(2, i)
       zi = r_d(3, i)
-      Do j = i + 1, Nmol
+      Do j = i + 1, natoms
          xd = r_d(1, j) - xi
          yd = r_d(2, j) - yi
          zd = r_d(3, j) - zi
@@ -486,19 +486,19 @@ contains
 
 end subroutine rdf_sh
 
-attributes(global) subroutine s2D3_sh(r, Nmol, dim, gii, g2ii, lsmax &
+attributes(global) subroutine s2D3_sh(r, natoms, dim, gii, g2ii, lsmax &
 &, side2, sidel, deltar )
 use curand_device
  !
  ! Mossively parallel density fluctuation calculation using shared memory
  !
-integer, value, intent(IN) :: Nmol, dim, lsmax
+integer, value, intent(IN) :: natoms, dim, lsmax
 integer i, j, k, ind, nrand, ia
 real ::  rr2, rr, xi, yi, zi, xd, yd, zd, xrd1, xrd2, xrd3, value
 real, dimension(3) :: rv, xr
 real, value, intent(IN) :: side2, deltar
 real, intent(IN) :: sidel(3)
-real, dimension(dim, Nmol), intent(IN) :: r
+real, dimension(dim, natoms), intent(IN) :: r
 real, intent(INOUT) :: gii(0:lsmax), g2ii(0:lsmax)
 integer(8) :: seed, seq, offset
 type(curandStateXORWOW) :: h
@@ -518,9 +518,9 @@ xrd2 = sidel(2)*curand_uniform(h)
 xrd3 = sidel(3)*curand_uniform(h)
 gi_s(:) = 0
  ! loop over number of threads to scan all particles
-do k = 0, Nmol/blockDim%x + 1
+do k = 0, natoms/blockDim%x + 1
    i = k*blockDim%x +threadidx%x
-   if (i<=Nmol) then
+   if (i<=natoms) then
       xi = r(1, i)
       yi = r(2, i)
       zi = r(3, i)
@@ -552,19 +552,19 @@ end if
 
 end subroutine s2D3_sh
 
-attributes(global) subroutine s2D2_sh(r, Nmol, dim, gii, g2ii, lsmax &
+attributes(global) subroutine s2D2_sh(r, natoms, dim, gii, g2ii, lsmax &
 &, side2, sidel, deltar )
 use curand_device
  !
  ! Mossively parallel density fluctuation calculation using shared memory
  !
-integer, value, intent(IN) :: Nmol, dim, lsmax
+integer, value, intent(IN) :: natoms, dim, lsmax
 integer i, j, k, ind, nrand, ia
 real ::  rr2, rr, xi, yi, zi, xd, yd, zd, xrd1, xrd2, xrd3, value
 real, dimension(3) :: rv, xr
 real, value, intent(IN) :: side2, deltar
 real, intent(IN) :: sidel(3)
-real, dimension(dim, Nmol), intent(IN) :: r
+real, dimension(dim, natoms), intent(IN) :: r
 real, intent(INOUT) :: gii(0:lsmax), g2ii(0:lsmax)
 integer(8) :: seed, seq, offset
 type(curandStateXORWOW) :: h
@@ -583,9 +583,9 @@ xrd1 = sidel(1)*curand_uniform(h)
 xrd2 = sidel(2)*curand_uniform(h)
 gi_s(:) = 0
  ! loop over number of threads to scan all particles
-do k = 0, Nmol/blockDim%x + 1
+do k = 0, natoms/blockDim%x + 1
    i = k*blockDim%x +threadidx%x
-   if (i<=Nmol) then
+   if (i<=natoms) then
       xi = r(1, i)
       yi = r(2, i)
       xd = xrd1 - xi
@@ -614,11 +614,11 @@ end if
 
 end subroutine s2D2_sh
 
-attributes(global) subroutine rdf2_sh(Nmol, dim, nit, nsp, lsmax, side2, sidel, deltar, ex_qc ) 
+attributes(global) subroutine rdf2_sh(natoms, dim, nit, nsp, lsmax, side2, sidel, deltar, ex_qc ) 
 !
 ! Masively parallel rdf calculation using shared memory (2D)
 !
-integer, value, intent(IN) :: Nmol, dim, nit, lsmax, nsp
+integer, value, intent(IN) :: natoms, dim, nit, lsmax, nsp
 logical, value, intent(IN) :: ex_qc
 integer i, j, ind, ia, fact, iti, itj, istart, ij
 real ::  rr2, rr, xi, yi, zi, xd, yd, zd, qci, qcj
@@ -629,14 +629,14 @@ real, intent(IN) :: sidel(3)
 integer, shared :: histomix_s(lsmax, nit)
 histomix_s(:, :) = 0
 i = (blockidx%x - 1)*blockdim%x + threadidx%x
-if (i <= Nmol - 1) then
+if (i <= natoms - 1) then
    iti = itype_d(i)
    if (ex_qc) then
       qci = qcharge_d(i)
    end if
    xi = r_d(1, i)
    yi = r_d(2, i)
-   Do j = i + 1, Nmol
+   Do j = i + 1, natoms
       xd = r_d(1, j) - xi
       yd = r_d(2, j) - yi
       xd = xd - sidel(1)*nint(xd/sidel(1))
@@ -669,12 +669,12 @@ if (i <= Nmol - 1) then
 end if
 end subroutine rdf2_sh
 
-attributes(global) subroutine rdfxy(Nmol, dim, nit, nsp, lsmax, side2, sidel, deltar, nslice, zgrid, zslice, count, countp, ex_qc)
+attributes(global) subroutine rdfxy(natoms, dim, nit, nsp, lsmax, side2, sidel, deltar, nslice, zgrid, zslice, count, countp, ex_qc)
 
 !
 ! Masively parallel rdf calculation using shared memory (2D)
 !
-integer, value, intent(IN) :: Nmol, dim, nit, lsmax, nsp
+integer, value, intent(IN) :: natoms, dim, nit, lsmax, nsp
 integer, intent(IN), value :: nslice
 integer i, j, ind, ia, fact, iti, itj, istart, ij, islice, jslice 
 real ::  rr2, rr, xi, yi, zi, xd, yd, zj, qci, qcj
@@ -685,7 +685,7 @@ integer, intent(INOUT) :: count(nslice), countp(nsp,nslice)
 logical, value, intent(IN) :: ex_qc
 ! Assumed size histogram (memory size must be assigned in the kernel call)
 i = (blockidx%x - 1)*blockdim%x + threadidx%x
-if (i <= Nmol - 1) then
+if (i <= natoms - 1) then
    xi = r_d(1, i)
    yi = r_d(2, i)
    zi = r_d(3, i)
@@ -703,7 +703,7 @@ if (i <= Nmol - 1) then
        !
        ! Loop over pairs and accumulate histogram for this slice
        !
-      Do j = i + 1, Nmol
+      Do j = i + 1, natoms
          zj = r_d(3, j)
          jslice =  minloc(abs(zslice(:) - zj),dim=1)
          if (jslice < 1 .or. jslice > nslice) then

@@ -30,7 +30,7 @@
 !===============================================================================
 module mod_nc
    use mod_precision
-   use mod_common, Only : ex_vel, ex_force, ex_stress, run_thermo, &
+   use mod_common, Only : natoms, natoms_in, Nmol, ex_vel, ex_force, ex_stress, run_thermo, &
       u_p, stress, ex_mol, ex_qc, periodic, voigt, &
       ener_name, press_name, pwall, pwallp, tunits, vunits, nstep, auto_zslice, zslice, zgrid, nslice
    use mod_input, only : idir
@@ -112,7 +112,9 @@ end module mod_nc
 !     myglobatts(:)  - Global attributes
 !
 !   System Properties:
-!     natoms         - Number of atoms
+!     natoms_in      - Number of atoms (in trajectory file)
+!     natoms         - Number of atoms (selected for analysis)
+!     ndim           - Number of spatial dimensions
 !     ntypes         - Number of atom types
 !     nmconf         - Running number of configurations
 !     nconf_i        - Number of configurations in file
@@ -146,7 +148,7 @@ module mod_nc_conf
    integer :: vtype, nDims, nVars, nGlobalAtts, unlimDimID, step(1), ntypes, nmconf, nftypes
    integer :: start(3), count(3), starti(2), counti(2),&
    & cstart(2), ccount(2), csstart(1), cscount(1), ln, ntm&
-   &, status, varid, numatts, numdims, natoms, nconf_i, nlen, nwty
+   &, status, varid, numatts, numdims, nconf_i, nlen, nwty
    integer, dimension(:), allocatable :: ndimid, nvarid, atypes, trtypes, wtypes, orgty
    integer, dimension(:), allocatable :: counter, nct
 end module mod_nc_conf
@@ -296,15 +298,15 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          if (first) then
             allocate (r(conf(i)%dimlen(1), conf(i)%dimlen(2), 1))
          else
-            if (conf(i)%dimlen(2) /= natoms) then
+            if (conf(i)%dimlen(2) /= natoms_in) then
                write(*,'("*** Fatal error: at present number of atoms must be constant and ",i0," /= ",i0)')conf(i)%dimlen(2), natoms
                stop
             endif
          endif
-         natoms = conf(i)%dimlen(2)
+         natoms_in = conf(i)%dimlen(2)
          nconf_i = conf(i)%dimlen(3)
          start(3) = ncstart
-         count(2) = natoms
+         count(2) = natoms_in
          call check(nf90_get_var(ncid, i, r, start, count), ioerr)
          ! LAMMPS uses 3D arrays even for 2D systems, so we need to check
          do k = 1, 3
@@ -313,21 +315,21 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
             ! direction
             !
             if (k.ne. idir) then
-               r(k, 1:natoms, 1) = r(k, 1:natoms, 1) - org(k, 1)
+               r(k, 1:natoms_in, 1) = r(k, 1:natoms_in, 1) - org(k, 1)
             end if
             if (cell(k, 1) == 0) then
                periodic(k) = .false.
                ! LAMMPS sets cell length to zero if not periodic
                ! so we set it to a default value
-               cell(k, 1) = abs(maxval(r(k, 1:natoms, 1)) - minval(r(k&
-               &, 1:natoms, 1))) + 8.0
+               cell(k, 1) = abs(maxval(r(k, 1:natoms_in, 1)) - minval(r(k&
+               &, 1:natoms_in, 1))) + 8.0
                if (first) then
                   if (k == idir) then
-                     pwall = minval(r(k,1:natoms,1)) - 6.0
+                     pwall = minval(r(k,1:natoms_in,1)) - 6.0
                      pwallp = pwall + cell(k,1)
                      if (auto_zslice) then
-                        zslice(1) = (maxval(r(k,1:natoms,1)) + minval(r(k,1:natoms,1)))/2.0
-                        zgrid = (maxval(r(k,1:natoms,1)) - minval(r(k,1:natoms,1)))/real(10)
+                        zslice(1) = (maxval(r(k,1:natoms_in,1)) + minval(r(k,1:natoms_in,1)))/2.0
+                        zgrid = (maxval(r(k,1:natoms_in,1)) - minval(r(k,1:natoms_in,1)))/real(10)
                         write(*,'(" ** Auto-defined z-slices: zslice(1) = ",F8.2,", zgrid = ",F8.2)') zslice(1), zgrid
                      else
                         if (minval(zslice(:)) < pwall .or. maxval(zslice(:)) > pwallp) then
@@ -342,12 +344,12 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
                      endif
                   endif
                endif
-               if (minval(r(idir, 1:natoms, 1)) < pwall) then
-                  write(*,'(///"*** Error: some particles have coodinates ",f8.2," left of  ",f8.2," !")') minval(r(idir, 1:natoms, 1)), pwall
+               if (minval(r(idir, 1:natoms_in, 1)) < pwall) then
+                  write(*,'(///"*** Error: some particles have coodinates ",f8.2," left of  ",f8.2," !")') minval(r(idir, 1:natoms_in, 1)), pwall
                   stop(" Out of box coordinates detected, check your trajectory file and input parameters, or equilibration !")
                endif
-               if (maxval(r(idir, 1:natoms, 1)) > pwallp) then
-                  write(*,'(///"*** Error: some particles have coodinates ",f8.2," right of ",f8.2," !")') maxval(r(idir, 1:natoms, 1)), pwallp
+               if (maxval(r(idir, 1:natoms_in, 1)) > pwallp) then
+                  write(*,'(///"*** Error: some particles have coodinates ",f8.2," right of ",f8.2," !")') maxval(r(idir, 1:natoms_in, 1)), pwallp
                   stop(" Out of box coordinates detected, check your trajectory file and input parameters, or equilibration !")
                endif
             end if
@@ -366,13 +368,13 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
             vunits = conf(i)%vunits
          endif           
          start(3) = ncstart
-         count(2) = natoms
+         count(2) = natoms_in
          call check(nf90_get_var(ncid, i, v, start, count), ioerr)
       else if (conf(i)%varname == "forces") then
          ex_force = .true.
          if (first) allocate (fxyz(conf(i)%dimlen(1), conf(i)%dimlen(2), 1))
          start(3) = ncstart
-         count(2) = natoms
+         count(2) = natoms_in
          call check(nf90_get_var(ncid, i, fxyz, start, count), ioerr)
       else if (conf(i)%varname == "c_"//trim(adjustl(ener_name))) then
          run_thermo = .true.
@@ -386,7 +388,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          if (first) allocate (stress_i(conf(i)%dimlen(1), conf(i)%dimlen(2), 1))
          count(1) = conf(i)%dimlen(1)
          start(3) = ncstart
-         count(2) = natoms
+         count(2) = natoms_in
          call check(nf90_get_var(ncid, i, stress_i, start, count), ioerr)
       else if (conf(i)%varname == "type") then
          typedefined = .true.
@@ -459,7 +461,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          tempty(1) = ity(1,1)
          ntypes = 0
          nftypes = 0
-         do i = 1, natoms
+         do i = 1, natoms_in
            if (.not. any(trtypes(1:nftypes) == ity(i,1))) then
                nftypes = nftypes+1
                trtypes(nftypes) = ity(i,1)
@@ -490,7 +492,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          endif
          deallocate(tempty)
          atypes(:) = 0
-         do i = 1, natoms
+         do i = 1, natoms_in
             ! Remap types
             tmty = findloc(trtypes(1:nftypes),ity(i,1))
             atypes(tmty(1)) = atypes(tmty(1)) + 1
@@ -504,7 +506,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
             end do
          endif
          atypes(:) = 0
-         do i = 1, natoms
+         do i = 1, natoms_in
             ! Remap types
             tmty = findloc(orgty(1:ntypes),ity(i,1))
             ity(i,1) = tmty(1)
@@ -519,7 +521,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
       else
          !
          ! Atoms types must be remapped every configuration
-         do i = 1, natoms
+         do i = 1, natoms_in
             ! Remap types
             tmty = findloc(orgty(1:ntypes),ity(i,1))
             ity(i,1) = tmty(1)
@@ -532,9 +534,9 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
    first = .false.
 end subroutine read_nc_cfg
 
-subroutine reset_nmol(nmoln)
+subroutine reset_natoms(natomsn)
    use mod_nc_conf, only: ity_in => ity, natoms, ntypes, wtypes, orgty
-   integer, intent(INOUT) :: nmoln
+   integer, intent(INOUT) :: natomsn
    integer :: i, index
    ! remap data to take into account selected atoms
    ! calculate number of atoms to consider
@@ -548,14 +550,14 @@ subroutine reset_nmol(nmoln)
          index=index+1
       endif
    enddo
-   Nmoln = index
-   if (Nmoln >0) then
-      write(*,"(//,' !!*** Only ',i7,' atoms selected: Nmol reset ...')") nmoln
+   natomsn = index
+   if (natomsn >0) then
+      write(*,"(//,' !!*** Only ',i7,' atoms selected: natoms reset ...')") natomsn
    else
       write(*,"(//,/' !!*** Error: selected types not in netcdf trajectory file: ',8i3)")wtypes
       stop
    endif
-end subroutine reset_nmol
+end subroutine reset_natoms
 
 
 
@@ -565,7 +567,7 @@ subroutine select_ncdfinput()
       ity_in => ity, nstep_in => step, natoms, ntypes, wtypes, u_pi, stress_i, orgty, qc, &
       nct, counter
    use mod_common, only: vel, r, force, cell, sidel, sidelv, side, volumen, itype, bscat, tunit, &
-      ntype, masa, nstep, vector_product, nmol, ex_vel, ex_force, ex_qc, &
+      ntype, masa, nstep, vector_product, natoms, ex_vel, ex_force, ex_qc, &
       tuniti, side2, u_p, stress, voigt, run_thermo, ex_stress, qcharge, chgh, ncharge, cntch, periodic
    use mod_input, only: ndim, mat, bsc, rcrdf, nsp, charge, idir, sp_types_selected
    implicit none

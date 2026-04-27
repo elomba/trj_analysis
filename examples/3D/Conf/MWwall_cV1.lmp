@@ -53,7 +53,7 @@ variable nA equal count(A)
 variable nB equal count(B)
 variable nC equal count(h2o)
 
-variable nMolecules equal count(fluid)
+variable natomsecules equal count(fluid)
 variable myvol equal vol
 
 

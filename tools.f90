@@ -1,0 +1,319 @@
+module mod_tools
+    implicit none
+
+    type :: SystemType
+        integer :: n_atoms
+        integer :: n_bonds
+        integer :: n_mols
+        integer, allocatable :: atom_types(:)
+        integer, allocatable :: mol_ids(:)
+        integer, allocatable :: head(:)
+        integer, allocatable :: next(:)
+        integer, allocatable :: adj(:)
+    end type SystemType
+
+    type :: SpeciesType
+        integer, allocatable :: signature(:)
+        integer :: num_atoms
+        integer :: count
+        logical :: is_linear
+        integer :: rot_dof
+    end type SpeciesType
+
+contains
+ 
+    subroutine identify_molecules(sys)
+        type(SystemType), intent(inout) :: sys
+        integer :: i, curr_mol, head_q, tail_q, u, v, e
+        integer, allocatable :: queue(:)
+        logical, allocatable :: visited(:)
+
+        allocate(visited(sys%n_atoms))
+        allocate(queue(sys%n_atoms))
+        allocate(sys%mol_ids(sys%n_atoms))
+        visited = .false.
+        sys%mol_ids = 0
+        curr_mol = 0
+
+        ! BFS to find connected components (molecules)
+        do i = 1, sys%n_atoms
+            if (.not. visited(i)) then
+                curr_mol = curr_mol + 1
+                head_q = 1
+                tail_q = 1
+                queue(tail_q) = i
+                visited(i) = .true.
+                sys%mol_ids(i) = curr_mol
+
+                do while (head_q <= tail_q)
+                    u = queue(head_q)
+                    head_q = head_q + 1
+
+                    ! Traverse neighbors using the adjacency list
+                    e = sys%head(u)
+                    do while (e > 0)
+                        v = sys%adj(e)
+                        if (.not. visited(v)) then
+                            visited(v) = .true.
+                            sys%mol_ids(v) = curr_mol
+                            tail_q = tail_q + 1
+                            queue(tail_q) = v
+                        end if
+                        e = sys%next(e)
+                    end do
+                end do
+            end if
+        end do
+        sys%n_mols = curr_mol
+        deallocate(visited, queue)
+    end subroutine identify_molecules
+
+    subroutine build_adjacency(sys, b1, b2)
+        type(SystemType), intent(inout) :: sys
+        integer, intent(in) :: b1(:), b2(:) ! Bond atom pairs
+        integer :: i, u, v, edge_cnt
+
+        allocate(sys%head(sys%n_atoms))
+        allocate(sys%next(2 * sys%n_bonds))
+        allocate(sys%adj(2 * sys%n_bonds))
+        sys%head = 0
+        edge_cnt = 0
+
+        do i = 1, sys%n_bonds
+            u = b1(i)
+            v = b2(i)
+            ! Add u -> v
+            edge_cnt = edge_cnt + 1
+            sys%adj(edge_cnt) = v
+            sys%next(edge_cnt) = sys%head(u)
+            sys%head(u) = edge_cnt
+            ! Add v -> u
+            edge_cnt = edge_cnt + 1
+            sys%adj(edge_cnt) = u
+            sys%next(edge_cnt) = sys%head(v)
+            sys%head(v) = edge_cnt
+        end do
+    end subroutine build_adjacency
+
+    subroutine get_connectivity_signature(sys, mol_idx, signature)
+        type(SystemType), intent(in) :: sys
+        integer, intent(in) :: mol_idx
+        integer, allocatable, intent(out) :: signature(:)
+        
+        integer :: i, j, a, e, neighbor, n_in_mol
+        integer, allocatable :: mol_atoms(:)
+        
+        ! 1. Count atoms in this molecule
+        n_in_mol = count(sys%mol_ids == mol_idx)
+        if (n_in_mol == 0) return
+        
+        allocate(mol_atoms(n_in_mol))
+        allocate(signature(n_in_mol))
+        
+        ! 2. Identify indices of atoms in this molecule
+        j = 1
+        do i = 1, sys%n_atoms
+            if (sys%mol_ids(i) == mol_idx) then
+                mol_atoms(j) = i
+                j = j + 1
+            end if
+        end do
+        
+        ! 3. Generate local environment for each atom
+        ! We use a weighted sum: (SelfType * 100) + Sum(NeighborTypes)
+        ! This distinguishes an Oxygen bonded to (C, H) from one bonded to (C, C)
+        do i = 1, n_in_mol
+            a = mol_atoms(i)
+            signature(i) = sys%atom_types(a) * 100 
+            
+            e = sys%head(a)
+            do while (e > 0)
+                neighbor = sys%adj(e)
+                signature(i) = signature(i) + sys%atom_types(neighbor)
+                e = sys%next(e)
+            end do
+        end do
+        
+        ! 4. Sort signature to make it invariant to atom ordering
+        call bubble_sort(signature)
+        
+        deallocate(mol_atoms)
+    end subroutine get_connectivity_signature
+
+    subroutine bubble_sort(arr)
+        integer, intent(inout) :: arr(:)
+        integer :: i, j, temp, n
+        n = size(arr)
+        do i = 1, n-1
+            do j = 1, n-i
+                if (arr(j) > arr(j+1)) then
+                    temp = arr(j)
+                    arr(j) = arr(j+1)
+                    arr(j+1) = temp
+                end if
+            end do
+        end do
+    end subroutine bubble_sort
+
+    function signatures_match(sig1, sig2) result(match)
+        integer, intent(in) :: sig1(:), sig2(:)
+        logical :: match
+        integer :: i
+        
+        match = .false.
+        if (size(sig1) /= size(sig2)) return
+        
+        do i = 1, size(sig1)
+            if (sig1(i) /= sig2(i)) return
+        end do
+        match = .true.
+    end function signatures_match
+
+    subroutine discover_species(sys)
+        type(SystemType), intent(in) :: sys
+        type(SpeciesType), allocatable :: catalog(:)
+        integer, allocatable :: current_sig(:)
+        integer :: m, s, num_species
+        logical :: found, linear_check
+
+        allocate(catalog(sys%n_mols)) 
+        num_species = 0
+
+        do m = 1, sys%n_mols
+            call get_connectivity_signature(sys, m, current_sig)
+            
+            found = .false.
+            do s = 1, num_species
+                if (signatures_match(current_sig, catalog(s)%signature)) then
+                    catalog(s)%count = catalog(s)%count + 1
+                    found = .true.
+                    exit
+                end if
+            end do
+
+            if (.not. found) then
+                num_species = num_species + 1
+                catalog(num_species)%count = 1
+                catalog(num_species)%num_atoms = size(current_sig)
+                allocate(catalog(num_species)%signature(size(current_sig)))
+                catalog(num_species)%signature = current_sig
+                
+                ! Determine linearity and Rotational DOF
+                linear_check = check_linearity(sys, m)
+                catalog(num_species)%is_linear = linear_check
+                
+                if (catalog(num_species)%num_atoms == 1) then
+                    catalog(num_species)%rot_dof = 0  ! Monoatomic
+                else if (linear_check) then
+                    catalog(num_species)%rot_dof = 2  ! Linear
+                else
+                    catalog(num_species)%rot_dof = 3  ! Non-linear
+                end if
+            end if
+            deallocate(current_sig)
+        end do
+
+        ! Final Report
+        print *, "Species ID | Atoms | Linear? | Rot. DOF | Population"
+        do s = 1, num_species
+            print '(I10, " | ", I5, " | ", L7, " | ", I8, " | ", I10)', &
+                  s, catalog(s)%num_atoms, catalog(s)%is_linear, &
+                  catalog(s)%rot_dof, catalog(s)%count
+        end do
+    end subroutine discover_species
+
+    function check_linearity(sys, mol_idx) result(is_linear)
+        type(SystemType), intent(in) :: sys
+        integer, intent(in) :: mol_idx
+        logical :: is_linear
+        integer :: a, e, neighbor_count
+        
+        is_linear = .true.
+        
+        do a = 1, sys%n_atoms
+            if (sys%mol_ids(a) == mol_idx) then
+                neighbor_count = 0
+                e = sys%head(a)
+                do while (e > 0)
+                    neighbor_count = neighbor_count + 1
+                    e = sys%next(e)
+                end do
+                
+                ! If any atom has more than 2 neighbors, the topology is non-linear
+                if (neighbor_count > 2) then
+                    is_linear = .false.
+                    return
+                end if
+            end if
+        end do
+    end function check_linearity
+  
+
+end module mod_tools
+!===============================================================================
+subroutine read_lammps_data(filename, sys)
+    use mod_tools
+    implicit none
+    character(len=*), intent(in) :: filename
+    type(SystemType), intent(inout) :: sys
+    
+    integer :: iunit, ios, i
+    character(len=200) :: line
+    integer, allocatable :: b1(:), b2(:), b_id(:), b_type(:)
+    integer :: dummy_id, mol_id_in
+
+    open(unit=10, file=filename, status='old', action='read', iostat=ios)
+    if (ios /= 0) stop "Error: Could not open system.data file."
+
+    ! 1. Parse Header for Counts
+    sys%n_atoms = 0
+    sys%n_bonds = 0
+    do
+        read(10, '(A)', iostat=ios) line
+        if (ios /= 0) exit
+        
+        if (index(line, "atoms") > 0 .and. sys%n_atoms == 0) then
+            read(line, *) sys%n_atoms
+        else if (index(line, "bonds") > 0 .and. sys%n_bonds == 0) then
+            read(line, *) sys%n_bonds
+        end if
+        
+        ! Stop header search once we find the "Atoms" keyword
+        if (index(line, "Atoms") > 0) exit
+    end do
+
+    if (sys%n_atoms == 0) stop "Error: Could not find atom count in header."
+    
+    ! 2. Allocate Arrays
+    allocate(sys%atom_types(sys%n_atoms))
+    allocate(b1(sys%n_bonds), b2(sys%n_bonds))
+
+    ! 3. Read Atoms Section
+    ! Expected format (full): ID mol-ID type q x y z
+    do i = 1, sys%n_atoms
+        read(10, *) dummy_id, mol_id_in, sys%atom_types(i)
+        ! Remaining coords/charge are ignored for topology purposes
+    end do
+
+    ! 4. Find and Read Bonds Section
+    rewind(10)
+    do
+        read(10, '(A)', iostat=ios) line
+        if (ios /= 0) stop "Error: Bonds section not found."
+        if (index(line, "Bonds") > 0) exit
+    end do
+
+    ! Expected format: ID type atom1 atom2
+    do i = 1, sys%n_bonds
+        read(10, *) dummy_id, dummy_id, b1(i), b2(i)
+    end do
+
+    close(10)
+
+    ! 5. Construct Adjacency List (using the previous module routine)
+    call build_adjacency(sys, b1, b2)
+    
+    deallocate(b1, b2)
+    print *, "Successfully loaded", sys%n_atoms, "atoms and", sys%n_bonds, "bonds."
+
+end subroutine read_lammps_data
