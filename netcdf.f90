@@ -475,8 +475,8 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
                endif
             endif
          end do
-         write (iunit,"(' *** Reading trajectory from file: ',A)") trim(adjustl(ncfname))
-         write (*,"(' *** Reading trajectory from file: ',A)") trim(adjustl(ncfname))
+         write (iunit,"(/' ** Reading trajectory from file: ',A)") trim(adjustl(ncfname))
+         write (*,"(/' ** Reading trajectory from file: ',A)") trim(adjustl(ncfname))
          write (iunit, "(' ** Number of configurations in file =',i)") nconf_i
          write (*, "(' ** Number of configurations in file =',i)") nconf_i
          write (iunit, "(/' ** Number of atoms types =',i3)") ntypes

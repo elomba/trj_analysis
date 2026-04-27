@@ -124,6 +124,29 @@ module mod_common
       Integer :: clsize
       integer, allocatable :: members(:)
    end type clus
+
+   type :: SystemType
+        integer :: n_atoms
+        integer :: n_bonds
+        integer :: n_mols
+        integer, allocatable :: atom_types(:)
+        integer, allocatable :: mol_ids(:)
+        integer, allocatable :: head(:)
+        integer, allocatable :: next(:)
+        integer, allocatable :: adj(:)
+    end type SystemType
+
+    type :: SpeciesType
+        integer, allocatable :: signature(:)
+        integer, allocatable :: member_types(:)
+        integer :: num_atoms
+        integer :: count
+        logical :: is_linear
+        integer :: rot_dof
+    end type SpeciesType
+
+    Type(SystemType) :: my_sys
+
    type(clus), Allocatable :: cluster(:)
    Real(myprec), Dimension(:), Allocatable :: sizedist, densav
    Real(myprec), Dimension(:, :), Allocatable ::  rclxyz

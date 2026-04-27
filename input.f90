@@ -51,18 +51,18 @@ module mod_input
    integer :: nthread=64, ndim, minPts,  idir=0, nsp, nbuffer=2, potnbins=100, nqw=0, &
             & jump=1, norder=1, nnbond=0, cl_thresh=10, nprint=10
    logical :: use_cell = .true., run_order = .false., print_orderp=.false., &
-               geometry=.true.
+               geometry=.true., topol=.true.
    logical, dimension(7) :: rdf_sq_cl_dyn_sqw_conf_ord
    real(myprec) :: deltar, dcl, qmin, qmax, rcrdf, rclcl=0.0, &
       tmax=-1, tmaxp=-1, tlimit=-1, potengmargin=0.0
    real(myprec), allocatable, dimension(:) :: mat, bsc, charge, qw, tmqw
    integer, allocatable, dimension(:) :: orderp
-   character(len=128) :: input_filename, log_output_file, trj_input_file
+   character(len=128) :: input_filename, log_output_file, trj_input_file, system_data_file="system.data"
    !
    ! Input namelists
    namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread,  &
       & ncfs_from_to,  rdf_sq_cl_dyn_sqw_conf_ord, nqw, nslice, norder, ener_name, &
-      & press_name, potnbins, potengmargin, rcl, periodic, nprint
+      & press_name, potnbins, potengmargin, rcl, periodic, nprint, topol, system_data_file
    namelist /INPUT_SP/ sp_types_selected, mat
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
    namelist /INPUT_SQ/ qmax, qmin, bsc

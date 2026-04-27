@@ -106,7 +106,6 @@ program trj_analysis
                          basic_init, print_results, select_species, reset_confs, form_dependencies, print_total_time
     use cudafor
     implicit none
-    Type(SystemType) :: my_sys
     integer :: io = 0, ioerr, istat, ncid_in
     integer :: argc, ncstart, i, devnum, Nccount
     logical :: first_configuration=.true., nstepi0 = .false. 
@@ -136,12 +135,7 @@ program trj_analysis
     call read_input_file()
     call log_init()
     call gpu_and_header(startEvent,stopEvent,devNum)
-    call read_lammps_data("system.data",my_sys)
-    call identify_molecules(my_sys)   ! Example Analysis: Print the composition of each molecule
-    print *, "Analysis complete. Molecules found:", my_sys%n_mols
-
-    call discover_species(my_sys)
- 
+    if (topol) call define_molecules()
     call open_netcdf_input(trj_input_file, ncid_in)
     ! First load from netcdf input file. Load global attributes of the simulation trajectory
     ! Read header and details of the NETCDF trajectory files: check consistency with input data
