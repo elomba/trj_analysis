@@ -523,6 +523,8 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
             write (*, "('  ··Number of atoms of type ',i2,' (',i2,')=',i8)") i, orgty(i),atypes(i)
             print *, mat(i)
          end do
+         wtypes(1:nsp) = orgty(1:nsp)
+
       else
          !
          ! Atoms types must be remapped every configuration
