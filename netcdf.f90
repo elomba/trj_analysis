@@ -517,7 +517,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          write(*, "(//'*** Atom types selected in trajectory:',/ )")
          write(iunit, "(//'*** Atom types selected in trajectory:',/ )")
          print *, orgty(1:ntypes)
-         print *, atypes(1:ntypes))
+         print *, atypes(1:ntypes)
          do i = 1, ntypes
             write (iunit, "('  ··Number of atoms of type ',i2,' (',i2,')=',i8)") i, orgty(i),atypes(i)
             write (*, "('  ··Number of atoms of type ',i2,' (',i2,')=',i8)") i, orgty(i),atypes(i)
