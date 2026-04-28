@@ -613,7 +613,7 @@ subroutine select_ncdfinput()
    ! by ntype(2) particles and so on .. and transform from netcdf format to local vars
    !
    ntype(:) = 0
-   do i = 1, natoms
+   do i = 1, natoms_in
       if (any(wtypes == orgty(ity_in(i,1)))) then
          it = findloc(wtypes,orgty(ity_in(i,1)))
          ntype(it(1)) = ntype(it(1)) + 1
