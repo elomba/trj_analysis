@@ -506,7 +506,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
             end do
          endif
          atypes(:) = 0
-         print *, orgt(:)
+         print *, orgty(:)
          j=0
          do i = 1, natoms_in
             ! Remap types
