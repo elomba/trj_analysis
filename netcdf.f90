@@ -586,7 +586,6 @@ subroutine select_ncdfinput()
    if (.not.allocated(counter)) allocate(counter(nsp))
    nstep = nstep_in(1)
    ! quick and dirty fix to avoid problems with non-periodic directions
-   ! cell_in(:, 1) = 1.5*cell_in(:, 1)
    sidel(:) = cell_in(:, 1)
    do k = 1, ndim
       if (.not.periodic(k)) then
@@ -620,6 +619,9 @@ subroutine select_ncdfinput()
          ntype(it(1)) = ntype(it(1)) + 1
       endif
    end do
+   print *, ntype(1:nsp)
+   print *, wtypes(1:nsp)
+   print *, orgty(1:nsp)
    nct(1) = 0
    do i = 2, nsp
       nct(i) = nct(i - 1) + ntype(i - 1)
