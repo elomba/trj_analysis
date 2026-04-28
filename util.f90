@@ -267,6 +267,7 @@ contains
       end if
       write(*,"(a,90('_'),a)") char(27)//'[33m', char(27)//'[0m'
       ! Print summary of species information
+      print *, wtypes(1:nsp)
       do i = 1, nsp
          if (ex_qc) then
             write (*, '(" ** ",i6," atoms of type ",i2,", in LAMMPS (",i2,"), ",f8.4,&
