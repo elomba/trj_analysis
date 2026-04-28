@@ -531,7 +531,9 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          do i = 1, natoms_in
             ! Remap types
             tmty = findloc(orgty(1:ntypes),ity(i,1))
-            ity(i,1) = tmty(1)
+            if (tmty(1) > 0) then
+               ity(i,1) = tmty(1)
+            endif
          end do
       endif
    else
