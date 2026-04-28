@@ -506,15 +506,16 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
             end do
          endif
          atypes(:) = 0
+         print *, orgt(:)
          j=0
          do i = 1, natoms_in
             ! Remap types
             tmty = findloc(orgty(1:ntypes),ity(i,1))
             if (tmty(1) > 0) then
+               atypes(tmty(1))) = atypes(tmty(1)) + 1
                j=j+1
                print *, i, j, orgty(tmty(1)),ity(i,1)
                ity(j,1) = orgty(tmty(1))
-               atypes(ity(i, 1)) = atypes(ity(i, 1)) + 1
             endif
          end do
          write(*, "(//'*** Atom types selected in trajectory:',/ )")
