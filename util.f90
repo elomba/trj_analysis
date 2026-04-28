@@ -110,6 +110,7 @@ contains
             endif
          enddo
          wtypes(1:nsp) = sp_types_selected(1:nsp)
+         natms = natoms_in
          call reset_natoms(natms)
          run_thermo = .false.
          ex_stress = .false.

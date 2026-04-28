@@ -541,7 +541,7 @@ subroutine reset_natoms(natomsn)
    ! remap data to take into account selected atoms
    ! calculate number of atoms to consider
    index = 0
-   do i = 1, natoms
+   do i = 1, natomsn
       if (any(wtypes == orgty(ity_in(i,1))))then
          if(count(wtypes==orgty(ity_in(i,1)))>1) then
             write(*,"(' !!*** Error: type',i2,' appears more than onces in selection ')")ity_in(i,1)
