@@ -542,7 +542,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
    end if
    print *, ' natoms=', natoms, natoms_in
    do i = 1, natoms_in
-      write(444,'(i8,i4)') i, ity 
+      write(444,'(i8,i4)') i, ity(i,1) 
    enddo
 
    first = .false.
