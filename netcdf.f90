@@ -576,7 +576,7 @@ subroutine select_ncdfinput()
       ity_in => ity, nstep_in => step, natoms, ntypes, wtypes, u_pi, stress_i, orgty, qc, &
       nct, counter
    use mod_common, only: vel, r, force, cell, sidel, sidelv, side, volumen, itype, bscat, tunit, &
-      ntype, masa, nstep, vector_product, natoms, ex_vel, ex_force, ex_qc, &
+      ntype, masa, nstep, vector_product, natoms, natoms_in, ex_vel, ex_force, ex_qc, &
       tuniti, side2, u_p, stress, voigt, run_thermo, ex_stress, qcharge, chgh, ncharge, cntch, periodic
    use mod_input, only: ndim, mat, bsc, rcrdf, nsp, charge, idir, sp_types_selected
    implicit none
