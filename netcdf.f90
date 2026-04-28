@@ -619,6 +619,7 @@ subroutine select_ncdfinput()
          ntype(it(1)) = ntype(it(1)) + 1
       endif
    end do
+   print *, natoms, natoms_in
    print *, ntype(1:nsp)
    print *, wtypes(1:nsp)
    print *, orgty(1:nsp)
