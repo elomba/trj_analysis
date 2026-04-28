@@ -150,8 +150,8 @@ contains
       integer, intent(in) :: ndim, idir
       real(myprec), intent(in) :: pwall, deltar
       densprofi(:, :) = 0
-      call dprof(r, natoms, ndim, densprofi(0:width, 1:nsp), width, nsp, idir, itype&
-      &, pwall, deltar)
+      !call dprof(r, natoms, ndim, densprofi(0:width, 1:nsp), width, nsp, idir, itype&
+      !&, pwall, deltar)
       densprof(:, :) =  real(densprofi(:, :)) + densprof(:, :)
       if (ex_qc) then
          call qdprof(r, natoms, ndim, qdensprof(0:width), dqplus(0:width), dqminus(0:width), width, idir, qcharge,&
