@@ -512,7 +512,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
             ! Remap types
             tmty = findloc(orgty(1:ntypes),ity(i,1))
             if (tmty(1) > 0) then
-               atypes(tmty(1))) = atypes(tmty(1)) + 1
+               atypes(tmty(1)) = atypes(tmty(1)) + 1
                j=j+1
                print *, i, j, orgty(tmty(1)),ity(i,1)
                ity(j,1) = orgty(tmty(1))
