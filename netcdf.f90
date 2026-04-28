@@ -540,6 +540,11 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
       print *, " **** Fatal error: no atom types defined in trajectory file !!"
       stop
    end if
+   print *, ' natoms=', natoms, natoms_in
+   do i = 1, natoms_in
+      write(444+iconf,'(i8,i4)') i, ity 
+   enddo
+
    first = .false.
 end subroutine read_nc_cfg
 
