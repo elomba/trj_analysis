@@ -506,11 +506,13 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
             end do
          endif
          atypes(:) = 0
+         j=0
          do i = 1, natoms_in
             ! Remap types
             tmty = findloc(orgty(1:ntypes),ity(i,1))
             if (tmty(1) > 0) then
-               ity(i,1) = tmty(1)
+               j=j+1
+               ity(j,1) = orgty(tmty(1))
                atypes(ity(i, 1)) = atypes(ity(i, 1)) + 1
             endif
          end do
@@ -528,11 +530,13 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
       else
          !
          ! Atoms types must be remapped every configuration
+         j=0
          do i = 1, natoms_in
             ! Remap types
             tmty = findloc(orgty(1:ntypes),ity(i,1))
             if (tmty(1) > 0) then
-               ity(i,1) = tmty(1)
+               j=j+1
+               ity(j,1) = orgty(tmty(1))
             endif
          end do
       endif
@@ -577,6 +581,10 @@ end subroutine reset_natoms
 
 subroutine select_ncdfinput()
    ! Select atoms in wtypes from netcdf file and remap coordinates in species order
+   ! itype(1:natoms) contains atoms types using internal values 1...ntype ity(natoms,1) 
+   ! contains the types using LAMMPS atom id's 
+   ! This routine remaps different species so that they are contiguous in memory 1, 2, 3, 4 ... so as to ease calculations 
+   ! of correlations
    use mod_nc_conf, only: org, cell_in => cell, r_in => r, v_in => v, f_in => fxyz, &
       ity_in => ity, nstep_in => step, natoms, ntypes, wtypes, u_pi, stress_i, orgty, qc, &
       nct, counter
