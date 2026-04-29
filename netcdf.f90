@@ -487,14 +487,14 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          !
          ! Atom types are remapped from LAMMPS id's to contiguous numbers
          !
-         ntt=0
          do i = 1, natoms
             ! Remap types (oly those selected)
             tmty = findloc(wtypes(1:ntypes),ity(i,1))
             if (tmty(1) > 0) then
-               ntt = ntt+1
-               ity(ntt,1) = tmty(1)
-               atypes(ity(ntt, 1)) = atypes(ity(ntt, 1)) + 1
+               ity(i,1) = tmty(1)
+               atypes(ity(i, 1)) = atypes(ity(i, 1)) + 1
+            else
+               ity(i,1) = 0
             endif
          end do
          do i = 1, ntypes
@@ -505,13 +505,13 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          !
          ! Atoms types must be remapped every configuration
          !
-         ntt = 0
          do i = 1, natoms
             ! Remap types
             tmty = findloc(wtypes(1:ntypes),ity(i,1))
             if (tmty(1) > 0) then
-               ntt = ntt+1
-               ity(ntt,1) = tmty(1)
+               ity(i,1) = tmty(1)
+            else
+               ity(i,1) = 0
             endif
          end do
       end if
@@ -526,12 +526,12 @@ subroutine reset_Nsites(Nsitesn)
    use mod_input, only: sp_types_selected, nsp
    implicit none
    integer, intent(INOUT) :: Nsitesn
-   integer :: i, index
+   integer :: i, index, t(1)
    ! remap data to take into account selected atoms
    ! calculate number of atoms to consider
    index = 0
    do i = 1, natoms
-      if (any(sp_types_selected(1:nsp) == wtypes(ity_in(i,1))))then
+      if (ity_in(i,1) > 0) then
          if(count(sp_types_selected(1:nsp) ==wtypes(ity_in(i,1)))>1) then
             write(*,"(' !!*** Error: type',i2,' appears more than onces in selection ')")ity_in(i,1)
             stop
@@ -598,8 +598,7 @@ subroutine select_ncdfinput()
    !
    ntype(:) = 0
    do i = 1, natoms
-      if (any(sp_types_selected(1:nsp) == wtypes(ity_in(i,1)))) then
-!         it = findloc(wtypes,orgty(ity_in(i,1)))
+      if (ity_in(i,1) > 0) then
          it(1) = ity_in(i,1)
          ntype(it(1)) = ntype(it(1)) + 1
       endif
@@ -617,8 +616,8 @@ subroutine select_ncdfinput()
    if (ex_vel) vel(:,:) = 0.0
    do i = 1, natoms
       if (any(sp_types_selected(1:nsp) == wtypes(ity_in(i,1)))) then
-!         it = findloc(wtypes,orgty(ity_in(i, 1)))
-         it(1) = ity_in(i, 1)
+         it = findloc(wtypes,wtypes(ity_in(i, 1)))
+!         it(1) = ity_in(i, 1)
          counter(it(1)) = counter(it(1)) + 1
          j = counter(it(1))
          !
