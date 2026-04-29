@@ -106,7 +106,7 @@ contains
       write(unit,"('*',t80,'*')")
       write(unit,"('*    Using GPU with CUDA nvfortran/nvcc >= 25.9/13.0',t80,'*')")
       write(unit,"('*',t80,'*')")
-      write(unit,"('*    Version 1.3 March, 2026',,t80,'*')")
+      write(unit,"('*    Version 1.6 April, 2026',,t80,'*')")
       write(unit,"('*',78(' '),'*'/80('*')/)")
       if(unit == 6) write(unit,'(A)') char(27)//'[0m'   
    end subroutine header

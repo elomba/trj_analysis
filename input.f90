@@ -62,8 +62,9 @@ module mod_input
    ! Input namelists
    namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread,  &
       & ncfs_from_to,  rdf_sq_cl_dyn_sqw_conf_ord, nqw, nslice, norder, ener_name, &
-      & press_name, potnbins, potengmargin, rcl, periodic, nprint, topol, system_data_file
-   namelist /INPUT_SP/ sp_types_selected, mat
+      & press_name, potnbins, potengmargin, rcl, periodic, nprint, topol, &
+      &  system_data_file
+   namelist /INPUT_SP/ sp_types_selected, mat, rigid, nmrigid, rigid_mols 
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
    namelist /INPUT_SQ/ qmax, qmin, bsc
    namelist /INPUT_CL/ dcl, minPts, ndrclus, cl_thresh, geometry
@@ -80,11 +81,13 @@ contains
       ! Initialize all module flags to false
       rdf_sq_cl_dyn_sqw_conf_ord(:) = .false.
       ! Open and read main INPUT namelist
+      rigid_mols(:) = -1
       open (newunit=io_input_file, file=input_filename, action='read')
       read (unit=io_input_file, nml=INPUT)
       if (rdf_sq_cl_dyn_sqw_conf_ord(3) == .true.) then
          minPts = 2*ndim+1
       endif
+
       ! Allocate arrays for species properties
       allocate(sp_types_selected(nsp))
       !
@@ -94,6 +97,7 @@ contains
       charge(:) = 0.0
       allocate(bsc(nsp))  ! Neutron scattering lengths
       bsc(:) = 1.0
+      !
       ! Read species-specific parameters
       read (unit=io_input_file, nml=INPUT_SP)
       !
@@ -106,6 +110,19 @@ contains
       if (sp_types_selected(1) == 0) then
          write(*,'("*** Error: atom IDs must be specified in sp_types_selected !")')
          stop
+      endif
+      !
+      ! Check for rigid molecules
+      !
+      if (rigid) then
+         if (nmrigid==0 .or. nmrigid > nrig_max) then
+            write(*, '(" *** Fatal error: number of rigid mol types must be defined and less than ",I2," !")') nrig_max
+            stop
+         endif
+         if (any(rigid_mols(1:nmrigid) < 0)) then
+            write(*, '(" *** Fatal error: define all rigid mol types !")')
+            stop
+         endif
       endif
       !
       ! Define defaults for configuration file parameters if not set by user

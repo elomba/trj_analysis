@@ -350,7 +350,7 @@ subroutine read_lammps_data(filename, sys)
 end subroutine read_lammps_data
 
 subroutine define_molecules()
-    use mod_common, only: SystemType, SpeciesType, my_sys, Nsites
+    use mod_common, only: SystemType, SpeciesType, my_sys, Nsites, rigid, rigid_mols, nmrigid
     use mod_input, only:system_data_file
     use mod_tools
     implicit none
@@ -361,6 +361,7 @@ subroutine define_molecules()
     Nsites = my_sys%n_mols
     call discover_species(my_sys)
     write(*, '(/"Analysis complete. Molecules found:",I)') my_sys%n_mols
+    if (rigid) Write(*,'(/"Rigid molecular types (defined in input):",10I3)')rigid_mols(1:nmrigid)
     write(*,'(a,90("_"),a)') char(27)//'[33m', char(27)//'[0m'
 end subroutine define_molecules
 
