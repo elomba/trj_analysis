@@ -18,7 +18,7 @@
 !
 ! Parameters:
 !   npmx     - Maximum particles per block (8192)
-!   nmolmax  - Maximum number of particles (220000)
+!   Nsitesmax  - Maximum number of particles (220000)
 !   nspmax   - Maximum number of species (10)
 !   llmax    - Maximum order for Steinhardt parameters (12)
 !
@@ -38,7 +38,7 @@ module mod_common
    implicit none
 
    Integer, Parameter :: npmx = 8192, nmblock = 500, nmgrid = 50000, &
-      nspmax = 10, nmolmax = 220000, nmesmax = 10000, nkmax = 200, ksmax = 6
+      nspmax = 10, Nsitesmax = 220000, nmesmax = 10000, nkmax = 200, ksmax = 6
    Integer, Parameter :: nitmax = nspmax*(nspmax + 1)/2, llmax = 12
    real(myprec), parameter :: pi = 3.1415926535898D0, fconv = 4.135, &
       rgas = 8.3144d7, aunit = 1.0d-8, tunit = 1.0d-12,  &
@@ -49,7 +49,7 @@ module mod_common
    type(cudaEvent) :: startEvent, stopEvent
    type(dim3) :: bl2, thr2, grid, tBlock
    integer, save :: nstep = 0
-   integer :: nbcuda, natms, nmol, width, nqmax, nqwmax, lmaxx, lmaxy, lmaxz, &
+   integer :: nbcuda, natms, Nsites, width, nqmax, nqwmax, lmaxx, lmaxy, lmaxz, &
       lsmax, nqmin, ndr, shmsize, maxthread, nit, nconf, nmzero = 0, maxcln,&
       voigt, nrandom=0, ndrclus=100, maxnbpp=25
    integer :: cntch(100), ncharge, nslice=-1
@@ -91,7 +91,7 @@ module mod_common
    real, allocatable, dimension(:, :, :, :) :: histomix_xy
    logical :: pdir(3) = .true., run_clusters = .false., run_rdf = .false., &
       run_sq = .false., run_dyn = .false., run_sqw = .false., run_thermo = .false., &
-      confined = .false., auto_zslice = .false., topol=.false.
+      confined = .false., auto_zslice = .false., topol=.false., rigid=.false.
    character :: fname99*18
    character, dimension(:), allocatable :: atoms*8
    character(len=:), allocatable :: tunits, vunits
@@ -208,7 +208,7 @@ subroutine count_q_slice()
             endif
             q2slice(:) = 0.0
             counts(:) = 0
-            do i=1,  nmol
+            do i=1,  Nsites
                zi = r(3, i)
                islice = minloc(abs(zslice(1:nslice) - zi),dim=1)   
                if (abs(zslice(islice) - zi) <= zgrid/2.0) then
@@ -359,9 +359,9 @@ end subroutine count_q_slice
 
       ! side2 = (side/2)**2
       sidel_d(:) = sidelv(:)
-      r_d(1:ndim, 1:Nmol) = r(1:ndim, 1:Nmol)
+      r_d(1:ndim, 1:Nsites) = r(1:ndim, 1:Nsites)
       fk_d(:) = fk(:)
-      itype_d(1:Nmol) = itype(1:Nmol)
+      itype_d(1:Nsites) = itype(1:Nsites)
 
    end subroutine transfer_cpu_gpu
 
@@ -377,14 +377,14 @@ end subroutine count_q_slice
             write(*,"(//' *** Note: rcl (NN and/or connectivity distance) set to ',f8.4,' Å')" ) rcl
          endif
       endif
-      nmol = natoms !! WARN, change when molecules are implemented
+      Nsites = natoms !! WARN, change when molecules are implemented
       natms = natoms !! WARN, assign for compatibility
       ! CUDA number of blocks
-      nbcuda = Nmol/nthread
-      if (nbcuda*nthread .ne. Nmol) nbcuda=nbcuda+1
-      bl2 = dim3(Nmol/16, Nmol/16, 1)
+      nbcuda = Nsites/nthread
+      if (nbcuda*nthread .ne. Nsites) nbcuda=nbcuda+1
+      bl2 = dim3(Nsites/16, Nsites/16, 1)
       thr2 = dim3(16, 16, 1)
-
+      write (*,"(a,90('_'),a)") char(27)//'[31m', char(27)//'[0m' 
       ! Time unit load from netcdf, set in real type seconds units
       if (units == 'femtosecond') then
          tuniti = 1.0d-15
@@ -417,39 +417,39 @@ end subroutine count_q_slice
       allocate (atoms(nsp))
       allocate (ntype(nsp))
       allocate (lty(nsp))
-      allocate (itype(nmol))
-      allocate (ipos(nsp, nmol))
-      allocate (bscat(nmol))
-      allocate (masa(nmol))
+      allocate (itype(Nsites))
+      allocate (ipos(nsp, Nsites))
+      allocate (bscat(Nsites))
+      allocate (masa(Nsites))
       if (ex_qc) then
-         allocate (qcharge(nmol))
-         allocate (qcharge_d(nmol))
+         allocate (qcharge(Nsites))
+         allocate (qcharge_d(Nsites))
       endif
-      allocate (list(nmol))
-      allocate (label(nmol))
-      allocate (r(ndim, nmol))
+      allocate (list(Nsites))
+      allocate (label(Nsites))
+      allocate (r(ndim, Nsites))
       if (ex_vel) then
-         allocate (vel(ndim, nmol))
-         allocate (v_d(ndim, nmol))
+         allocate (vel(ndim, Nsites))
+         allocate (v_d(ndim, Nsites))
       end if
       if (ex_force) then
-         allocate (force(ndim, nmol))
+         allocate (force(ndim, Nsites))
       end if
       if (run_thermo) then
-         allocate(u_p(nmol))
+         allocate(u_p(Nsites))
          ecaver = 0
       endif
       if (ex_stress) then
-         allocate(stress(voigt,nmol))
+         allocate(stress(voigt,Nsites))
          pressav = 0
       endif
       ! Allocate GPU memory
-      allocate (r_d(ndim, nmol))
-      allocate (itype_d(nmol))
+      allocate (r_d(ndim, Nsites))
+      allocate (itype_d(Nsites))
       allocate (ntype_d(nsp))
       allocate (bsc_d(nsp))
-      allocate (ipos_d(nsp, nmol))
-      allocate (glabel(nmol))
+      allocate (ipos_d(nsp, Nsites))
+      allocate (glabel(Nsites))
 
       ! Init variables
       ecaver = 0.0

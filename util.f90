@@ -35,7 +35,7 @@
 module mod_util
    use mod_common, only : shmsize, maxthread,  run_thermo, ex_stress, &
       printDevPropShort, printDeviceProperties, common_clear, nit, ener_name, press_name, &
-      run_sq, run_sqw, run_rdf, run_clusters, run_dyn, &
+      run_sq, run_sqw, run_rdf, run_clusters, run_dyn, rigid, &
       printcudaerror, ex_qc, nconf, qcharge, lsmax, maxcln, zsliced, countsliced, zslice, countslice
    use mod_densprof, only : prof_init, prof_clear
    use mod_sq, only : sq_init, printsq, sq_clear, sq_transfer_gpu_cpu
@@ -80,18 +80,18 @@ contains
    end subroutine gpu_and_header
 
    
-   subroutine select_species(nsp,ntypes,nmol,natoms)
+   subroutine select_species(nsp,ntypes,Nsites,natoms)
       implicit none
       integer, intent(in) :: nsp, ntypes, natoms
-      integer, intent(inout) :: nmol
+      integer, intent(inout) :: Nsites
       integer :: i
       if (nsp > ntypes) then
          print *, ' ERROR: number of species in input file is',nsp,' larger than that in netcdf file ',ntypes
          STOP
       else if (nsp == ntypes) Then
-         nmol = natoms
+         Nsites = natoms
       else if (nsp < ntypes) then
-         write(*,'(" ** sp_types_selected: ",15i3)')sp_types_selected(1:nsp)
+         write(*,'(/" ** Atom type selected: ",15i3)')sp_types_selected(1:nsp)
          write(*,'(" ** Types in trajectory=",15i3/)')orgty(1:ntypes)
          if (any(sp_types_selected == 0)) then
             write(*,'("*** Error: select the species to analyze")')
@@ -110,7 +110,12 @@ contains
             endif
          enddo
          wtypes(1:nsp) = sp_types_selected(1:nsp)
-         call reset_nmol(nmol)
+         call reset_Nsites(Nsites)
+         if (rigid) then
+            write(*,'("** Warning: accounting for rigid rotational degrees of freedom   disabled.!")')
+            write(*,'("**          All sites should be selected. Temperature incorrectly estimated. !")')
+            rigid = .false.
+         endif
          run_thermo = .false.
          ex_stress = .false.
          ener_name = "XXX"
@@ -139,11 +144,11 @@ contains
       endif
    end subroutine reset_confs
 
-   subroutine basic_init(use_cell,run_clusters,run_dyn,confined,nmol)
+   subroutine basic_init(use_cell,run_clusters,run_dyn,confined,Nsites)
       implicit none
       logical, intent(in) :: use_cell,run_clusters,run_dyn, confined
-      integer, intent(in) :: nmol
-      if (use_cell.or.run_order) call cells_init_pre_nc_read(nmol)
+      integer, intent(in) :: Nsites
+      if (use_cell.or.run_order) call cells_init_pre_nc_read(Nsites)
       if (run_dyn) call dyn_init()
       if (confined) call prof_init()
    end subroutine basic_init
@@ -180,16 +185,16 @@ contains
       if (rdf_sq_cl_dyn_sqw_conf_ord(7) == .true.) run_order = .true.
    end subroutine form_dependencies
 
-   subroutine init_modules(use_cell,run_rdf,run_sq,run_clusters,run_order,nsp,nmol,nbcuda)
+   subroutine init_modules(use_cell,run_rdf,run_sq,run_clusters,run_order,nsp,Nsites,nbcuda)
       implicit none
       logical, intent(IN) :: use_cell,run_rdf,run_sq,run_clusters, run_order
-      integer, intent(in) :: nsp, nmol, nbcuda
+      integer, intent(in) :: nsp, Nsites, nbcuda
       integer :: istat
       if (use_cell) call cells_init_post_nc_read()
       if (run_rdf) call RDF_init(nsp)
-      if (run_sq) call sq_init(nmol, nsp, nbcuda)
+      if (run_sq) call sq_init(Nsites, nsp, nbcuda)
       if (run_clusters) call clusters_sq_init()
-      if (run_order) call order_init(norder,nmol)
+      if (run_order) call order_init(norder,Nsites)
    end subroutine init_modules
 
    subroutine clean_memory(run_sq,run_rdf,run_clusters,run_thermo,use_cell,run_dyn,run_ord,confined)
@@ -249,12 +254,12 @@ contains
       endif
    end subroutine print_total_time 
 
-   subroutine print_results(run_sq,  run_rdf, run_dyn, run_clusters, run_thermo, ntype, nsp, lsmax, nmol, nqmin, rcl)
+   subroutine print_results(run_sq,  run_rdf, run_dyn, run_clusters, run_thermo, ntype, nsp, lsmax, Nsites, nqmin, rcl)
       use mod_precision
       use mod_input, only : mat, charge, cl_thresh
       implicit none
       real(myprec) :: rcl
-      integer, intent(in) :: nsp, lsmax, nmol, nqmin
+      integer, intent(in) :: nsp, lsmax, Nsites, nqmin
       integer, dimension(nsp), intent(in) :: ntype
       logical, intent(in) :: run_sq,  run_rdf, run_dyn, run_clusters, run_thermo
       integer :: i
@@ -262,7 +267,7 @@ contains
       ! Print out S(Q)'s
       if (run_sq) then
          call sq_transfer_gpu_cpu()  ! Transfer results from GPU to CPU
-         call printSQ(Nmol)
+         call printSQ(Nsites)
       end if
       write(*,"(a,90('_'),a)") char(27)//'[33m', char(27)//'[0m'
       ! Print summary of species information
@@ -276,7 +281,7 @@ contains
             & " amu  ")') ntype(i), i, wtypes(i), mat(i)
          endif
       end do
-      if (ex_qc) write(*,'(/3x,"···   Net charge:",f12.5," e")')sum(qcharge(1:nmol))
+      if (ex_qc) write(*,'(/3x,"···   Net charge:",f12.5," e")')sum(qcharge(1:Nsites))
 
       ! Print partial pair distribution functions
       if (run_rdf) then
@@ -288,7 +293,7 @@ contains
       endif
       if (run_clusters) then
          ! Print cluster information only if number of big clusters > threshold
-         if (maxcln>cl_thresh) call print_clusinfo(nqmin, Nmol)
+         if (maxcln>cl_thresh) call print_clusinfo(nqmin, Nsites)
          ! Print last cluster configuration
          call print_last_clustconf()
          if (run_thermo) then

@@ -147,7 +147,7 @@ program trj_analysis
         stop
     endif
     ! Set number of species from netcdf file or from selected species from namelist
-    call select_species(nsp, ntypes, nmol, natoms)
+    call select_species(nsp, ntypes, Nsites, natoms)
     if (nstep == 0) then
         write(*,"(' !!*** Warning: initial configuration for step 0, skipping ...  ')")
         write(*,"(' !!*** Change ncfs_from_to to n 2 m in input file to avoid this message'/)") 
@@ -159,7 +159,7 @@ program trj_analysis
     !
     call form_dependencies()
     ! Init common variables & print outs
-    call common_init(nmol, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)
+    call common_init(Nsites, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)
     ! Analysis begins from first configuration selected
     Nccount = 0
 
@@ -170,7 +170,7 @@ program trj_analysis
     call cpu_time(cpu0)
     do i = 1, ncfs_from_to(1)
         ! In the first configuration basic initialization 
-        if (first_configuration) call basic_init(use_cell,run_clusters,run_dyn,confined,nmol)
+        if (first_configuration) call basic_init(use_cell,run_clusters,run_dyn,confined,Nsites)
         ! Read i-th configuration from netcdf input file
         call cpu_time(t0)
         ! Jumps configurations to be read: ncstart controls starting conf in netcdf file
@@ -188,7 +188,7 @@ program trj_analysis
         ! Over each configuration run selected modules (first initialize)
         ! Accumulate i/o time
         call cpu_time(t1)
-        if (first_configuration) call init_modules(use_cell, run_rdf, run_sq, run_clusters, run_order, nsp, nmol, nbcuda)
+        if (first_configuration) call init_modules(use_cell, run_rdf, run_sq, run_clusters, run_order, nsp, Nsites, nbcuda)
         ! For next iteration then ...
         first_configuration = .false.
         if (nstep == 0) then
@@ -206,7 +206,7 @@ program trj_analysis
         call transfer_cpu_gpu(ndim)
 
         ! Run RDF
-        if (run_rdf) call RDFcomp(Nmol, i, nbcuda, nthread, conf(4)%units)
+        if (run_rdf) call RDFcomp(Nsites, i, nbcuda, nthread, conf(4)%units)
 
         ! BFS cluster search
         if (run_clusters) call cluster_search()
@@ -233,7 +233,7 @@ program trj_analysis
         if (run_dyn) call rtcorr(i)
 
         ! Compute order parameter
-        if (run_order) call compute_order(nmol, ndim, rcl, sidel)
+        if (run_order) call compute_order(Nsites, ndim, rcl, sidel)
         ! Print periodic output
         call print_output(i)
         Nccount = Nccount + 1
@@ -242,7 +242,7 @@ program trj_analysis
     if (confined) call normdenspr(nconf)
     ! Programme printouts
     call print_results(run_sq,  run_rdf, run_dyn, run_clusters, run_thermo, &
-                        ntype, nsp, lsmax, nmol, nqmin, rcl)
+                        ntype, nsp, lsmax, Nsites, nqmin, rcl)
     ! Cleaning house
     write(*, '(/" **** Cleaning memory ...")')
     call clean_memory(run_sq,run_rdf,run_clusters,run_thermo,use_cell,run_dyn,run_order,confined)

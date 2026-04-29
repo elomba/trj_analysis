@@ -178,13 +178,13 @@ contains
          if (run_thermo) then
             if (tunits == 'lj') then
                write (*, "(' ** Potential energy/epsilon=',f15.4,' Per atom=',f15.4)") epot, epotperatom
-               write (*, "(' ** Average potential energy/epsilon=',f15.4, ' Per atom=',f15.4)") epotav/Iconf, epotav/(Iconf*nmol)
+               write (*, "(' ** Average potential energy/epsilon=',f15.4, ' Per atom=',f15.4)") epotav/Iconf, epotav/(Iconf*Nsites)
             else if (tunits == 'picosecond') then
                write (*, "(' ** Potential energy=',f15.4,' eV, Per atom=',f15.4,' eV')") epot, epotperatom
-               write (*, "(' ** Average potential energy=',f15.4,' eV, Per atom=',f15.4,' eV')") epotav/Iconf, epotav/(Iconf*nmol)
+               write (*, "(' ** Average potential energy=',f15.4,' eV, Per atom=',f15.4,' eV')") epotav/Iconf, epotav/(Iconf*Nsites)
             else
                write (*, "(' ** Potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epot, epotperatom
-               write (*, "(' ** Average potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epotav/Iconf, epotav/(Iconf*nmol)
+               write (*, "(' ** Average potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epotav/Iconf, epotav/(Iconf*Nsites)
             endif
 
             if (run_clusters) then
@@ -314,18 +314,18 @@ contains
       close (100)
    end subroutine printPotEngCl
 
-   subroutine printSQ(Nmol)
+   subroutine printSQ(Nsites)
       implicit none
       !
       ! Printout S(Q)'s
       !
       real(myprec) :: x1, x2, s11, s22, s12, scc, baver, b2aver
-      integer, intent(IN) :: Nmol
+      integer, intent(IN) :: Nsites
       integer :: i, j
       logical :: bsc_one = .true.
       character(len=128) :: fname99
-      baver = sum(ntype(1:nsp)*bsc(1:nsp))/Nmol
-      b2aver = sum(ntype(1:nsp)*bsc(1:nsp)**2)/Nmol
+      baver = sum(ntype(1:nsp)*bsc(1:nsp))/Nsites
+      b2aver = sum(ntype(1:nsp)*bsc(1:nsp)**2)/Nsites
       if (.not.twoDstruc_3D) sqf(:) = sqf(:)/baver**2
       do i = 1, nsp
          if (abs(bsc(i)-1.0) > 1.0e-4) bsc_one=.false.
@@ -346,8 +346,8 @@ contains
          open (100, file='sq.dat')
          open (110, file='sqmix.dat')
          if (nsp == 2 .and. bsc_one) then
-            x1 = (real(ntype(1))/real(Nmol))
-            x2 = (real(ntype(2))/real(Nmol))
+            x1 = (real(ntype(1))/real(Nsites))
+            x2 = (real(ntype(2))/real(Nsites))
             if (ex_qc) then
                write (100, "('#           Q        S_NN(Q)          S_qq(Q)          S_cc(Q)       S_11(Q)        S_22(Q)           S_12(Q)         n(Q)')")
             else
@@ -380,19 +380,19 @@ contains
                if (nsp == 2 .and. bsc_one) then
                   s11 = x1*sqfp(i, 1)/(ntype(1)*Nconf*real(nq(i)))
                   s22 = x2*sqfp(i, 2)/(ntype(2)*Nconf*real(nq(i)))
-                  s12 = 0.5*(sqf(i)/(Nmol*Nconf*real(nq(i))) - s11 - s22)
+                  s12 = 0.5*(sqf(i)/(Nsites*Nconf*real(nq(i))) - s11 - s22)
                   scc = x2**2*s11 + x1**2*s22 - 2*x1*x2*s12
                   if (ex_qc) then
-                     write (100, '(7f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i))), sqfq(i)/(Nmol*Nconf*real(nq(i))), scc, s11, s22, s12, nq(i)
+                     write (100, '(7f15.7,i12)') i*dq, sqf(i)/(Nsites*Nconf*real(nq(i))), sqfq(i)/(Nsites*Nconf*real(nq(i))), scc, s11, s22, s12, nq(i)
                   else  
-                     write (100, '(6f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i)))&
+                     write (100, '(6f15.7,i12)') i*dq, sqf(i)/(Nsites*Nconf*real(nq(i)))&
                      &, scc, s11, s22, s12, nq(i)
                   endif
                else
                   if (ex_qc) then
-                     write (100, '(3f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i))), sqfq(i)/(Nmol*Nconf*real(nq(i))), nq(i)
+                     write (100, '(3f15.7,i12)') i*dq, sqf(i)/(Nsites*Nconf*real(nq(i))), sqfq(i)/(Nsites*Nconf*real(nq(i))), nq(i)
                   else  
-                     write (100, '(2f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i))), nq(i)
+                     write (100, '(2f15.7,i12)') i*dq, sqf(i)/(Nsites*Nconf*real(nq(i))), nq(i)
                   endif
                end if
                write (110, '(15f16.7)') i*dq, (sqfp(i, j)/(ntype(j)*Nconf&
@@ -500,7 +500,7 @@ contains
          end if
          !
          if (.not.twoDstruc_3D.and.ex_qc) then
-            gchch = 2*volumen*gqq(i)/(Nmol**2*deltaV*Nconf)
+            gchch = 2*volumen*gqq(i)/(Nsites**2*deltaV*Nconf)
          endif
             ! Compu
          Do j = 1, nsp
@@ -595,9 +595,9 @@ contains
       if (nrandom>0) close (199)
    end subroutine printrdf
 
-   subroutine print_clusinfo(nqmin, Nmol)
+   subroutine print_clusinfo(nqmin, Nsites)
       implicit none
-      integer, intent(IN) :: nqmin, Nmol
+      integer, intent(IN) :: nqmin, Nsites
       integer :: i, ndist
       real(myprec) :: avcldens, deltaV, ri, suma, norm
       Write (*, "(' ** Average total number of particles in clusters ', f10.2)") NTclus/nconf
@@ -647,11 +647,11 @@ contains
       !
       write (1001, "('#   N                %clus.               rho_cl ')")
       suma = 0
-      ndist = nint(real(Nmol)/real(dcl))
+      ndist = nint(real(Nsites)/real(dcl))
       norm = (0.5*(sizedist(1) + sizedist(ndist)) + sum(sizedist(2:ndist - 1)))*dcl
       do i = 1, ndist
          suma = i*sizedist(i)*dcl + suma
-         if (sizedist(i) > 0) write (1001, '(4f15.7)') (i - 0.5)*dcl, real(i*sizedist(i))/(real(Nconf*dcl*Nmol)), real(sizedist(i))/norm
+         if (sizedist(i) > 0) write (1001, '(4f15.7)') (i - 0.5)*dcl, real(i*sizedist(i))/(real(Nconf*dcl*Nsites)), real(sizedist(i))/norm
       end do
       close (1001)
       close (999)
@@ -705,12 +705,12 @@ contains
          open (newunit=onunit, file='order_per_mol.dat')
          if (ndim==2) then
             write (onunit, "('# mol        x           y     ',5x,15('Real(psi_m) Im(psi_m)(',i0,')',1x:))") (orderp(i), i=1, norder)
-            do i = 1, nmol
+            do i = 1, Nsites
                write (onunit, '(i6,15f13.5)') i, r(1:ndim,i), (atomic_order_cos(i,j), atomic_order_sin(i,j), j=1, norder)
             end do
          else
             write (onunit, "('# mol        x          y           z   ',7x,15('Q_l(',i2,')'5x:))") (orderp(i), i=1, norder)
-            do i = 1, nmol
+            do i = 1, Nsites
                write (onunit, '(i6,15f12.5)') i, r(1:ndim,i), atomic_ql(i,1:norder)
             end do
          end if

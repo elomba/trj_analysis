@@ -78,8 +78,8 @@ contains
     end do
     end function fact
 
-    subroutine order_init(norder,nmol)
-        integer, intent(in) :: norder, nmol
+    subroutine order_init(norder,Nsites)
+        integer, intent(in) :: norder, Nsites
         integer :: lmax
         lmax = orderp(norder)
         if (lmax > llmax.and. ndim == 3) then
@@ -92,7 +92,7 @@ contains
             orderp_d(1:norder) = orderp(1:norder)
         end if
         if (.not. allocated(atomic_order_cos)) then
-            allocate(atomic_order_cos(nmol, norder))
+            allocate(atomic_order_cos(Nsites, norder))
             allocate(avorder_cos(norder))
             allocate(avorder_sin(norder))
             allocate(avorder(norder))
@@ -100,9 +100,9 @@ contains
             avorder_sin(:) = 0.0
             avorder(:) = 0.0
             atomic_order_cos(:,:) = 0.0
-            allocate(atomic_order_sin(nmol, norder))
+            allocate(atomic_order_sin(Nsites, norder))
             atomic_order_sin(:,:) = 0.0
-            allocate(atomic_order_cos_d(nmol, norder), atomic_order_sin_d(nmol, norder))
+            allocate(atomic_order_cos_d(Nsites, norder), atomic_order_sin_d(Nsites, norder))
             atomic_order_cos_d(:,:) = 0.0
             atomic_order_sin_d(:,:) = 0.0
             if (ndim == 3) then
@@ -115,8 +115,8 @@ contains
                 cosmphi(:) = 0.0
                 sinmphi(:) = 0.0
                 allocate(prefd(0:lmax, 0:lmax))
-                allocate(atomic_ql_d(nmol, norder))
-                allocate(atomic_ql(nmol, norder))
+                allocate(atomic_ql_d(Nsites, norder))
+                allocate(atomic_ql(Nsites, norder))
                 atomic_ql_d(:,:) = 0.0
                 atomic_ql(:,:) = 0.0
                 prefd(:,:) = 0.0
@@ -158,8 +158,8 @@ contains
         end if  
     end subroutine order_clear
 
-    subroutine compute_order(Nmol, dim, rcl, sidel)
-        integer, intent(in) :: Nmol, dim
+    subroutine compute_order(Nsites, dim, rcl, sidel)
+        integer, intent(in) :: Nsites, dim
         real(myprec), intent(in) :: sidel(dim), rcl
         real(myprec) :: rcl2, time_gpu, sumac
         integer :: istat,i, lmax, maxneigh
@@ -193,7 +193,7 @@ contains
             atomic_order_sin_d(:,:) = 0.0
             if (dim == 2) then
                 ! Compute 2D order parameters  phi_m
-                call gpu_comp_order2D<<<Nmol/nthread+1, nthread,8*norder+1>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
+                call gpu_comp_order2D<<<Nsites/nthread+1, nthread,8*norder+1>>>(r_d, Nsites, dim, norder, nnbond, rcl2, sidel_d)
                 if (run_clusters.and.maxcln>cl_thresh) Then
                     ! Compute cluster 2D order parameters if enough clusters
                     cluster_order_cos(:,:) = 0.0
@@ -207,7 +207,7 @@ contains
                 ! Compute 3D order parameters Q_l
                 call prefactors(lmax,pref)
                 prefd(:,:) = pref(:,:)
-                call gpu_comp_order3D<<<Nmol/nthread+1, nthread,8*norder+1>>>(r_d, Nmol, dim, norder, nnbond, rcl2, sidel_d)
+                call gpu_comp_order3D<<<Nsites/nthread+1, nthread,8*norder+1>>>(r_d, Nsites, dim, norder, nnbond, rcl2, sidel_d)
                 if (geometry) then
                     if (run_clusters.and.maxcln>cl_thresh) Then
                         ! Compute cluster 3D order parameters if enough clusters
@@ -225,12 +225,12 @@ contains
             if (ndim==2) then  
                 atomic_order_cos(:,:) = atomic_order_cos_d(:,:)
                 atomic_order_sin(:,:) = atomic_order_sin_d(:,:)
-                avorder_cos(1:norder) = sum(atomic_order_cos(1:nmol,1:norder), dim=1)/Nmol
-                avorder_sin(1:norder) = sum(atomic_order_sin(1:Nmol,1:norder), dim=1)/Nmol
+                avorder_cos(1:norder) = sum(atomic_order_cos(1:Nsites,1:norder), dim=1)/Nsites
+                avorder_sin(1:norder) = sum(atomic_order_sin(1:Nsites,1:norder), dim=1)/Nsites
                 avorder(1:norder)=avorder(1:norder)+sqrt(avorder_cos(:)**2+avorder_sin(:)**2)
             else
                 atomic_ql(:,:) = atomic_ql_d(:,:)
-                avorder(1:norder) = avorder(1:norder) + sum(atomic_ql(1:Nmol,1:norder), dim=1)/Nmol
+                avorder(1:norder) = avorder(1:norder) + sum(atomic_ql(1:Nsites,1:norder), dim=1)/Nsites
             end if  
             if (geometry) then
                 if (run_clusters.and.maxcln>cl_thresh) then
@@ -325,17 +325,17 @@ contains
     end subroutine ylm
 
 
-    attributes(global) subroutine gpu_comp_order2D(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
+    attributes(global) subroutine gpu_comp_order2D(r, Nsites, dim, norder, nnbnd, rcl2, sidel)
         ! Compute 2D order parameter Q_m using precomputed neighbor list
         type(neighbor) :: vecinos(nmbmax)
-        integer, value, intent(IN) :: Nmol, dim, norder, nnbnd
+        integer, value, intent(IN) :: Nsites, dim, norder, nnbnd
         real(myprec), value :: rcl2
-        real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
+        real(myprec), intent(IN) :: r(dim, Nsites), sidel(dim)
         real(myprec)  :: rv(3), rr2, s0, s1, s2, c0, c1, c2, cx, sy, cz, d
         real(myprec) :: cosd(norder), sind(norder)
         integer :: i, j, ncount, m, l, k, nlimit, idx, n, counter, ix
         i = (blockidx%x - 1)*blockdim%x + threadidx%x
-        if (i <= Nmol) then
+        if (i <= Nsites) then
             cosd(:) = 0.0
             sind(:) = 0.0
             ncount = gneighbors(i)
@@ -422,22 +422,22 @@ contains
     end subroutine gpu_comp_order2D
 
 
-    attributes(global) subroutine gpu_comp_order3D(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
+    attributes(global) subroutine gpu_comp_order3D(r, Nsites, dim, norder, nnbnd, rcl2, sidel)
     ! Compute 3D order parameter Q_l
     ! Based on  Ylm calculation from https://developer.nvidia.com/blog/cuda-pro-tip-implementing-spherical-harmonics-in-cuda-c/ 
     ! Modified to compute atomic Q_l
     ! Implements neighbor list 
     !
-        integer, value, intent(IN) :: Nmol, dim, norder, nnbnd
+        integer, value, intent(IN) :: Nsites, dim, norder, nnbnd
         type(neighbor) :: vecinos(nmbmax)
         real(myprec), value :: rcl2
-        real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
+        real(myprec), intent(IN) :: r(dim, Nsites), sidel(dim)
         real(myprec)  :: rv(3), rr2, cx, sy, cy, d, d2, cte
         real(myprec) :: pr(0:llmax), pi(0:llmax), pp(0:llmax)
         real(kind=8) :: ylr(nmax_order,0:llmax), yli(nmax_order,0:llmax), suma
         integer :: i, j, ncount, ix, jy, kz, cell, icell, lmax, m, l, k, nlimit, idx, n
         i = (blockidx%x - 1)*blockdim%x + threadidx%x
-        if (i <= Nmol) then
+        if (i <= Nsites) then
             lmax = orderp_d(norder)
             ylr(:,:) = 0.0
             yli(:,:) = 0.0
@@ -526,20 +526,20 @@ contains
   
     end subroutine gpu_comp_order3D
 
-    subroutine cl_comp_order2D(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
+    subroutine cl_comp_order2D(r, Nsites, dim, norder, nnbnd, rcl2, sidel)
         ! Compute 2D order parameter psi_m for clusters
-        integer, intent(IN) :: Nmol, dim, norder, nnbnd
+        integer, intent(IN) :: Nsites, dim, norder, nnbnd
         real(myprec), value :: rcl2
-        real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
+        real(myprec), intent(IN) :: r(dim, Nsites), sidel(dim)
         real(myprec)  :: rv(3), rr2, s0, s1, s2, c0, c1, c2, cx, sy, cz, d
         real(myprec) :: cosd(norder), sind(norder)
         integer :: i, j, counter, ncount, ix, jy, kz, cell, icell
-        do i = 1, Nmol
+        do i = 1, Nsites
             cosd(:) = 0.0
             sind(:) = 0.0
             ncount = 0
             ncount = 0
-            do j = 1, Nmol
+            do j = 1, Nsites
                 if (j.ne.i) then
                     rv(1:dim) = r(1:dim, i) - r(1:dim, j)
                     rv = rv - sidel*nint(rv/sidel)
@@ -594,21 +594,21 @@ contains
 
     end subroutine cl_comp_order2D
     
-    subroutine cl_comp_order3D(r, Nmol, dim, norder, nnbnd, rcl2, sidel)
+    subroutine cl_comp_order3D(r, Nsites, dim, norder, nnbnd, rcl2, sidel)
         ! Compute 3D order parameter Q_l for clusters
         type(neighbor) :: vecinos(nmbmax)
-        integer, intent(IN) :: Nmol, dim, norder, nnbnd
+        integer, intent(IN) :: Nsites, dim, norder, nnbnd
         real(myprec), value :: rcl2
-        real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
+        real(myprec), intent(IN) :: r(dim, Nsites), sidel(dim)
         real(myprec)  :: rv(3), rr2, s0, s1, s2, c0, c1, c2, cx, cy, sy, cz, cte, d2, d
         real(myprec) :: pr(0:llmax), pi(0:llmax), pp(0:llmax)
         real(kind=8) :: ylr(nmax_order,0:llmax), yli(nmax_order,0:llmax), suma
         integer :: i, j, counter, ncount, m, n, nlimit, ix, k, l 
-        do i = 1, Nmol
+        do i = 1, Nsites
             ylr(:,:) = 0.0
             yli(:,:) = 0.0  
             ncount = 0
-            do j = 1, Nmol
+            do j = 1, Nsites
                 if (j.ne.i) then
                     rv(1:dim) = r(1:dim, i) - r(1:dim, j)
                     rv = rv - sidel*nint(rv/sidel)
@@ -701,10 +701,10 @@ contains
     end subroutine cl_comp_order3D
 
 
-    subroutine clorderprof(r,dim, nmol, members, nm, sidel, rhoorder, ordercum, lsmax, deltar, center)
-      integer, intent(IN) :: nm, lsmax, dim, nmol
+    subroutine clorderprof(r,dim, Nsites, members, nm, sidel, rhoorder, ordercum, lsmax, deltar, center)
+      integer, intent(IN) :: nm, lsmax, dim, Nsites
       integer, intent(IN) :: members(nm)
-      real, intent(IN) :: r(dim, Nmol), sidel(dim), center(dim), deltar
+      real, intent(IN) :: r(dim, Nsites), sidel(dim), center(dim), deltar
       real, intent(INOUT) :: rhoorder(0:lsmax, norder)
       real, intent(INOUT) :: ordercum(0:lsmax, norder)
       real :: rv(3), rr2, rr, fact

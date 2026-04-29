@@ -150,25 +150,25 @@ contains
       integer, intent(in) :: ndim, idir
       real(myprec), intent(in) :: pwall, deltar
       densprofi(:, :) = 0
-      call dprof(r, Nmol, ndim, densprofi(0:width, 1:nsp), width, nsp, idir, itype&
+      call dprof(r, Nsites, ndim, densprofi(0:width, 1:nsp), width, nsp, idir, itype&
       &, pwall, deltar)
       densprof(:, :) =  real(densprofi(:, :)) + densprof(:, :)
       if (ex_qc) then
-         call qdprof(r, Nmol, ndim, qdensprof(0:width), dqplus(0:width), dqminus(0:width), width, idir, qcharge,&
+         call qdprof(r, Nsites, ndim, qdensprof(0:width), dqplus(0:width), dqminus(0:width), width, idir, qcharge,&
          & pwall, deltar)
       endif
    end subroutine profile_comp
 
-   subroutine qdprof(r, Nmol, dim, qdensprof, dqplus, dqminus, width, idir, qcharge,&
+   subroutine qdprof(r, Nsites, dim, qdensprof, dqplus, dqminus, width, idir, qcharge,&
    & pwall, deltar)
-      integer, value, intent(IN) :: Nmol, dim, width, idir
-      real(double), intent(IN) :: qcharge(Nmol)
+      integer, value, intent(IN) :: Nsites, dim, width, idir
+      real(double), intent(IN) :: qcharge(Nsites)
       integer i, ind, ia
       real, value, intent(IN) :: deltar, pwall
-      real, dimension(dim, Nmol), intent(IN) :: r
+      real, dimension(dim, Nsites), intent(IN) :: r
       real(double), intent(INOUT) :: qdensprof(0:width), dqplus(0:width), dqminus(0:width)
       real :: qc
-      do i = 1, Nmol
+      do i = 1, Nsites
          qc = qcharge(i)
          !
          ! Warning: density profile must be computed along a confined direction or using wrapped coordinates
@@ -185,16 +185,16 @@ contains
       enddo
    end subroutine qdprof
 
-   subroutine dprof(r, Nmol, dim, densprof, width, nsp, idir, itype&
+   subroutine dprof(r, Nsites, dim, densprof, width, nsp, idir, itype&
    &, pwall, deltar)
-   integer, value, intent(IN) :: Nmol, dim, nsp, width, idir
-   integer, intent(IN) :: itype(Nmol)
+   integer, value, intent(IN) :: Nsites, dim, nsp, width, idir
+   integer, intent(IN) :: itype(Nsites)
    integer i, ind, ia, ity
    real, dimension(3) :: rv
    real, value, intent(IN) :: deltar, pwall
-   real, dimension(dim, Nmol), intent(IN) :: r
+   real, dimension(dim, Nsites), intent(IN) :: r
    integer, intent(INOUT) :: densprof(0:width, nsp)
-   do i=1, Nmol 
+   do i=1, Nsites 
       !
       ! Warning: density profile must be computed along a confined direction or using wrapped coordinates
       !

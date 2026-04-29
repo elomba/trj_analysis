@@ -77,24 +77,24 @@ contains
                write(*,*) " *** Error: S(Q) calculation using directional sampling in 2D (x and y) not implemented ***"
                stop
             endif
-            call sqf3xy<<<tBlock, grid>>>(Nmol, ndim, ntype_d, bsc_d, fk_d, &
+            call sqf3xy<<<tBlock, grid>>>(Nsites, ndim, ntype_d, bsc_d, fk_d, &
             & nsp, nqmax, qmin2, dq, nslice, zgrid, zsliced,ex_qc)
                call printcudaerror(" *** Warning: 3D sqf3xy GPU kernel exit with errors: reduce nthread",istat)
                ! For large q, use directional sampling for computational efficiency
-            call sqf2xy<<<nqmax/nthread + 1, nthread>>>(Nmol, ndim, ntype_d, bsc_d, fk_d,& 
+            call sqf2xy<<<nqmax/nthread + 1, nthread>>>(Nsites, ndim, ntype_d, bsc_d, fk_d,& 
             & nsp, nqmax, nqmin + 1, nslice, zgrid, zsliced,ex_qc)
                call printcudaerror(" *** Warning: 3D sqf2xy GPU kernel exit with errors: reduce nthread",istat)
          else
             ! Isotropic sampling for small q (spherical averaging)
-            call sqfnD<<<tBlock, grid>>>(Nmol, ndim, ntype_d, bsc_d, fk_d,&
+            call sqfnD<<<tBlock, grid>>>(Nsites, ndim, ntype_d, bsc_d, fk_d,&
             & nsp, nqmax, qmin2, dq,ex_qc)
             call printcudaerror(" *** Warning: 3D sqfnD GPU kernel exit with errors: reduce nthread",istat)
             ! For large q, use directional sampling for computational efficiency
             if (ndim == 3) then
-               call sqfact<<<nqmax/nthread + 1, nthread>>>(Nmol, ndim, ntype_d, bsc_d, fk_d,&
+               call sqfact<<<nqmax/nthread + 1, nthread>>>(Nsites, ndim, ntype_d, bsc_d, fk_d,&
             &  nsp, nqmax, nqmin + 1,ex_qc)
             else
-               call sqfact2<<<nqmax/nthread + 1, nthread>>>(Nmol, ndim, ntype_d, bsc_d, fk_d,&
+               call sqfact2<<<nqmax/nthread + 1, nthread>>>(Nsites, ndim, ntype_d, bsc_d, fk_d,&
             &  nsp, nqmax, nqmin + 1,ex_qc)
             endif
             call printcudaerror(" *** Warning: 3D/2D sqfact GPU kernel exit with errors: reduce nthread",istat)
@@ -109,14 +109,14 @@ contains
          !
          if (ndim == 3) then
             if (idir == 0) then
-               call sqfact<<<nqmax/nthread + 1, nthread>>>(Nmol, ndim, ntype_d, bsc_d, fk_d, &
+               call sqfact<<<nqmax/nthread + 1, nthread>>>(Nsites, ndim, ntype_d, bsc_d, fk_d, &
                nsp, nqmax, nqmin,ex_qc)
             else
-               call sqf2xy<<<nqmax/nthread + 1, nthread>>>(Nmol, ndim, ntype_d, bsc_d, fk_d, &
+               call sqf2xy<<<nqmax/nthread + 1, nthread>>>(Nsites, ndim, ntype_d, bsc_d, fk_d, &
                & nsp, nqmax, nqmin + 1, nslice, zgrid, zsliced, ex_qc)
             end if
          else
-            call sqfact2<<<nqmax/nthread + 1, nthread>>>(Nmol, ndim, ntype_d, bsc_d, fk_d, &
+            call sqfact2<<<nqmax/nthread + 1, nthread>>>(Nsites, ndim, ntype_d, bsc_d, fk_d, &
                nsp, nqmax, nqmin, ex_qc)
          end if
       end if
@@ -141,15 +141,15 @@ contains
          sqfp(0:nqmax, 1:nsp) = sqfp_d(0:nqmax, 1:nsp)
          sqf(0:nqmax) = sqf_d(0:nqmax)
          if (ex_qc) then
-            avq2 = sum(qcharge(:)**2)/Nmol
+            avq2 = sum(qcharge(:)**2)/Nsites
             sqfq(0:nqmax) = sqfq_d(0:nqmax)/avq2
          endif
       end if
    end subroutine sq_transfer_gpu_cpu
 
-   subroutine sq_init(nmol, nsp, nbcuda)
+   subroutine sq_init(Nsites, nsp, nbcuda)
       Implicit none
-      integer, intent(IN) :: Nmol, nsp, nbcuda
+      integer, intent(IN) :: Nsites, nsp, nbcuda
       integer :: i, j, k, ind, indm, l, iq, kmaxz, ndg, ndg2
       real :: rr, qmm, qedge
       logical :: found
@@ -355,7 +355,7 @@ contains
       end if
 
       lty(:) = 0
-      do i = 1, Nmol
+      do i = 1, Nsites
          lty(itype(i)) = lty(itype(i)) + 1
          ipos(itype(i), lty(itype(i))) = i
       end do
@@ -365,12 +365,12 @@ contains
       ntype_d(:) = ntype(:)
       bsc_d(:) = bsc(:)
       ipos_d(:, :) = ipos(:, :)
-      itype_d(1:Nmol) = itype(1:Nmol)
+      itype_d(1:Nsites) = itype(1:Nsites)
    end subroutine sq_init
 
 
-   attributes(global) subroutine sqfact(Nmol, dim, ntype, bsc, fk, nsp, kmax, minPts,ex_qc)
-   integer, value, intent(IN) :: Nmol, dim, nsp, kmax, minPts
+   attributes(global) subroutine sqfact(Nsites, dim, ntype, bsc, fk, nsp, kmax, minPts,ex_qc)
+   integer, value, intent(IN) :: Nsites, dim, nsp, kmax, minPts
    integer, intent(IN) :: ntype(nsp)
    real(kind=4), intent(IN) :: bsc(nsp)
    real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, suma, bs, qci, cfkx, sfkx, cfky, sfky, cfkz, sfkz
@@ -453,8 +453,8 @@ contains
    end if
 end subroutine sqfact
 
-attributes(global) subroutine sqfact2(Nmol, dim, ntype, bsc, fk, nsp, kmax, minPts, ex_qc)
-integer, value, intent(IN) :: Nmol, dim, nsp, kmax, minPts
+attributes(global) subroutine sqfact2(Nsites, dim, ntype, bsc, fk, nsp, kmax, minPts, ex_qc)
+integer, value, intent(IN) :: Nsites, dim, nsp, kmax, minPts
 integer, intent(IN) :: ntype(nsp)
 real(kind=4), intent(IN) ::bsc(nsp)
 real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, suma, bs, qci, cfkx, sfkx, cfky, sfky
@@ -520,9 +520,9 @@ if (k .le. kmax .and. k .ge. minPts) then
 end if
 end subroutine sqfact2
 
-attributes(global) subroutine sqfnD(Nmol, dim, ntype, bsc, fk, nsp, kmax, q2max, dq, ex_qc)
+attributes(global) subroutine sqfnD(Nsites, dim, ntype, bsc, fk, nsp, kmax, q2max, dq, ex_qc)
 integer, intent(IN) :: ntype(nsp)
-integer, value, intent(IN) :: Nmol, dim, nsp, kmax
+integer, value, intent(IN) :: Nsites, dim, nsp, kmax
 real(kind=4), intent(IN) :: bsc(nsp)
 real(kind=4) :: rkxyz, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma, qci, cfk, sfk
 real(kind=8) :: sumcx, sumsx, sumcpx, sumspx, q2, bs, sumqcx, sumqsx
@@ -591,9 +591,9 @@ end if
 end subroutine sqfnD
 
 
-attributes(global) subroutine sqf3xy(Nmol, dim, ntype, bsc, fk, nsp, kmax, q2max, dq, nslice, zgrid, zslice, ex_qc)
+attributes(global) subroutine sqf3xy(Nsites, dim, ntype, bsc, fk, nsp, kmax, q2max, dq, nslice, zgrid, zslice, ex_qc)
 integer, intent(IN) :: ntype(nsp)
-integer, value, intent(IN) :: Nmol, dim, nsp, kmax, nslice
+integer, value, intent(IN) :: Nsites, dim, nsp, kmax, nslice
 real(kind=4), intent(IN) :: bsc(nsp)
 real(kind=4) :: rkxyz, fk1, fk2, fk3, kf1, kf2, kf3,  q, suma(nslice), tsum, qsum, qci
 real(kind=8) :: sumcx(nslice), sumsx(nslice), sumcpx(nslice), sumspx(nslice), q2, bs
@@ -673,8 +673,8 @@ if (q2 > 0.0 .and. q2 <= q2max) then
 end if
 end subroutine sqf3xy
 
-attributes(global) subroutine sqf2xy(Nmol, dim, ntype, bsc, fk, nsp, kmax, minPts, nslice, zgrid, zslice, ex_qc)
-integer, value, intent(IN) :: Nmol, dim, nsp, kmax, minPts, nslice
+attributes(global) subroutine sqf2xy(Nsites, dim, ntype, bsc, fk, nsp, kmax, minPts, nslice, zgrid, zslice, ex_qc)
+integer, value, intent(IN) :: Nsites, dim, nsp, kmax, minPts, nslice
 integer, intent(IN) :: ntype(nsp)
 real, intent(in), value :: zgrid
 real(kind=4), intent(IN) ::bsc(nsp), zslice(nslice)
@@ -795,9 +795,9 @@ subroutine sq_clear()
 
 end subroutine sq_clear
 
-attributes(global) subroutine sqfnDcl(r_d, Nmol, Nbcl, dim, fk, sqf, kmax, q2max, dq)
-integer, value, intent(IN) :: Nmol, Nbcl, kmax, dim
-real, dimension(dim, Nmol), intent(IN) :: r_d
+attributes(global) subroutine sqfnDcl(r_d, Nsites, Nbcl, dim, fk, sqf, kmax, q2max, dq)
+integer, value, intent(IN) :: Nsites, Nbcl, kmax, dim
+real, dimension(dim, Nsites), intent(IN) :: r_d
 real(kind=4), intent(INOUT) :: sqf(kmax)
 real(kind=4) :: rkx, rky, rkz, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma
 real(kind=8) :: sumcx, sumsx, sumcpx, sumspx, q2

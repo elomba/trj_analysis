@@ -180,25 +180,25 @@ contains
         neighd(:, :) = neigh(:, :)
     end Subroutine cells_init_post_nc_read
 
-    subroutine cells_init_pre_nc_read(nmol)
+    subroutine cells_init_pre_nc_read(Nsites)
         implicit none
-        integer, intent(in) :: nmol
+        integer, intent(in) :: Nsites
 
         ! Allocate CPU memory
-        allocate (offset(nmol))
-        allocate (neighbors(nmol))
-        allocate (border(nmol))
-        allocate (adjacency(maxnbpp*nmol))
+        allocate (offset(Nsites))
+        allocate (neighbors(Nsites))
+        allocate (border(Nsites))
+        allocate (adjacency(maxnbpp*Nsites))
 
         ! Init variables
         border(:) = 0
         neighbors(:) = 0
 
         ! Allocate GPU memory
-        allocate (goffset(nmol))
-        allocate (gneighbors(nmol))
-        allocate (gborder(nmol))
-        allocate (gadjacency(maxnbpp*nmol))
+        allocate (goffset(Nsites))
+        allocate (gneighbors(Nsites))
+        allocate (gborder(Nsites))
+        allocate (gadjacency(maxnbpp*Nsites))
 
         ! Init variables
         gborder(:) = 0
@@ -301,15 +301,15 @@ contains
         fijd = (i*maxjd + j)
     end function fijd
 
-    attributes(global) subroutine gpu_graph_cell(r, Nmol, dim, rcl2, sidel, minPts)
+    attributes(global) subroutine gpu_graph_cell(r, Nsites, dim, rcl2, sidel, minPts)
     ! Graph construction on GPU using linked cells
-        integer, value, intent(IN) :: Nmol, dim, minPts
+        integer, value, intent(IN) :: Nsites, dim, minPts
         real(myprec), value :: rcl2
-        real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
+        real(myprec), intent(IN) :: r(dim, Nsites), sidel(dim)
         real(myprec)  :: rv(3), rr2
         integer :: i, j, counter, ia, ix, jy, kz, cell, icell
         i = (blockidx%x - 1)*blockdim%x + threadidx%x
-        if (i <= Nmol) then
+        if (i <= Nsites) then
             gneighbors(i) = 0
             counter = 0
             !
@@ -346,19 +346,19 @@ contains
         end if
     end subroutine gpu_graph_cell
 
-    attributes(global) subroutine gpu_graf(r, Nmol, dim, rcl2, sidel, minPts)
+    attributes(global) subroutine gpu_graf(r, Nsites, dim, rcl2, sidel, minPts)
         ! Simple GPU graph construction without linked cells 
-        integer, value, intent(IN) :: Nmol, dim
+        integer, value, intent(IN) :: Nsites, dim
         integer, value :: minPts
         real, value :: rcl2
-        real(kind=4), intent(IN) :: r(dim, Nmol), sidel(dim)
+        real(kind=4), intent(IN) :: r(dim, Nsites), sidel(dim)
         real(kind=4) :: rv(3), rr2
         integer :: i, j, counter
         i = (blockidx%x - 1)*blockdim%x + threadidx%x
-        if (i <= Nmol) then
+        if (i <= Nsites) then
             gneighbors(i) = 0
             counter = 0
-            do j = 1, Nmol
+            do j = 1, Nsites
                 if (i .ne. j) then
                     rv(1:dim) = r(1:dim, i) - r(1:dim, j)
                     ! PBC
@@ -373,14 +373,14 @@ contains
         end if
     end subroutine gpu_graf
 
-    attributes(global) subroutine gpu_adj_cell(r, Nmol, dim, rcl2, sidel)
-        integer, value, intent(IN) :: Nmol, dim
+    attributes(global) subroutine gpu_adj_cell(r, Nsites, dim, rcl2, sidel)
+        integer, value, intent(IN) :: Nsites, dim
         real(myprec), value :: rcl2
-        real(myprec), intent(IN) :: r(dim, Nmol), sidel(dim)
+        real(myprec), intent(IN) :: r(dim, Nsites), sidel(dim)
         real(myprec)  :: rv(3), rr2
         integer :: i, j, counter, ia, ix, jy, kz, cell, icell
         i = (blockidx%x - 1)*blockdim%x + threadidx%x
-        if (i <= Nmol) then
+        if (i <= Nsites) then
             counter = 0
             !
             ! Locate cell
@@ -414,17 +414,17 @@ contains
         end if
     end subroutine gpu_adj_cell
 
-    attributes(global) subroutine gpu_adj(r, Nmol, dim, rcl2, sidel)
-        integer, value, intent(IN) :: Nmol, dim
+    attributes(global) subroutine gpu_adj(r, Nsites, dim, rcl2, sidel)
+        integer, value, intent(IN) :: Nsites, dim
         real, value :: rcl2
-        real(kind=4), intent(IN) :: r(dim, Nmol), sidel(dim)
+        real(kind=4), intent(IN) :: r(dim, Nsites), sidel(dim)
         real(kind=4) :: rv(3), rr2
         integer :: i, j, counter
         integer, device :: count
         i = (blockidx%x - 1)*blockdim%x + threadidx%x
-        if (i <= Nmol) then
+        if (i <= Nsites) then
             counter = 0
-            do j = 1, Nmol
+            do j = 1, Nsites
                 if (i .ne. j) then
                     rv(1:dim) = r(1:dim, i) - r(1:dim, j)
                     ! PBC

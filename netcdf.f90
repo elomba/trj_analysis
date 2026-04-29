@@ -456,12 +456,12 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
                tempty(ntypes) = ity(i,1)
             endif
          end do
-         write (iunit,"(' *** Reading trajectory from file: ',A)") trim(adjustl(ncfname))
+         write (iunit,"(/'  ** Reading trajectory from file: ',A)") trim(adjustl(ncfname))
          write (*,"(' *** Reading trajectory from file: ',A)") trim(adjustl(ncfname))
          write (iunit, "(' ** Number of configurations in file =',i)") nconf_i
          write (*, "(' ** Number of configurations in file =',i)") nconf_i
-         write (iunit, "(/' ** Number of atoms types =',i3)") ntypes
-         write (*, "(' ** Number of atoms types =',i3)") ntypes
+         write (iunit, "(/' ** Number of atoms types =',i3/)") ntypes
+         write (*, "(' ** Number of atoms types =',i3/)") ntypes
 
          allocate (atypes(ntypes),orgty(ntypes))
          orgty(1:ntypes) = tempty(1:ntypes)
@@ -497,9 +497,9 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
    first = .false.
 end subroutine read_nc_cfg
 
-subroutine reset_nmol(nmoln)
+subroutine reset_Nsites(Nsitesn)
    use mod_nc_conf, only: ity_in => ity, natoms, ntypes, wtypes, orgty
-   integer, intent(INOUT) :: nmoln
+   integer, intent(INOUT) :: Nsitesn
    integer :: i, index
    ! remap data to take into account selected atoms
    ! calculate number of atoms to consider
@@ -513,14 +513,14 @@ subroutine reset_nmol(nmoln)
          index=index+1
       endif
    enddo
-   Nmoln = index
-   if (Nmoln >0) then
-      write(*,"(' !!*** Only ',i7,' atoms selected: Nmol reset ...')") nmoln
+   Nsitesn = index
+   if (Nsitesn >0) then
+      write(*,"(/' !!*** Only ',i7,' atoms selected: Nsites reset ...')") Nsitesn
    else
-      write(*,"(' !!*** Error: selected types not in netcdf trajectory file: ',8i3)")wtypes
+      write(*,"(//' !!*** Error: selected types not in netcdf trajectory file: ',8i3)")wtypes
       stop
    endif
-end subroutine reset_nmol
+end subroutine reset_Nsites
 
 
 
@@ -530,7 +530,7 @@ subroutine select_ncdfinput()
       ity_in => ity, nstep_in => step, natoms, ntypes, wtypes, u_pi, stress_i, orgty, qc, &
       nct, counter
    use mod_common, only: vel, r, force, cell, sidel, sidelv, side, volumen, itype, bscat, tunit, &
-      ntype, masa, nstep, vector_product, nmol, ex_vel, ex_force, ex_qc, &
+      ntype, masa, nstep, vector_product, Nsites, ex_vel, ex_force, ex_qc, &
       tuniti, side2, u_p, stress, voigt, run_thermo, ex_stress, qcharge, chgh, ncharge, cntch, periodic
    use mod_input, only: ndim, mat, bsc, rcrdf, nsp, charge, idir
    implicit none
