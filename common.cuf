@@ -18,7 +18,7 @@
 !
 ! Parameters:
 !   npmx     - Maximum particles per block (8192)
-!   natomsmax  - Maximum number of particles (220000)
+!   nmolmax  - Maximum number of particles (220000)
 !   nspmax   - Maximum number of species (10)
 !   llmax    - Maximum order for Steinhardt parameters (12)
 !
@@ -38,7 +38,7 @@ module mod_common
    implicit none
 
    Integer, Parameter :: npmx = 8192, nmblock = 500, nmgrid = 50000, &
-      nspmax = 10, natomsmax = 220000, nmesmax = 10000, nkmax = 200, ksmax = 6
+      nspmax = 10, nmolmax = 220000, nmesmax = 10000, nkmax = 200, ksmax = 6
    Integer, Parameter :: nitmax = nspmax*(nspmax + 1)/2, llmax = 12
    real(myprec), parameter :: pi = 3.1415926535898D0, fconv = 4.135, &
       rgas = 8.3144d7, aunit = 1.0d-8, tunit = 1.0d-12,  &
@@ -49,7 +49,7 @@ module mod_common
    type(cudaEvent) :: startEvent, stopEvent
    type(dim3) :: bl2, thr2, grid, tBlock
    integer, save :: nstep = 0
-   integer :: nbcuda, natoms, natoms_in, Nmol, width, nqmax, nqwmax, lmaxx, lmaxy, lmaxz, &
+   integer :: nbcuda, natms, nmol, width, nqmax, nqwmax, lmaxx, lmaxy, lmaxz, &
       lsmax, nqmin, ndr, shmsize, maxthread, nit, nconf, nmzero = 0, maxcln,&
       voigt, nrandom=0, ndrclus=100, maxnbpp=25
    integer :: cntch(100), ncharge, nslice=-1
@@ -70,7 +70,7 @@ module mod_common
    real(myprec), dimension(3) :: sidel, sidelv, rlow
    real, device, dimension(3) :: fk_d, sidel_d
    real(myprec), dimension(3, 3) :: cell
-   real(myprec), allocatable, dimension(:) :: masa, bscat, sig2n, gaver, u_p, zslice, gtot, gmix_qq
+   real(myprec), allocatable, dimension(:) :: masa, bscat, sig2n, gaver, u_p, zslice, gtot, gmix_cc_xy
    real(myprec), allocatable, dimension(:,:,:) :: gmix_xy
    real(kind=8), allocatable, dimension(:) :: gi, g2i, gii, g2ii, qcharge, gqq, gpp, gmm, scc, spp, smm
    real(myprec), device, allocatable, dimension(:) :: sqf_d, sqfq_d, sqfcl_d, bsc_d, zsliced, gqq_d, gpp_d, gmm_d, scc_c, spp_d, smm_d, qcharge_d
@@ -91,7 +91,7 @@ module mod_common
    real, allocatable, dimension(:, :, :, :) :: histomix_xy
    logical :: pdir(3) = .true., run_clusters = .false., run_rdf = .false., &
       run_sq = .false., run_dyn = .false., run_sqw = .false., run_thermo = .false., &
-      confined = .false., auto_zslice = .false.
+      confined = .false., auto_zslice = .false., topol=.false.
    character :: fname99*18
    character, dimension(:), allocatable :: atoms*8
    character(len=:), allocatable :: tunits, vunits
@@ -147,6 +147,7 @@ module mod_common
 
     Type(SystemType) :: my_sys
 
+
    type(clus), Allocatable :: cluster(:)
    Real(myprec), Dimension(:), Allocatable :: sizedist, densav
    Real(myprec), Dimension(:, :), Allocatable ::  rclxyz
@@ -188,9 +189,9 @@ module mod_common
          real(myprec), dimension(size(a),size(b)) :: vv
       end function outer_product
 
-      subroutine common_init(natms, ndim, nthread, idir, units, factor, nsp)
+      subroutine common_init(natoms, ndim, nthread, idir, units, factor, nsp)
          use mod_precision
-         integer, intent(in) :: natms, ndim, nthread, idir, nsp
+         integer, intent(in) :: natoms, ndim, nthread, idir, nsp
          real(myprec), intent(in) :: factor
          character(*), intent(in) :: units
       end subroutine common_init
@@ -207,7 +208,7 @@ subroutine count_q_slice()
             endif
             q2slice(:) = 0.0
             counts(:) = 0
-            do i=1,  natoms
+            do i=1,  nmol
                zi = r(3, i)
                islice = minloc(abs(zslice(1:nslice) - zi),dim=1)   
                if (abs(zslice(islice) - zi) <= zgrid/2.0) then
@@ -358,16 +359,16 @@ end subroutine count_q_slice
 
       ! side2 = (side/2)**2
       sidel_d(:) = sidelv(:)
-      r_d(1:ndim, 1:natoms) = r(1:ndim, 1:natoms)
+      r_d(1:ndim, 1:Nmol) = r(1:ndim, 1:Nmol)
       fk_d(:) = fk(:)
-      itype_d(1:natoms) = itype(1:natoms)
+      itype_d(1:Nmol) = itype(1:Nmol)
 
    end subroutine transfer_cpu_gpu
 
-   subroutine common_init(natms, ndim, nthread, idir, units, factor, nsp)
+   subroutine common_init(natoms, ndim, nthread, idir, units, factor, nsp)
       use mod_precision
       real(myprec), intent(in) :: factor
-      integer, intent(in) :: natms, ndim, nthread, idir, nsp
+      integer, intent(in) :: natoms, ndim, nthread, idir, nsp
       character(*), intent(in) :: units
       if (rcl>0) then
          if (units == 'lj') then
@@ -376,10 +377,12 @@ end subroutine count_q_slice
             write(*,"(//' *** Note: rcl (NN and/or connectivity distance) set to ',f8.4,' Å')" ) rcl
          endif
       endif
+      nmol = natoms !! WARN, change when molecules are implemented
+      natms = natoms !! WARN, assign for compatibility
       ! CUDA number of blocks
-      nbcuda = natms/nthread
-      if (nbcuda*nthread .ne. natms) nbcuda=nbcuda+1
-      bl2 = dim3(natms/16, natms/16, 1)
+      nbcuda = Nmol/nthread
+      if (nbcuda*nthread .ne. Nmol) nbcuda=nbcuda+1
+      bl2 = dim3(Nmol/16, Nmol/16, 1)
       thr2 = dim3(16, 16, 1)
 
       ! Time unit load from netcdf, set in real type seconds units
@@ -414,39 +417,39 @@ end subroutine count_q_slice
       allocate (atoms(nsp))
       allocate (ntype(nsp))
       allocate (lty(nsp))
-      allocate (itype(natms))
-      allocate (ipos(nsp, natms))
-      allocate (bscat(natms))
-      allocate (masa(natms))
+      allocate (itype(nmol))
+      allocate (ipos(nsp, nmol))
+      allocate (bscat(nmol))
+      allocate (masa(nmol))
       if (ex_qc) then
-         allocate (qcharge(natms))
-         allocate (qcharge_d(natms))
+         allocate (qcharge(nmol))
+         allocate (qcharge_d(nmol))
       endif
-      allocate (list(natms))
-      allocate (label(natms))
-      allocate (r(ndim, natms))
+      allocate (list(nmol))
+      allocate (label(nmol))
+      allocate (r(ndim, nmol))
       if (ex_vel) then
-         allocate (vel(ndim, natms))
-         allocate (v_d(ndim, natms))
+         allocate (vel(ndim, nmol))
+         allocate (v_d(ndim, nmol))
       end if
       if (ex_force) then
-         allocate (force(ndim, natms))
+         allocate (force(ndim, nmol))
       end if
       if (run_thermo) then
-         allocate(u_p(natms))
+         allocate(u_p(nmol))
          ecaver = 0
       endif
       if (ex_stress) then
-         allocate(stress(voigt,natms))
+         allocate(stress(voigt,nmol))
          pressav = 0
       endif
       ! Allocate GPU memory
-      allocate (r_d(ndim, natms))
-      allocate (itype_d(natms))
+      allocate (r_d(ndim, nmol))
+      allocate (itype_d(nmol))
       allocate (ntype_d(nsp))
       allocate (bsc_d(nsp))
-      allocate (ipos_d(nsp, natms))
-      allocate (glabel(natms))
+      allocate (ipos_d(nsp, nmol))
+      allocate (glabel(nmol))
 
       ! Init variables
       ecaver = 0.0

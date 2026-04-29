@@ -63,7 +63,7 @@
 !   - Orthogonal simulation cells only (no triclinic)
 !   - Constant particle number (NpT allowed with minor S(Q) errors)
 !   - Atomic-level analysis (molecular internal DOF not considered)
-!   - LAMMPS units: "real", "metal", or "lj" (automatic conversion)
+!   - LAMMPS units: "real" or "lj" (automatic conversion)
 !
 ! Output Files:
 !   THERMODYNAMICS: thermo_run.dat
@@ -100,12 +100,12 @@ program trj_analysis
     use mod_rdf
     use mod_log
     use mod_thermo
-    use mod_tools
     use mod_dyn, only : dyn_init, dyn_clear, rtcorr, print_rtcor
     use mod_util, only : gpu_and_header, clean_memory, init_modules, reformat_input_conf, &
                          basic_init, print_results, select_species, reset_confs, form_dependencies, print_total_time
     use cudafor
     implicit none
+
     integer :: io = 0, ioerr, istat, ncid_in
     integer :: argc, ncstart, i, devnum, Nccount
     logical :: first_configuration=.true., nstepi0 = .false. 
@@ -147,7 +147,7 @@ program trj_analysis
         stop
     endif
     ! Set number of species from netcdf file or from selected species from namelist
-    call select_species(nsp, nftypes, natoms, natoms_in)
+    call select_species(nsp, ntypes, nmol, natoms)
     if (nstep == 0) then
         write(*,"(' !!*** Warning: initial configuration for step 0, skipping ...  ')")
         write(*,"(' !!*** Change ncfs_from_to to n 2 m in input file to avoid this message'/)") 
@@ -159,7 +159,7 @@ program trj_analysis
     !
     call form_dependencies()
     ! Init common variables & print outs
-    call common_init(natoms, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)
+    call common_init(nmol, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)
     ! Analysis begins from first configuration selected
     Nccount = 0
 
@@ -170,7 +170,7 @@ program trj_analysis
     call cpu_time(cpu0)
     do i = 1, ncfs_from_to(1)
         ! In the first configuration basic initialization 
-        if (first_configuration) call basic_init(use_cell,run_clusters,run_dyn,confined,natoms)
+        if (first_configuration) call basic_init(use_cell,run_clusters,run_dyn,confined,nmol)
         ! Read i-th configuration from netcdf input file
         call cpu_time(t0)
         ! Jumps configurations to be read: ncstart controls starting conf in netcdf file
@@ -188,7 +188,7 @@ program trj_analysis
         ! Over each configuration run selected modules (first initialize)
         ! Accumulate i/o time
         call cpu_time(t1)
-        if (first_configuration) call init_modules(use_cell, run_rdf, run_sq, run_clusters, run_order, nsp, natoms, nbcuda)
+        if (first_configuration) call init_modules(use_cell, run_rdf, run_sq, run_clusters, run_order, nsp, nmol, nbcuda)
         ! For next iteration then ...
         first_configuration = .false.
         if (nstep == 0) then
@@ -206,7 +206,7 @@ program trj_analysis
         call transfer_cpu_gpu(ndim)
 
         ! Run RDF
-        if (run_rdf) call RDFcomp(natoms, i, nbcuda, nthread, conf(4)%units)
+        if (run_rdf) call RDFcomp(Nmol, i, nbcuda, nthread, conf(4)%units)
 
         ! BFS cluster search
         if (run_clusters) call cluster_search()
@@ -233,7 +233,7 @@ program trj_analysis
         if (run_dyn) call rtcorr(i)
 
         ! Compute order parameter
-        if (run_order) call compute_order(natoms, ndim, rcl, sidel)
+        if (run_order) call compute_order(nmol, ndim, rcl, sidel)
         ! Print periodic output
         call print_output(i)
         Nccount = Nccount + 1
@@ -242,7 +242,7 @@ program trj_analysis
     if (confined) call normdenspr(nconf)
     ! Programme printouts
     call print_results(run_sq,  run_rdf, run_dyn, run_clusters, run_thermo, &
-                        ntype, nsp, lsmax, natoms, nqmin, rcl)
+                        ntype, nsp, lsmax, nmol, nqmin, rcl)
     ! Cleaning house
     write(*, '(/" **** Cleaning memory ...")')
     call clean_memory(run_sq,run_rdf,run_clusters,run_thermo,use_cell,run_dyn,run_order,confined)

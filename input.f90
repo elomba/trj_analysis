@@ -51,7 +51,7 @@ module mod_input
    integer :: nthread=64, ndim, minPts,  idir=0, nsp, nbuffer=2, potnbins=100, nqw=0, &
             & jump=1, norder=1, nnbond=0, cl_thresh=10, nprint=10
    logical :: use_cell = .true., run_order = .false., print_orderp=.false., &
-               geometry=.true., topol=.true.
+               geometry=.true.
    logical, dimension(7) :: rdf_sq_cl_dyn_sqw_conf_ord
    real(myprec) :: deltar, dcl, qmin, qmax, rcrdf, rclcl=0.0, &
       tmax=-1, tmaxp=-1, tlimit=-1, potengmargin=0.0
@@ -67,7 +67,7 @@ module mod_input
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
    namelist /INPUT_SQ/ qmax, qmin, bsc
    namelist /INPUT_CL/ dcl, minPts, ndrclus, cl_thresh, geometry
-   namelist /INPUT_CONF/ zslice, zgrid
+   namelist /INPUT_CONF/ idir, zslice, zgrid
    namelist /INPUT_DYN/ nbuffer, tmax, tmaxp, tlimit, jump
    namelist /INPUT_SQW/ qw, tmqw
    namelist /INPUT_ORDER/ orderp, print_orderp, nnbond, rclcl
@@ -155,14 +155,14 @@ contains
             auto_zslice = .true.
          endif
          allocate(zslice(nslice),countslice(nslice))
-         ! Use absurdly large value de zslice to detect if it has not been defined
-         if (.not. auto_zslice) zslice(:) = -1000000000.0
          allocate(countpslice(nsp, nslice))
          read (unit=io_input_file, nml=INPUT_CONF)
          countslice(:) = 0
          countsliced(:) = 0
-         idir = 3
-         !
+         if (idir /=3) then
+            write(*,'("*** Error: confinement direction idir must be set to 3 (z) !")')
+            stop
+         endif
          confined = .true.
          if (rdf_sq_cl_dyn_sqw_conf_ord(1) == .true. .or. rdf_sq_cl_dyn_sqw_conf_ord(2) == .true.) then
             twoDstruc_3D = .true.

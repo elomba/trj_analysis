@@ -80,14 +80,14 @@ contains
             case (3)
                write(unit,'(" ··· Flow control: ",A," module will be executed !")') "Cluster analysis"
             case (4)
-               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "Dynamics/Z(w) diffusion"
+               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "Dynamics/Z(w)"
             case (5)
                write(unit,'(" ··· Flow control: ",A," module will be executed !")') "F(q,t)/S(q,w)"
             case (6)
-               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "Confinement in the z-direction active"
+               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "Confinement"
             case (7)
-               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "Orientational order parameters"
-            end select
+               write(unit,'(" ··· Flow control: ",A," module will be executed !")') "Order parameters"
+         end select
          endif
       end do
       if (unit == 6) then 
@@ -178,13 +178,13 @@ contains
          if (run_thermo) then
             if (tunits == 'lj') then
                write (*, "(' ** Potential energy/epsilon=',f15.4,' Per atom=',f15.4)") epot, epotperatom
-               write (*, "(' ** Average potential energy/epsilon=',f15.4, ' Per atom=',f15.4)") epotav/Iconf, epotav/(Iconf*natoms)
+               write (*, "(' ** Average potential energy/epsilon=',f15.4, ' Per atom=',f15.4)") epotav/Iconf, epotav/(Iconf*nmol)
             else if (tunits == 'picosecond') then
                write (*, "(' ** Potential energy=',f15.4,' eV, Per atom=',f15.4,' eV')") epot, epotperatom
-               write (*, "(' ** Average potential energy=',f15.4,' eV, Per atom=',f15.4,' eV')") epotav/Iconf, epotav/(Iconf*natoms)
+               write (*, "(' ** Average potential energy=',f15.4,' eV, Per atom=',f15.4,' eV')") epotav/Iconf, epotav/(Iconf*nmol)
             else
                write (*, "(' ** Potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epot, epotperatom
-               write (*, "(' ** Average potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epotav/Iconf, epotav/(Iconf*natoms)
+               write (*, "(' ** Average potential energy=',f15.4,' Kcal/mol, Per atom=',f15.4,'Kcal/mol')") epotav/Iconf, epotav/(Iconf*nmol)
             endif
 
             if (run_clusters) then
@@ -262,9 +262,9 @@ contains
             endif
          endif
          if (tunits == 'lj') then
-            Write (*, "(' ** Density*sigma^3=',f10.6)") natoms/volumen
+            Write (*, "(' ** Density*sigma^3=',f10.6)") natms/volumen
          else
-            Write (*, "(' ** Density=',f10.6,' A^-3')") natoms/volumen
+            Write (*, "(' ** Density=',f10.6,' A^-3')") natms/volumen
          end if
          ! Cluster information
          if (run_clusters) then
@@ -314,18 +314,18 @@ contains
       close (100)
    end subroutine printPotEngCl
 
-   subroutine printSQ(natoms)
+   subroutine printSQ(Nmol)
       implicit none
       !
       ! Printout S(Q)'s
       !
       real(myprec) :: x1, x2, s11, s22, s12, scc, baver, b2aver
-      integer, intent(IN) :: natoms
+      integer, intent(IN) :: Nmol
       integer :: i, j
       logical :: bsc_one = .true.
       character(len=128) :: fname99
-      baver = sum(ntype(1:nsp)*bsc(1:nsp))/natoms
-      b2aver = sum(ntype(1:nsp)*bsc(1:nsp)**2)/natoms
+      baver = sum(ntype(1:nsp)*bsc(1:nsp))/Nmol
+      b2aver = sum(ntype(1:nsp)*bsc(1:nsp)**2)/Nmol
       if (.not.twoDstruc_3D) sqf(:) = sqf(:)/baver**2
       do i = 1, nsp
          if (abs(bsc(i)-1.0) > 1.0e-4) bsc_one=.false.
@@ -346,8 +346,8 @@ contains
          open (100, file='sq.dat')
          open (110, file='sqmix.dat')
          if (nsp == 2 .and. bsc_one) then
-            x1 = (real(ntype(1))/real(natoms))
-            x2 = (real(ntype(2))/real(natoms))
+            x1 = (real(ntype(1))/real(Nmol))
+            x2 = (real(ntype(2))/real(Nmol))
             if (ex_qc) then
                write (100, "('#           Q        S_NN(Q)          S_qq(Q)          S_cc(Q)       S_11(Q)        S_22(Q)           S_12(Q)         n(Q)')")
             else
@@ -380,19 +380,19 @@ contains
                if (nsp == 2 .and. bsc_one) then
                   s11 = x1*sqfp(i, 1)/(ntype(1)*Nconf*real(nq(i)))
                   s22 = x2*sqfp(i, 2)/(ntype(2)*Nconf*real(nq(i)))
-                  s12 = 0.5*(sqf(i)/(natoms*Nconf*real(nq(i))) - s11 - s22)
+                  s12 = 0.5*(sqf(i)/(Nmol*Nconf*real(nq(i))) - s11 - s22)
                   scc = x2**2*s11 + x1**2*s22 - 2*x1*x2*s12
                   if (ex_qc) then
-                     write (100, '(7f15.7,i12)') i*dq, sqf(i)/(natoms*Nconf*real(nq(i))), sqfq(i)/(natoms*Nconf*real(nq(i))), scc, s11, s22, s12, nq(i)
+                     write (100, '(7f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i))), sqfq(i)/(Nmol*Nconf*real(nq(i))), scc, s11, s22, s12, nq(i)
                   else  
-                     write (100, '(6f15.7,i12)') i*dq, sqf(i)/(natoms*Nconf*real(nq(i)))&
+                     write (100, '(6f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i)))&
                      &, scc, s11, s22, s12, nq(i)
                   endif
                else
                   if (ex_qc) then
-                     write (100, '(3f15.7,i12)') i*dq, sqf(i)/(natoms*Nconf*real(nq(i))), sqfq(i)/(natoms*Nconf*real(nq(i))), nq(i)
+                     write (100, '(3f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i))), sqfq(i)/(Nmol*Nconf*real(nq(i))), nq(i)
                   else  
-                     write (100, '(2f15.7,i12)') i*dq, sqf(i)/(natoms*Nconf*real(nq(i))), nq(i)
+                     write (100, '(2f15.7,i12)') i*dq, sqf(i)/(Nmol*Nconf*real(nq(i))), nq(i)
                   endif
                end if
                write (110, '(15f16.7)') i*dq, (sqfp(i, j)/(ntype(j)*Nconf&
@@ -432,8 +432,8 @@ contains
             end do
          end do  
          if (ex_qc) then 
-            open (240, file='gxy_qq.dat')
-            write (240, "('#     r        ',3x,16('g_xy_qq(r,',f7.2,')',4x:))") zslice(1:nslice)
+            open (240, file='gxy_cc.dat')
+            write (240, "('#     r        ',3x,16('g_xy_cc(r,',f7.2,')',4x:))") zslice(1:nslice)
          endif 
       else
          if (nsp<=6) then
@@ -500,7 +500,7 @@ contains
          end if
          !
          if (.not.twoDstruc_3D.and.ex_qc) then
-            gchch = 2*volumen*gqq(i)/(natoms**2*deltaV*Nconf)
+            gchch = 2*volumen*gqq(i)/(Nmol**2*deltaV*Nconf)
          endif
             ! Compu
          Do j = 1, nsp
@@ -519,7 +519,7 @@ contains
          if (twoDstruc_3D) then
             if (ex_qc) then
                ! Compute 2D concentration-concentration rdf in xy plane for 3D systems with confinement, using appropriate normalization for cylindrical shells and accounting for slice thickness
-               gmix_qq(:) = volumen*(zgrid/sidel(3))*gqqxy(i,:)/(deltaV*Nconf)
+               gmix_cc_xy(:) = volumen*(zgrid/sidel(3))*gqqxy(i,:)/(deltaV*Nconf)
             endif
          endif
          ! Print number fluctuations to check for hyperuniformity, if requested
@@ -552,12 +552,12 @@ contains
                   end do
                end do 
                if (ex_qc) then
-                  write (240, '(15f16.7)') ri, (gmix_qq(1:nslice))
+                  write (240, '(15f16.7)') ri, (gmix_cc_xy(1:nslice))
                endif
             else
                if (nsp <= 6) then
                   if (ex_qc) then 
-                     write (99, '(16f16.5)') ri, gchch, (gmix(j, j:nsp), j=1, nsp)
+                     write (99, '(16f16.6)') ri, gchch, (gmix(j, j:nsp), j=1, nsp)
                   else  
                      Write (99, '(16f16.5)') ri,  (gmix(j, j:nsp), j=1, nsp)
                   endif
@@ -595,9 +595,9 @@ contains
       if (nrandom>0) close (199)
    end subroutine printrdf
 
-   subroutine print_clusinfo(nqmin, natoms)
+   subroutine print_clusinfo(nqmin, Nmol)
       implicit none
-      integer, intent(IN) :: nqmin, natoms
+      integer, intent(IN) :: nqmin, Nmol
       integer :: i, ndist
       real(myprec) :: avcldens, deltaV, ri, suma, norm
       Write (*, "(' ** Average total number of particles in clusters ', f10.2)") NTclus/nconf
@@ -647,11 +647,11 @@ contains
       !
       write (1001, "('#   N                %clus.               rho_cl ')")
       suma = 0
-      ndist = nint(real(natoms)/real(dcl))
+      ndist = nint(real(Nmol)/real(dcl))
       norm = (0.5*(sizedist(1) + sizedist(ndist)) + sum(sizedist(2:ndist - 1)))*dcl
       do i = 1, ndist
          suma = i*sizedist(i)*dcl + suma
-         if (sizedist(i) > 0) write (1001, '(4f15.7)') (i - 0.5)*dcl, real(i*sizedist(i))/(real(Nconf*dcl*natoms)), real(sizedist(i))/norm
+         if (sizedist(i) > 0) write (1001, '(4f15.7)') (i - 0.5)*dcl, real(i*sizedist(i))/(real(Nconf*dcl*Nmol)), real(sizedist(i))/norm
       end do
       close (1001)
       close (999)
@@ -705,12 +705,12 @@ contains
          open (newunit=onunit, file='order_per_mol.dat')
          if (ndim==2) then
             write (onunit, "('# mol        x           y     ',5x,15('Real(psi_m) Im(psi_m)(',i0,')',1x:))") (orderp(i), i=1, norder)
-            do i = 1, natoms
+            do i = 1, nmol
                write (onunit, '(i6,15f13.5)') i, r(1:ndim,i), (atomic_order_cos(i,j), atomic_order_sin(i,j), j=1, norder)
             end do
          else
             write (onunit, "('# mol        x          y           z   ',7x,15('Q_l(',i2,')'5x:))") (orderp(i), i=1, norder)
-            do i = 1, natoms
+            do i = 1, nmol
                write (onunit, '(i6,15f12.5)') i, r(1:ndim,i), atomic_ql(i,1:norder)
             end do
          end if

@@ -110,7 +110,7 @@ contains
       write(*,"(//'   # Highest accesible constrained coordinate for fluid',f15.7,/'   # Lowest accessible constrained coordinate for fluid',f15.7)")high,low
       ! Calculate accessible volume excluding wall regions
       volumen_r = (high - low)*product(sidel, pdir)
-      rdenst = natoms/volumen_r
+      rdenst = natms/volumen_r
       write (*, '(/" ** Total renormalized density =",f10.6)') rdenst
       do i = 1, nsp
          write (*, '(/"     - Renormalized density per species ",i2," =",f10.6)') i, ntype(i)/volumen_r
@@ -150,25 +150,25 @@ contains
       integer, intent(in) :: ndim, idir
       real(myprec), intent(in) :: pwall, deltar
       densprofi(:, :) = 0
-      call dprof(r, natoms, ndim, densprofi(0:width, 1:nsp), width, nsp, idir, itype&
+      call dprof(r, Nmol, ndim, densprofi(0:width, 1:nsp), width, nsp, idir, itype&
       &, pwall, deltar)
       densprof(:, :) =  real(densprofi(:, :)) + densprof(:, :)
       if (ex_qc) then
-         call qdprof(r, natoms, ndim, qdensprof(0:width), dqplus(0:width), dqminus(0:width), width, idir, qcharge,&
+         call qdprof(r, Nmol, ndim, qdensprof(0:width), dqplus(0:width), dqminus(0:width), width, idir, qcharge,&
          & pwall, deltar)
       endif
    end subroutine profile_comp
 
-   subroutine qdprof(r, natoms, dim, qdensprof, dqplus, dqminus, width, idir, qcharge,&
+   subroutine qdprof(r, Nmol, dim, qdensprof, dqplus, dqminus, width, idir, qcharge,&
    & pwall, deltar)
-      integer, value, intent(IN) :: natoms, dim, width, idir
-      real(double), intent(IN) :: qcharge(natoms)
+      integer, value, intent(IN) :: Nmol, dim, width, idir
+      real(double), intent(IN) :: qcharge(Nmol)
       integer i, ind, ia
       real, value, intent(IN) :: deltar, pwall
-      real, dimension(dim, natoms), intent(IN) :: r
+      real, dimension(dim, Nmol), intent(IN) :: r
       real(double), intent(INOUT) :: qdensprof(0:width), dqplus(0:width), dqminus(0:width)
       real :: qc
-      do i = 1, natoms
+      do i = 1, Nmol
          qc = qcharge(i)
          !
          ! Warning: density profile must be computed along a confined direction or using wrapped coordinates
@@ -185,16 +185,16 @@ contains
       enddo
    end subroutine qdprof
 
-   subroutine dprof(r, natoms, dim, densprof, width, nsp, idir, itype&
+   subroutine dprof(r, Nmol, dim, densprof, width, nsp, idir, itype&
    &, pwall, deltar)
-   integer, value, intent(IN) :: natoms, dim, nsp, width, idir
-   integer, intent(IN) :: itype(natoms)
+   integer, value, intent(IN) :: Nmol, dim, nsp, width, idir
+   integer, intent(IN) :: itype(Nmol)
    integer i, ind, ia, ity
    real, dimension(3) :: rv
    real, value, intent(IN) :: deltar, pwall
-   real, dimension(dim, natoms), intent(IN) :: r
+   real, dimension(dim, Nmol), intent(IN) :: r
    integer, intent(INOUT) :: densprof(0:width, nsp)
-   do i=1, natoms 
+   do i=1, Nmol 
       !
       ! Warning: density profile must be computed along a confined direction or using wrapped coordinates
       !

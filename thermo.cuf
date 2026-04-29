@@ -56,10 +56,10 @@ contains
       integer, intent(in) :: iconf, ndim
       integer :: i
 
-      densty = natoms/volumen
+      densty = natms/volumen
       ! Sum kinetic energy: KE = 0.5 * m * v^2
       ekin = 0.0
-      Do i = 1, natoms
+      Do i = 1, natms
          ekin = ekin + masa(i)*Dot_product(vel(1:ndim, i)&
          &, vel(1:ndim, i))
       End Do
@@ -67,8 +67,8 @@ contains
       ! Accumulate time average
       ecaver = ecaver + ekin
       ! Degrees of freedom for temperature calculation
-      Tfact = (natoms - nmzero - 1)*ndim
-      Tfact = (natoms - nmzero - 1)*ndim
+      Tfact = (natms - nmzero - 1)*ndim
+      Tfact = (natms - nmzero - 1)*ndim
       ! Time-averaged temperature
       taver = 2*ecaver*(aunit/tunit)**2/(Tfact*Rgas*Iconf)
       ! Instantaneous temperature from equipartition theorem
