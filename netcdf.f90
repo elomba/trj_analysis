@@ -143,7 +143,7 @@ module mod_nc_conf
    character(len=5), dimension(1:3) :: cell_ang
    character(len=55) :: fname, fnamew, attr
    integer, dimension(nf90_max_var_dims) :: rhDimIds, rdimId
-   integer :: vtype, nDims, nVars, nGlobalAtts, unlimDimID, step(1), ntypes, nmconf
+   integer :: vtype, nDims, nVars, nGlobalAtts, unlimDimID, step(1), ntypes, ntypes_tr, nmconf
    integer :: start(3), count(3), starti(2), counti(2),&
    & cstart(2), ccount(2), csstart(1), cscount(1), ln, ntm&
    &, status, varid, numatts, numdims, natoms, nconf_i, nlen, nwty
@@ -170,14 +170,16 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
    use mod_nc
    use netcdf
    use mod_nc_conf
-   use mod_input, only : nsp, ncfs_from_to
+   use mod_input, only : nsp, ncfs_from_to, mat, bsc, sp_types_selected
+
    implicit none
+   real :: nmass(100), nbscat(100)
    integer, intent(in) :: ncid, ncstart
    integer, intent(in), optional :: unit
    integer, intent(out) :: io
    integer, dimension(:), allocatable :: tempty
    logical, save :: first = .true., typedefined = .false.
-   integer :: i, j, tipo, iunit, k, ioerr, tmty(1)
+   integer :: i, j, tipo, iunit, k, ioerr, tmty(1), ntt
    if (.not.present(unit)) then
       iunit = 6
    else
@@ -449,46 +451,68 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          allocate(tempty(100),wtypes(nsp))
          tempty(:) = -1
          tempty(1) = ity(1,1)
-         ntypes = 1
+         ntypes = 0
+         ntt = 0
          do i = 1, natoms
-            if (.not. any(tempty(1:ntypes) == ity(i,1))) then
-               ntypes = ntypes+1
-               tempty(ntypes) = ity(i,1)
+            if (.not. any(tempty(:) == ity(i,1))) then
+               tmty = findloc(sp_types_selected(1:nsp),ity(i,1))
+               ntt = ntt+1
+               tempty(ntt) = ity(i,1)
+               if (tmty(1) > 0) then
+                  ntypes = ntypes+1
+                  wtypes(ntypes) = tempty(ntt)
+                  nmass(ntypes) = mat(tmty(1))
+                  nbscat(ntypes) = bsc(tmty(1))
+               endif
             endif
          end do
+         ! store number of types in trajectory file
+         ntypes_tr = ntt
          write  (iunit,"(/' ** Reading trajectory from file: ',A)") trim(adjustl(ncfname))
          write (*,"(/' ** Reading trajectory from file: ',A)") trim(adjustl(ncfname))
          write (iunit, "(' ** Number of configurations in file =',i)") nconf_i
          write (*, "(' ** Number of configurations in file =',i)") nconf_i
          write (iunit, "(/' ** Number of atoms types =',i3/)") ntypes
          write (*, "(' ** Number of atoms types =',i3/)") ntypes
-
-         allocate (atypes(ntypes),orgty(ntypes))
-         orgty(1:ntypes) = tempty(1:ntypes)
-         if (nsp == ntypes) wtypes = orgty
+         allocate (atypes(ntypes),orgty(ntypes_tr))
+         orgty(1:ntypes_tr) = tempty(1:ntypes_tr)
+         if (nsp == ntypes) then
+            mat(1:ntypes) = nmass(1:ntypes)
+            bsc(1:ntypes) = nbscat(1:ntypes)
+         else
+            write(*,'("*** Fatal error: some species not in trajectory file !")')
+         endif
          deallocate(tempty)
          atypes(:) = 0
          !
          ! Atom types are remapped from LAMMPS id's to contiguous numbers
          !
+         ntt=0
          do i = 1, natoms
-            ! Remap types
-            tmty = findloc(orgty(1:ntypes),ity(i,1))
-            ity(i,1) = tmty(1)
-            atypes(ity(i, 1)) = atypes(ity(i, 1)) + 1
+            ! Remap types (oly those selected)
+            tmty = findloc(wtypes(1:ntypes),ity(i,1))
+            if (tmty(1) > 0) then
+               ntt = ntt+1
+               ity(ntt,1) = tmty(1)
+               atypes(ity(ntt, 1)) = atypes(ity(ntt, 1)) + 1
+            endif
          end do
          do i = 1, ntypes
-            write (iunit, "('  ··Number of atoms of type ',i2,' (',i2,')=',i8)") i, orgty(i),atypes(i)
-            write (*, "('  ··Number of atoms of type ',i2,' (',i2,')=',i8)") i, orgty(i),atypes(i)
+            write (iunit, "('  ··Number of atoms of type ',i2,' (',i2,')=',i8)") i, wtypes(i),atypes(i)
+            write (*, "('  ··Number of atoms of type ',i2,' (',i2,')=',i8)") i, wtypes(i),atypes(i)
          end do
       else
          !
          ! Atoms types must be remapped every configuration
          !
+         ntt = 0
          do i = 1, natoms
             ! Remap types
-            tmty = findloc(orgty(1:ntypes),ity(i,1))
-            ity(i,1) = tmty(1)
+            tmty = findloc(wtypes(1:ntypes),ity(i,1))
+            if (tmty(1) > 0) then
+               ntt = ntt+1
+               ity(ntt,1) = tmty(1)
+            endif
          end do
       end if
    else
@@ -499,14 +523,16 @@ end subroutine read_nc_cfg
 
 subroutine reset_Nsites(Nsitesn)
    use mod_nc_conf, only: ity_in => ity, natoms, ntypes, wtypes, orgty
+   use mod_input, only: sp_types_selected, nsp
+   implicit none
    integer, intent(INOUT) :: Nsitesn
    integer :: i, index
    ! remap data to take into account selected atoms
    ! calculate number of atoms to consider
    index = 0
    do i = 1, natoms
-      if (any(wtypes == orgty(ity_in(i,1))))then
-         if(count(wtypes==orgty(ity_in(i,1)))>1) then
+      if (any(sp_types_selected(1:nsp) == wtypes(ity_in(i,1))))then
+         if(count(sp_types_selected(1:nsp) ==wtypes(ity_in(i,1)))>1) then
             write(*,"(' !!*** Error: type',i2,' appears more than onces in selection ')")ity_in(i,1)
             stop
          endif
@@ -514,6 +540,7 @@ subroutine reset_Nsites(Nsitesn)
       endif
    enddo
    Nsitesn = index
+    
    if (Nsitesn >0) then
       write(*,"(/' !!*** Only ',i7,' atoms selected: Nsites reset ...')") Nsitesn
    else
@@ -532,7 +559,8 @@ subroutine select_ncdfinput()
    use mod_common, only: vel, r, force, cell, sidel, sidelv, side, volumen, itype, bscat, tunit, &
       ntype, masa, nstep, vector_product, Nsites, ex_vel, ex_force, ex_qc, &
       tuniti, side2, u_p, stress, voigt, run_thermo, ex_stress, qcharge, chgh, ncharge, cntch, periodic
-   use mod_input, only: ndim, mat, bsc, rcrdf, nsp, charge, idir
+   use mod_input, only: ndim, mat, bsc, rcrdf, nsp, charge, idir, sp_types_selected, nsp
+
    implicit none
    integer :: i, j, k, it(1), index, ipch(1)
    logical :: pass = .true., compcharge = .true., first=.true.
@@ -570,11 +598,15 @@ subroutine select_ncdfinput()
    !
    ntype(:) = 0
    do i = 1, natoms
-      if (any(wtypes == orgty(ity_in(i,1)))) then
-         it = findloc(wtypes,orgty(ity_in(i,1)))
+      if (any(sp_types_selected(1:nsp) == wtypes(ity_in(i,1)))) then
+!         it = findloc(wtypes,orgty(ity_in(i,1)))
+         it(1) = ity_in(i,1)
          ntype(it(1)) = ntype(it(1)) + 1
       endif
    end do
+   print *, 'ntypes =', ntype(1:nsp)
+   print *, 'mass=', mat(1:nsp)
+   print *, 'bscat=', bsc(1:nsp)
    nct(1) = 0
    do i = 2, nsp
       nct(i) = nct(i - 1) + ntype(i - 1)
@@ -584,8 +616,9 @@ subroutine select_ncdfinput()
    r(:,:) = 0.0
    if (ex_vel) vel(:,:) = 0.0
    do i = 1, natoms
-      if (any(wtypes == orgty(ity_in(i,1)))) then
-         it = findloc(wtypes,orgty(ity_in(i, 1)))
+      if (any(sp_types_selected(1:nsp) == wtypes(ity_in(i,1)))) then
+!         it = findloc(wtypes,orgty(ity_in(i, 1)))
+         it(1) = ity_in(i, 1)
          counter(it(1)) = counter(it(1)) + 1
          j = counter(it(1))
          !
@@ -622,13 +655,19 @@ subroutine select_ncdfinput()
          do k=1,ndim
             if (k.ne.idir) r(k, j) = r(k, j) - sidel(k)*int(r(k, j)/sidel(k))
          enddo
+         masa(j) = mat(it(1))
+         bscat(j) = bsc(it(1))
          itype(j) = it(1)
       endif
    end do
    compcharge = .false.
    do i = 1, nsp
-      masa(nct(i) + 1:nct(i) + ntype(i)) = mat(i)
-      bscat(nct(i) + 1:nct(i) + ntype(i)) = bscat(i)
+      print *, 'species=',i,wtypes(i),nct(i)+1, nct(i) + ntype(i), mat(i), bsc(i)
+!      masa(nct(i) + 1:nct(i) + ntype(i)) = mat(i)
+!      bscat(nct(i) + 1:nct(i) + ntype(i)) = bsc(i)
       if(ex_qc) charge(i) = sum(qcharge(nct(i) + 1:nct(i) + ntype(i)))/ntype(i)
    end do
+   do i=1, Nsites
+      write(444,'(i5,i2i2,f8.4)')i, ity_in(i,1),itype(i),masa(i)
+   enddo
 end subroutine select_ncdfinput

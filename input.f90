@@ -48,13 +48,14 @@ module mod_input
    !
    ! nthread : number of threads for CUDA kernels is preset to 64 by default, beware of larger values for big systems
    !
-   integer :: nthread=64, ndim, minPts,  idir=0, nsp, nbuffer=2, potnbins=100, nqw=0, &
+   integer :: nthread=64, ndim, minPts,  idir=3, nsp, nbuffer=2, potnbins=100, nqw=0, &
             & jump=1, norder=1, nnbond=0, cl_thresh=10, nprint=10
    logical :: use_cell = .true., run_order = .false., print_orderp=.false., &
                geometry=.true.
    logical, dimension(7) :: rdf_sq_cl_dyn_sqw_conf_ord
    real(myprec) :: deltar, dcl, qmin, qmax, rcrdf, rclcl=0.0, &
       tmax=-1, tmaxp=-1, tlimit=-1, potengmargin=0.0
+   ! mat and bsc at atomic mass and scattering length, respectively by species, masa and mscat correspond to individual atoms
    real(myprec), allocatable, dimension(:) :: mat, bsc, charge, qw, tmqw
    integer, allocatable, dimension(:) :: orderp
    character(len=128) :: input_filename, log_output_file, trj_input_file, system_data_file="system.data"
@@ -68,7 +69,7 @@ module mod_input
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
    namelist /INPUT_SQ/ qmax, qmin, bsc
    namelist /INPUT_CL/ dcl, minPts, ndrclus, cl_thresh, geometry
-   namelist /INPUT_CONF/ idir, zslice, zgrid
+   namelist /INPUT_CONF/ zslice, zgrid
    namelist /INPUT_DYN/ nbuffer, tmax, tmaxp, tlimit, jump
    namelist /INPUT_SQW/ qw, tmqw
    namelist /INPUT_ORDER/ orderp, print_orderp, nnbond, rclcl
@@ -158,7 +159,6 @@ contains
          tmqw(:) = 0.0
          read (unit=io_input_file, nml=INPUT_SQW)
       endif
-      idir = 0
       if (rdf_sq_cl_dyn_sqw_conf_ord(6) == .true.) then
          if (ndim /= 3) then
             write(*,'("*** Error: system must be 3D to compute confinement properties !")')
@@ -176,10 +176,6 @@ contains
          read (unit=io_input_file, nml=INPUT_CONF)
          countslice(:) = 0
          countsliced(:) = 0
-         if (idir /=3) then
-            write(*,'("*** Error: confinement direction idir must be set to 3 (z) !")')
-            stop
-         endif
          confined = .true.
          if (rdf_sq_cl_dyn_sqw_conf_ord(1) == .true. .or. rdf_sq_cl_dyn_sqw_conf_ord(2) == .true.) then
             twoDstruc_3D = .true.

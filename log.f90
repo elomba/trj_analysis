@@ -206,7 +206,7 @@ contains
          ! Kinetic energy and temperature
          If (ex_vel) then
             if (tunits=='lj') then
-               write (*, "(' ** Kinetic energy/epsilon=',f15.4,' average=',f15.4)") &
+               write (*, "(' ** Kinetic energy/(N*epsilon)=',f15.4,' average=',f15.4)") &
                   ekin/natoms, ecaver/(natoms*Iconf)
             else if (tunits == 'picosecond') then
                write (*, "(' ** Kinetic energy=',f15.4,' eV, average=',f15.4,' eV')") &
@@ -257,6 +257,8 @@ contains
             if (tunits == 'lj') then
                write (*, "(' ** Average k_b*temperature/epsilon =',f10.2)") 2*ecaver/(Tfact*Iconf)
             else
+               print *, " Tfact=", Tfact
+               print *, (Nsites-1)*ndim
                write (*, "(' ** Average temperature =',f10.2&
                &,' K')") 2*ecaver*(aunit/tunit)**2/(Tfact*Rgas*Iconf)
             endif

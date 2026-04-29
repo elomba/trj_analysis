@@ -237,7 +237,9 @@ contains
                qcharge_d(:) = qcharge(:)
             endif
             ! Note: for 3D RDF, we use a single histogram array that accumulates contributions from all blocks, so we can directly copy it to host after the kernel execution
+            print *, ' squi ', Nsites
             call rdf_sh<<<rdfb, rdfth, lsmax*nit*4>>>(Nsites, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, ex_qc)
+            print *, ' sal'
             call printcudaerror(" *** Warning: 3D rdf_sh GPU kernel exit with errors: reduce nthread",istat)
             if (istat /= 0) stop(" *** Fatal error in rdf_sh kernel!!")
             ! Sampling fluctuations in particle number for hyperuniformity analysis (if nrandom > 0)
@@ -266,8 +268,10 @@ contains
             end do
          endif
       else
+         print *, 'transfer '
          ! For 3D RDF, histomix_d contains the sum of all histograms from each block, so we can directly copy it to host
          histomixi(:, :) = histomix_d(:, :)
+         print *, 'transfer done'
          if (ex_qc) then   
             avq2 = sum(qcharge(:)**2)/Nsites
             gqq(:) = gqq(:)+gqq_d(:)/avq2

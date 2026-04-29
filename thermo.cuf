@@ -59,6 +59,8 @@ contains
       densty = natms/volumen
       ! Sum kinetic energy: KE = 0.5 * m * v^2
       ekin = 0.0
+      print *, ' natms = ', natms, ' ndim = ', ndim
+
       Do i = 1, natms
          ekin = ekin + masa(i)*Dot_product(vel(1:ndim, i)&
          &, vel(1:ndim, i))
@@ -66,9 +68,7 @@ contains
       ekin = 0.5d0*ekin
       ! Accumulate time average
       ecaver = ecaver + ekin
-      ! Degrees of freedom for temperature calculation
-      Tfact = (natms - nmzero - 1)*ndim
-      Tfact = (natms - nmzero - 1)*ndim
+    
       ! Time-averaged temperature
       taver = 2*ecaver*(aunit/tunit)**2/(Tfact*Rgas*Iconf)
       ! Instantaneous temperature from equipartition theorem

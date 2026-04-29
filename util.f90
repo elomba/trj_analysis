@@ -100,7 +100,7 @@ contains
             stop
          endif
          do i = 1, nsp 
-            if (any(orgty(1:ntypes) == sp_types_selected(i))) then
+            if (any(wtypes(1:ntypes) == sp_types_selected(i))) then
                continue
             else
                ! If the species type is not in the trajectory, stop
@@ -109,7 +109,7 @@ contains
                stop
             endif
          enddo
-         wtypes(1:nsp) = sp_types_selected(1:nsp)
+!         wtypes(1:nsp) = sp_types_selected(1:nsp)
          call reset_Nsites(Nsites)
          if (rigid) then
             write(*,'("** Warning: accounting for rigid rotational degrees of freedom   disabled.!")')
