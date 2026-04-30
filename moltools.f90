@@ -331,7 +331,7 @@ subroutine read_lammps_data(filename, sys)
     integer, allocatable :: b1(:), b2(:)
 
     open(unit=10, file=filename, status='old', action='read', iostat=ios)
-    if (ios /= 0) stop "Error opening file"
+    if (ios /= 0) stop " *** Fatal error opening topology file "//filename
 
     sys%n_atoms = 0
     sys%n_bonds = 0
