@@ -15,7 +15,7 @@ This program performs advanced structural, thermodynamic, and dynamic analysis o
 * **Charge-charge and density/correlation profiles across z-axis not enabled for cluster correlations**
 * **Units limited to LAMMPS `real`, `lj`, and `metal`**
 * **Constant particle number (NpT allowed with minor S(Q) errors)**
-* **Atomic-level analysis (molecular internal degrees of freedom not considered)**
+* **Atomic-level analysis (No molecule-molecule correlations or dynamic properties)**
 
 ## Authors
 
@@ -39,12 +39,12 @@ GNU General Public License v3.0
 ```
 compute stress all stress/atom NULL
 compute ener all pe/atom
-dump trj1 all netcdf ${Ndump} run.nc id type x y z vx vy vz q c_stress[*] c_ener
+dump trj1 all netcdf ${Ndump} run.nc id type mol x y z vx vy vz q c_stress[*] c_ener
 ```
 
 or  positions only:
 
-`dump trj1 all netcdf ${Ndump} run.nc id type x y z`
+`dump trj1 all netcdf ${Ndump} run.nc id mol type x y z`
 
 ## Main Features
 
@@ -104,14 +104,20 @@ The input uses Fortran namelist format. All variables found in the source code a
 | `potengmargin` | real | 0.0 | Energy histogram margin. |
 | `rcl` | real | - | General cutoff for clustering and neighbors. |
 | `periodic(ndim)` | log | True | Periodic boundary conditions per dimension. |
+| `topol` | log | False | Molecules are identified using a LAMMPS data file|
+| `system_data_file`| char | system.data | LAMMPS data file name |
 | `nprint` | int | 10 | Printout frequency. |
 
 ### `/INPUT_SP/` - Species Selection
 
-| Parameter | Type | Description |
-| :--- | :--- | :--- |
-| `sp_types_selected` | int(:) | LAMMPS type IDs for selected species. |
-| `mat` | real(:) | Atomic masses for each selected species. |
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `sp_types_selected` | int(:) | - | Array of LAMMPS type IDs for selected species. |
+| `mat` | real(:) | - | Array of atomic masses for each selected species. |
+| `rigid` | log | False | Presence of rigid molecules. |
+| `nmrigid` | int | - | Number of rigid molecule types. |
+| `rigid_mols` | int(:) | - | Array of rigid molecule IDs. |
+
 
 ### `/INPUT_RDF/` - RDF Parameters
 
@@ -124,7 +130,7 @@ The input uses Fortran namelist format. All variables found in the source code a
 ### `/INPUT_SQ/` - Structure Factor
 
 | Parameter | Type | Description |
-| :--- | : :--- | :--- |
+| :--- | :--- | :--- |
 | `qmax` | real | Maximum Q value. |
 | `qmin` | real | Threshold for isotropic Q-sampling. |
 | `bsc` | real(:) | Coherent scattering lengths per species. |
