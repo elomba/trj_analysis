@@ -1,0 +1,56 @@
+# system.lt
+# Configuration for approx 860 Waters and 86 Ion Pairs (BMIM/BF4)
+# Scaled down to prevent excessive empty space while avoiding overlaps.
+
+write_once("Data Boundary") {
+     0.0 100.0  xlo xhi
+     0.0 100.0  ylo yhi
+     0.0 200.0  zlo zhi
+} 
+
+write_once("In Init") {
+  variable cutoff equal 14.0 # Angstroms [cite: 34]
+  boundary p p p             # Periodic boundary conditions [cite: 34]
+  units real                 # Kcal/mol and Angstroms [cite: 118]
+} 
+
+# Import building blocks [cite: 35]
+import "H2O.lt"
+import "BMIM-cg.lt"
+import "BF4cg.lt"
+
+# --- 1. Water Solvent Layer ---
+# Grid: 10 x 9 x 10 = 900 molecules (Target: 860)
+# Spacing: 8.0A for safe initialization of TIP4P geometry
+solvent = new TIP4P2005 [10].move(8.5, 0, 0)
+                        [9].move(0, 8.5, 0)
+                        [10].move(0, 0, 8.5)
+solvent[*][*][*].move(7.5, 11.5, 10) 
+
+# --- 2. Anion Layer (BF4) ---
+# Grid: 9 x 10 = 90 molecules (Target: 86)
+# Placed at Z = 110.0 to sit above the water layer
+anions = new BF4 [9].move(10.0, 0, 0)
+                 [10].move(0, 10.0, 0)
+anions[*][*].move(5, 5, 110.0) 
+
+# --- 3. Cation Layer (BMIM) ---
+# Grid: 9 x 10 = 90 molecules (Target: 86)
+# Spacing: 10.0A to prevent BMIM chain overlaps 
+# Placed at Z = 140.0 to separate from anions
+cations = new BMIM [9].move(10.0, 0, 0)
+                   [10].move(0, 10.0, 0)
+cations[*][*].move(5, 5, 140.0) 
+
+write_once("In Settings"){
+    # Mixing rules [cite: 38]
+    pair_modify mix arithmetic  # Lorentz-Berthelot [cite: 38]
+    
+    # Define groups for simulation control [cite: 38]
+    group fluid type @atom:TIP4P2005/H @atom:TIP4P2005/O @atom:TIP4P2005/M @atom:BMIM/C1 @atom:BMIM/C2 @atom:BMIM/C3 @atom:BF4/A 
+    group anion type @atom:BF4/A 
+    group cation type @atom:BMIM/C1 @atom:BMIM/C2 @atom:BMIM/C3 
+  
+    # Rigid body group for multi-atom molecules [cite: 39]
+    group rigid_body type @atom:BMIM/C1 @atom:BMIM/C2 @atom:BMIM/C3 @atom:TIP4P2005/H @atom:TIP4P2005/O @atom:TIP4P2005/M 
+}
