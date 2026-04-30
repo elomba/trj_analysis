@@ -257,8 +257,6 @@ contains
             if (tunits == 'lj') then
                write (*, "(' ** Average k_b*temperature/epsilon =',f10.2)") 2*ecaver/(Tfact*Iconf)
             else
-               print *, " Tfact=", Tfact
-               print *, (Nsites-1)*ndim
                write (*, "(' ** Average temperature =',f10.2&
                &,' K')") 2*ecaver*(aunit/tunit)**2/(Tfact*Rgas*Iconf)
             endif
