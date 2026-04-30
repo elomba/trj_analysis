@@ -9,6 +9,7 @@ The examples cover several types of systems commonly encountered in soft-matter 
 - **MEAM SiC** A semiconductor alloy using MEAM potentials. It includes dynamics processing. 
 - **Binary Lennard-Jones mixtures**
 - **Confined systems** (e.g. ionic-liquid-like systems near walls)
+- **Mixture of rigid molecules** (same ionic system as above but unconfined)
 
 Each example includes:
 
@@ -36,7 +37,9 @@ examples
     ├── salr
     ├── eam-dyn
     ├── LJmix
+    ├── RTIL+H2O_rigid
     └── Conf
+    
 ```
 
 The directory is divided according to **system dimensionality and model type**.
