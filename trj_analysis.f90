@@ -100,7 +100,7 @@ program trj_analysis
     use mod_rdf
     use mod_log
     use mod_thermo
-    use mod_tools, only : set_equipartition_cte
+    use mol_tools, only : set_equipartition_cte
     use mod_dyn, only : dyn_init, dyn_clear, rtcorr, print_rtcor
     use mod_util, only : gpu_and_header, clean_memory, init_modules, reformat_input_conf, &
                          basic_init, print_results, select_species, reset_confs, form_dependencies, print_total_time

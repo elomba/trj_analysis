@@ -88,7 +88,14 @@ contains
       if (rdf_sq_cl_dyn_sqw_conf_ord(3) == .true.) then
          minPts = 2*ndim+1
       endif
-
+      !
+      ! Rigid rigid degrees of freedom require a topology file
+      !
+      if (rigid.and..not.topol) Then
+         write(*,'(//"*** Fatal error: topology analysis must be activated (topol=.true.) if rigid=.true. !")')
+         stop
+      endif
+      !
       ! Allocate arrays for species properties
       allocate(sp_types_selected(nsp))
       !

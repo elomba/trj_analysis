@@ -27,6 +27,11 @@
 !   - Requires NetCDF4 library with Fortran interface
 !   - Supports LAMMPS real and lj unit systems
 !   - Handles optional fields (velocities, forces, energies, stress)
+!   - Remaps LAMMPS types to internal types from 1 to nsp (read_nc_cfg)
+!     Atoms ids are remapped in select_ncdfinput() so as to have particles of the 
+!     same type in contiguous positions. This facilitates the calculation of 
+!     species-species correlations
+!
 !===============================================================================
 module mod_nc
    use mod_precision
@@ -603,9 +608,6 @@ subroutine select_ncdfinput()
          ntype(it(1)) = ntype(it(1)) + 1
       endif
    end do
-   print *, 'ntypes =', ntype(1:nsp)
-   print *, 'mass=', mat(1:nsp)
-   print *, 'bscat=', bsc(1:nsp)
    nct(1) = 0
    do i = 2, nsp
       nct(i) = nct(i - 1) + ntype(i - 1)
@@ -661,12 +663,6 @@ subroutine select_ncdfinput()
    end do
    compcharge = .false.
    do i = 1, nsp
-      print *, 'species=',i,wtypes(i),nct(i)+1, nct(i) + ntype(i), mat(i), bsc(i)
-!      masa(nct(i) + 1:nct(i) + ntype(i)) = mat(i)
-!      bscat(nct(i) + 1:nct(i) + ntype(i)) = bsc(i)
       if(ex_qc) charge(i) = sum(qcharge(nct(i) + 1:nct(i) + ntype(i)))/ntype(i)
    end do
-   do i=1, Nsites
-      write(444,'(i5,i2i2,f8.4)')i, ity_in(i,1),itype(i),masa(i)
-   enddo
 end subroutine select_ncdfinput
