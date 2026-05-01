@@ -321,12 +321,17 @@ contains
 
 end module mol_tools
 
+s
+
 subroutine read_lammps_data(filename, sys)
+    !
+    ! Routine to read LAMMPS topology file, either system.data or output of write_data (nocoeff option)
+    !
     use mol_tools
     implicit none
     character(len=*), intent(in) :: filename
     type(SystemType), intent(inout) :: sys
-    integer :: ios, i, dummy_id
+    integer :: ios, i, dummy_id, atom_id, bond_id
     character(len=200) :: line
     integer, allocatable :: b1(:), b2(:)
 
@@ -347,8 +352,13 @@ subroutine read_lammps_data(filename, sys)
     allocate(sys%lammps_mol_tags(sys%n_atoms))
     allocate(b1(sys%n_bonds), b2(sys%n_bonds))
 
+    ! Read Atoms: Using the ID from the file as the array index
     do i = 1, sys%n_atoms
-        read(10, *) dummy_id, sys%lammps_mol_tags(i), sys%atom_types(i)
+        read(10, *) atom_id, sys%lammps_mol_tags(atom_id), sys%atom_types(atom_id)
+        if (atom_id > sys%n_atoms .or. atom_id < 1) then
+            print *, "Error: Atom ID ", atom_id, " is out of expected range!"
+            stop
+        endif
     end do
 
     rewind(10)
@@ -357,8 +367,9 @@ subroutine read_lammps_data(filename, sys)
         if (index(line, "Bonds") > 0) exit
     end do
 
+    ! Read Bonds: Note that bond_id is also read but discarded
     do i = 1, sys%n_bonds
-        read(10, *) dummy_id, dummy_id, b1(i), b2(i)
+        read(10, *) bond_id, dummy_id, b1(i), b2(i)
     end do
     close(10)
 
