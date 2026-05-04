@@ -321,7 +321,6 @@ contains
 
 end module mol_tools
 
-s
 
 subroutine read_lammps_data(filename, sys)
     !
