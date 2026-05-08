@@ -676,20 +676,6 @@ contains
       time_gpu = gptime(stopEvent, startEvent)
       tadj = tadj + time_gpu
       adjacency(:) = gadjacency(:)
-   !    do i=1,Nsites
-   !          do k=offset(i), offset(i)+neighbors(i)-1
-   !             j=adjacency(k)
-   !             if (.not. is_neighbor(j,i)) then
-   !                print *, "ASYMMETRY:", i, j
-   !             endif
-   !       enddo
-   !       if (any(adjacency(offset(i):offset(i)+neighbors(i)-1)==i)) print *, "SELF NEIGHBOR:", i
-   !          if (neighbors(i) > 0) then
-   !             if (adjacency(offset(i)) == 0) then
-   !                print *, "BAD OFFSET:", i
-   !             endif
-   !       endif
-   ! enddo
    end subroutine neighbor_search
 
    logical function is_neighbor(j, i)

@@ -1,0 +1,147 @@
+module folded_worm_analysis
+  use mod_common  ! Pulls in offset, neighbors, adjacency, Nsites
+  implicit none
+  
+  ! (Your clus type definition goes here if not in mod_common)
+
+contains
+
+  subroutine analyze_worm_from_global_graph(c, pos, length, width, spine, spine_len)
+    type(clus), intent(in) :: c
+    real(myprec), intent(in) :: pos(3, *)     ! Global coordinates [x, y, z]
+    real(myprec), intent(out) :: length, width
+    integer, intent(out) :: spine_len
+    integer, allocatable, intent(out) :: spine(:)
+
+    integer :: n, i, j, curr
+    integer :: node_A, node_B
+    real(myprec) :: max_dist, mean_dist_sq, min_spine_dist, dist_sq
+
+    ! Graph traversal arrays
+    integer, allocatable :: queue(:), dist(:), parent(:)
+    logical, allocatable :: visited(:), is_member(:)
+
+    n = c%clsize
+    if (n < 2) then
+       length = 0.0_myprec; width = 0.0_myprec; spine_len = 0
+       return
+    end if
+
+    ! Allocate tracking arrays to the size of the whole system (Nsites) 
+    ! This allows O(1) instantaneous lookups using global particle IDs.
+    allocate(is_member(Nsites), visited(Nsites))
+    allocate(dist(Nsites), parent(Nsites), queue(n))
+
+    ! 1. Create a fast logical mask for this specific cluster
+    is_member = .false.
+    do i = 1, n
+       is_member(c%members(i)) = .true.
+    end do
+
+    ! 2. Find Node A (One tip) via BFS from the first cluster member
+    call run_cluster_bfs(c, is_member, c%members(1), queue, visited, dist, parent)
+    
+    node_A = c%members(1)
+    max_dist = -1.0_myprec
+    do i = 1, n
+       curr = c%members(i)
+       if (dist(curr) > max_dist) then
+          max_dist = dist(curr)
+          node_A = curr
+       end if
+    end do
+
+    ! 3. Find Node B (The other tip) via BFS from Node A
+    call run_cluster_bfs(c, is_member, node_A, queue, visited, dist, parent)
+    
+    node_B = node_A
+    max_dist = -1.0_myprec
+    do i = 1, n
+       curr = c%members(i)
+       if (dist(curr) > max_dist) then
+          max_dist = dist(curr)
+          node_B = curr
+       end if
+    end do
+
+    ! 4. Trace the Spine (Backtrack from B to A using the parent array)
+    spine_len = dist(node_B) + 1
+    allocate(spine(spine_len))
+    
+    curr = node_B
+    do i = spine_len, 1, -1
+       spine(i) = curr
+       curr = parent(curr)
+    end do
+
+    ! 5. Calculate Metric Length along the spine
+    length = 0.0_myprec
+    do i = 1, spine_len - 1
+       length = length + sqrt(sum((pos(:, spine(i+1)) - pos(:, spine(i)))**2))
+    end do
+
+    ! 6. Calculate Average Width (RMS distance of all cluster atoms to nearest spine atom)
+    mean_dist_sq = 0.0_myprec
+    do i = 1, n
+       min_spine_dist = huge(1.0_myprec)
+       do j = 1, spine_len
+          dist_sq = sum((pos(:, c%members(i)) - pos(:, spine(j)))**2)
+          if (dist_sq < min_spine_dist) min_spine_dist = dist_sq
+       end do
+       mean_dist_sq = mean_dist_sq + min_spine_dist
+    end do
+    
+    width = 2.0_myprec * sqrt(mean_dist_sq / real(n, myprec))
+
+    deallocate(queue, dist, parent, visited, is_member)
+  end subroutine analyze_worm_from_global_graph
+
+
+  ! --- Helper Subroutine: Cluster-Restricted Breadth-First Search ---
+  subroutine run_cluster_bfs(c, is_member, start_node, queue, visited, dist, parent)
+    type(clus), intent(in) :: c
+    logical, intent(in) :: is_member(:)
+    integer, intent(in) :: start_node
+    integer, intent(inout) :: queue(:), dist(:), parent(:)
+    logical, intent(inout) :: visited(:)
+    
+    integer :: head, tail, u, v, k, start, stop, i
+
+    ! Optimization: Only initialize the elements belonging to this cluster.
+    ! This ensures the initialization time scales with O(N_cluster), not O(Nsites).
+    do i = 1, c%clsize
+       u = c%members(i)
+       visited(u) = .false.
+       dist(u) = -1
+       parent(u) = 0
+    end do
+    
+    head = 1; tail = 1
+    queue(tail) = start_node
+    visited(start_node) = .true.
+    dist(start_node) = 0
+    
+    do while (head <= tail)
+       u = queue(head)
+       head = head + 1
+       
+       ! Use your global CSR offset arrays directly
+       start = offset(u)
+       stop  = start + neighbors(u) - 1
+       
+       do k = start, stop
+          v = adjacency(k)
+          
+          ! Only traverse if the neighbor belongs to this specific cluster
+          if (is_member(v) .and. .not. visited(v)) then
+             visited(v) = .true.
+             dist(v) = dist(u) + 1
+             parent(v) = u
+             tail = tail + 1
+             queue(tail) = v
+          end if
+       end do
+    end do
+  end subroutine run_cluster_bfs
+
+end module folded_worm_analysis
