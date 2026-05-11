@@ -211,15 +211,7 @@ contains
             end do
             deallocate(spine) ! Don't forget to clean up the spine array for the next loop!
          endif
-         if (total_spine_atoms > 0) then
-            print *, ' print '
-            call write_all_spines_lammpstrj("worm_spines.lammpstrj", nstep, r, &
-            ndim, all_spines, spine_cluster_ids, total_spine_atoms, sidel)
-            print *, ' done '
-
-         end if
-
-         if (worms) deallocate(all_spines, spine_cluster_ids)
+   
          ! Calculate cluster size distro
          ind = nint(real(j)/real(dcl))
          sizedist(ind) = sizedist(ind) + 1
@@ -265,6 +257,15 @@ contains
          endif
          if (Iconf == Nconf) NP_lconf = NP_lconf + j
       end do
+
+      if (total_spine_atoms > 0) then
+            print *, ' print '
+            call write_all_spines_lammpstrj("worm_spines.lammpstrj", nstep, r, &
+            ndim, all_spines, spine_cluster_ids, total_spine_atoms, sidel)
+            print *, ' done '
+
+      end if
+      if (worms) deallocate(all_spines, spine_cluster_ids)
       clmfrac(1:nsp) = 0.0
       ! Count particle types
       do i = 1, cluster_id
