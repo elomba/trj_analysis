@@ -194,7 +194,7 @@ contains
       cluster(:)%rg = 0
       if (Iconf == Nconf) NP_lconf = 0
       if(worms) then 
-         allocate(all_spines(natoms),spine_cluster_ids(natoms),spine_coords(indim,natoms))
+         allocate(all_spines(natoms),spine_cluster_ids(natoms),spine_coords(ndim,natoms))
          total_spine_atoms = 0
       endif
       R_smooth = 2*rcl
