@@ -210,8 +210,8 @@ contains
             deallocate(spine) ! Don't forget to clean up the spine array for the next loop!
          endif
          if (total_spine_atoms > 0) then
-            call write_all_spines_lammpstrj("worm_spines.lammpstrj", current_timestep, r_d, &
-            all_spines, spine_cluster_ids, total_spine_atoms, sidel_d)
+            call write_all_spines_lammpstrj("worm_spines.lammpstrj", nstep, r, &
+            ndim, all_spines, spine_cluster_ids, total_spine_atoms, sidel)
          end if
 
          if (worms) deallocate(all_spines, spine_cluster_ids)
