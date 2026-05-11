@@ -458,6 +458,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          tempty(1) = ity(1,1)
          ntypes = 0
          ntt = 0
+         print *, ' tempty(1) = ',tempty(1)
          do i = 1, natoms
             if (.not. any(tempty(:) == ity(i,1))) then
                tmty = findloc(sp_types_selected(1:nsp),ity(i,1))
