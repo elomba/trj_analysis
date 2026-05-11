@@ -193,6 +193,7 @@ contains
          allocate(all_spines(natoms),spine_cluster_ids(natoms))
          total_spine_atoms = 0
       endif
+      print *, ' natoms=', natoms
       do I = 1, cluster_id
          j = cluster(i)%clsize
          if (worms .and. j > worm_msize) then
@@ -203,6 +204,7 @@ contains
             cluster(i)%width = widths
       
             do k = 1, spine_len
+               print *, k, total_spine_atoms, spine(k), i, spine_len
                total_spine_atoms = total_spine_atoms + 1
                all_spines(total_spine_atoms) = spine(k)
                spine_cluster_ids(total_spine_atoms) = i  ! Tag it with its specific cluster ID
@@ -210,8 +212,11 @@ contains
             deallocate(spine) ! Don't forget to clean up the spine array for the next loop!
          endif
          if (total_spine_atoms > 0) then
+            print *, ' print '
             call write_all_spines_lammpstrj("worm_spines.lammpstrj", nstep, r, &
             ndim, all_spines, spine_cluster_ids, total_spine_atoms, sidel)
+            print *, ' done '
+
          end if
 
          if (worms) deallocate(all_spines, spine_cluster_ids)
