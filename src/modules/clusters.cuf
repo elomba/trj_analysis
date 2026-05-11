@@ -156,12 +156,15 @@ contains
       ! 
       !
       implicit none
-      integer, intent(IN) :: Iconf
-      integer :: i, j, k, cluster_id, icl, ip, ind, indr, &
-      & clsz, clussize, cmin, NP_lconf, icount, im, countlarge
+ 
       Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
       Real(myprec) :: denscl, rmcl, cdmax=0, factorv, ri, deltaV, rclcls
       Real(kind=8) ::  mcl, ekcls, suma, rgsum, averg, volcl
+      integer, intent(IN) :: Iconf
+      integer  :: spine_len
+      integer, allocatable :: spine(:)
+      integer :: i, j, k, cluster_id, icl, ip, ind, indr, &
+      & clsz, clussize, cmin, NP_lconf, icount, im, countlarge, widths, lengths
       !
       ! Initialize cluster structures
       !
@@ -189,11 +192,11 @@ contains
       do I = 1, cluster_id
          j = cluster(i)%clsize
          if (worms .and. j > 10) then
-            call analyze_worm_from_global_graph(clusters(i), r, length, width, spine, spine_len)
+            call analyze_worm_from_global_graph(cluster(i), r, ndim, lengths, widths, spine, spine_len)
       
             ! Store or print the properties
-            clusters(i)%length = length  ! (If you add length/width to your clus type)
-            clusters(i)%width = width
+            clusters(i)%length = lengths  ! (If you add length/width to your clus type)
+            clusters(i)%width = widths
       
             ! Write the spine to a trajectory file to view in Ovito/VMD
             call write_spine_lammpstrj("worm_spine.lammpstrj", nstep, r, spine, spine_len, sidel)
