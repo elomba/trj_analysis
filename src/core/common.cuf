@@ -52,7 +52,7 @@ module mod_common
    integer :: nbcuda, natms, Nsites=0, width, nqmax, nqwmax, lmaxx, lmaxy, lmaxz, &
       lsmax, nqmin, ndr, shmsize, maxthread, nit, nconf, nmzero = 0, maxcln,&
       voigt, nrandom=0, ndrclus=100, maxnbpp=25, nmrigid=0, rigid_mols(nrig_max)
-   integer :: cntch(100), ncharge, nslice=-1
+   integer :: cntch(100), ncharge, nslice=-1, worm_msize=100
    real(double), dimension(100) :: chgh
    integer, allocatable, dimension(:) :: ntype, itype, lty, list, label, nq, countslice
    integer, allocatable, dimension(:, :) :: ipos, densprofi,  histomixi, countpslice

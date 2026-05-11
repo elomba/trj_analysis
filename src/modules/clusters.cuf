@@ -161,8 +161,8 @@ contains
       Real(myprec) :: denscl, rmcl, cdmax=0, factorv, ri, deltaV, rclcls, widths, lengths
       Real(kind=8) ::  mcl, ekcls, suma, rgsum, averg, volcl
       integer, intent(IN) :: Iconf
-      integer  :: spine_len
-      integer, allocatable :: spine(:)
+      integer  :: spine_len, total_spine_atoms
+      integer, allocatable :: spine(:), all_spines(:), spine_cluster_ids(:)
       integer :: i, j, k, cluster_id, icl, ip, ind, indr, &
       & clsz, clussize, cmin, NP_lconf, icount, im, countlarge
       !
@@ -189,19 +189,32 @@ contains
       icl = 0
       cluster(:)%rg = 0
       if (Iconf == Nconf) NP_lconf = 0
+      if(worms) then 
+         allocate(all_spines(natoms),spine_cluster_ids(natoms))
+         total_spine_atoms = 0
+      endif
       do I = 1, cluster_id
          j = cluster(i)%clsize
-         if (worms .and. j > 10) then
+         if (worms .and. j > worm_msize) then
             call analyze_worm_from_global_graph(cluster(i), r, ndim, lengths, widths, spine, spine_len)
       
             ! Store or print the properties
             cluster(i)%length = lengths  ! (If you add length/width to your clus type)
             cluster(i)%width = widths
       
-            ! Write the spine to a trajectory file to view in Ovito/VMD
-            call write_spine_lammpstrj("worm_spine.lammpstrj", nstep, r, spine, spine_len, sidel)
+            do k = 1, spine_len
+               total_spine_atoms = total_spine_atoms + 1
+               all_spines(total_spine_atoms) = spine(k)
+               spine_cluster_ids(total_spine_atoms) = i  ! Tag it with its specific cluster ID
+            end do
             deallocate(spine) ! Don't forget to clean up the spine array for the next loop!
          endif
+         if (total_spine_atoms > 0) then
+            call write_all_spines_lammpstrj("worm_spines.lammpstrj", current_timestep, r_d, &
+            all_spines, spine_cluster_ids, total_spine_atoms, sidel_d)
+         end if
+
+         if (worms) deallocate(all_spines, spine_cluster_ids)
          ! Calculate cluster size distro
          ind = nint(real(j)/real(dcl))
          sizedist(ind) = sizedist(ind) + 1
@@ -1078,53 +1091,63 @@ subroutine clusters_clear()
 
 end subroutine clusters_clear
 
- subroutine write_spine_lammpstrj(filename, timestep, pos, spine, spine_len, box)
+ 
+  subroutine write_all_spines_lammpstrj(filename, timestep, pos, ndim, all_spines, spine_cluster_id, total_atoms, box)
     implicit none
     character(len=*), intent(in) :: filename
-    integer, intent(in) :: timestep             ! Current simulation frame/timestep
-    real(myprec), intent(in) :: pos(3, *)       ! Global coordinates [x, y, z]
-    integer, intent(in) :: spine_len            ! Number of atoms in the spine
-    integer, intent(in) :: spine(spine_len)     ! Array of spine atom indices
-    real(myprec), intent(in) :: box(3)          ! Box side lengths [Lx, Ly, Lz]
+    integer, intent(in) :: timestep
+    real(myprec), intent(in) :: pos(ndim, *)
+    integer, intent(in) :: total_atoms, ndim
+    integer, intent(in) :: all_spines(total_atoms)
+    integer, intent(in) :: spine_cluster_id(total_atoms)
+    real(myprec), intent(in) :: box(ndim)
 
     integer :: i, atom_idx, iunit
     logical :: file_exists
 
-    ! Check if file exists to append, otherwise create new
+    ! If no spines were found in this frame, do nothing
+    if (total_atoms == 0) return
+
     inquire(file=trim(filename), exist=file_exists)
     
-    ! Use standard F2008 newunit to automatically assign a free file unit
     if (file_exists) then
        open(newunit=iunit, file=trim(filename), status='old', position='append', action='write')
     else
        open(newunit=iunit, file=trim(filename), status='new', action='write')
     end if
 
-    ! 1. Write standard LAMMPS Trajectory Header
+    ! Write single header for the entire timestep
     write(iunit, '(A)') 'ITEM: TIMESTEP'
     write(iunit, '(I0)') timestep
     
     write(iunit, '(A)') 'ITEM: NUMBER OF ATOMS'
-    write(iunit, '(I0)') spine_len
+    write(iunit, '(I0)') total_atoms
     
-    ! Note: 'pp pp pp' denotes periodic boundaries. 
-    ! Adjust the 0.0 bounds if your simulation box is centered at 0 (e.g., -L/2 to L/2)
     write(iunit, '(A)') 'ITEM: BOX BOUNDS pp pp pp'
     write(iunit, '(2F15.6)') 0.0_myprec, box(1)
     write(iunit, '(2F15.6)') 0.0_myprec, box(2)
-    write(iunit, '(2F15.6)') 0.0_myprec, box(3)
+    if (ndim == 3) then
+       write(iunit, '(2F15.6)') 0.0_myprec, box(3)
+    else 
+      write(iunit, '(2F15.6)') -0.5, 0.5
+    endif
     
-    ! 2. Write Atom Data
-    ! We output: sequential_id, dummy_type(1), x, y, z
-    write(iunit, '(A)') 'ITEM: ATOMS id type x y z'
+    ! Added 'mol' to separate different worms in visualization
+    write(iunit, '(A)') 'ITEM: ATOMS id mol type x y z'
     
-    do i = 1, spine_len
-       atom_idx = spine(i)
-       ! I8 for ID, I4 for Type, 3F15.6 for coordinates
-       write(iunit, '(I8, I4, 3F15.6)') i, 1, pos(1, atom_idx), pos(2, atom_idx), pos(3, atom_idx)
+    do i = 1, total_atoms
+       atom_idx = all_spines(i)
+       ! I8 for ID, I8 for Mol (Cluster ID), I4 for Type
+       if (ndim == 3) then
+          write(iunit, '(I8, I8, I4, 3F15.6)') i, spine_cluster_id(i), 1, &
+                                            pos(1, atom_idx), pos(2, atom_idx), pos(3, atom_idx)
+       else
+          write(iunit, '(I8, I8, I4, 3F15.6)') i, spine_cluster_id(i), 1, &
+                                            pos(1, atom_idx), pos(2, atom_idx), 0.0
+       endif
     end do
 
     close(iunit)
-  end subroutine write_spine_lammpstrj
+  end subroutine write_all_spines_lammpstrj
 
 end module mod_clusters

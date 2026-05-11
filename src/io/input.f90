@@ -68,7 +68,7 @@ module mod_input
    namelist /INPUT_SP/ sp_types_selected, mat, rigid, nmrigid, rigid_mols 
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
    namelist /INPUT_SQ/ qmax, qmin, bsc
-   namelist /INPUT_CL/ dcl, minPts, ndrclus, cl_thresh, geometry, worms
+   namelist /INPUT_CL/ dcl, minPts, ndrclus, cl_thresh, geometry, worms, worm_msize
    namelist /INPUT_CONF/ zslice, zgrid
    namelist /INPUT_DYN/ nbuffer, tmax, tmaxp, tlimit, jump
    namelist /INPUT_SQW/ qw, tmqw
