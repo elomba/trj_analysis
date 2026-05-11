@@ -155,6 +155,7 @@ contains
       ! Cluster properties are calculated only for clusters larger than a certain size threshold, to save time.
       ! 
       !
+      use mod_util, only : write_spine_lammpstrj
       implicit none
  
       Real(myprec), Dimension(3) ::  c0, rv, rv2, rvi, rvj, desp, xi, si, xss, sss, theta, clcent, vcl
