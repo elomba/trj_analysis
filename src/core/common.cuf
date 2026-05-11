@@ -91,7 +91,7 @@ module mod_common
    real, allocatable, dimension(:, :, :, :) :: histomix_xy
    logical :: pdir(3) = .true., run_clusters = .false., run_rdf = .false., &
       run_sq = .false., run_dyn = .false., run_sqw = .false., run_thermo = .false., &
-      confined = .false., auto_zslice = .false., topol=.false., rigid=.false.
+      confined = .false., auto_zslice = .false., topol=.false., rigid=.false., worms=.false.
    character :: fname99*18
    character, dimension(:), allocatable :: atoms*8
    character(len=:), allocatable :: tunits, vunits
@@ -120,6 +120,8 @@ module mod_common
       real(myprec) :: potengperatom
       real(myprec) :: ratio
       real(myprec) :: devsphere
+      real(myprec) :: length
+      real(myprec) :: width
       real(myprec), allocatable :: molfrac(:)
       Integer :: clsize
       integer, allocatable :: members(:)

@@ -100,6 +100,7 @@
 module mod_clusters
    use mod_precision
    use mod_common
+   use folded_worm_analysis
    use mod_input
    use mod_sq
    use mod_rdf
@@ -187,6 +188,17 @@ contains
       if (Iconf == Nconf) NP_lconf = 0
       do I = 1, cluster_id
          j = cluster(i)%clsize
+         if (worms .and. j > 10) then
+            call analyze_worm_from_global_graph(clusters(i), r, length, width, spine, spine_len)
+      
+            ! Store or print the properties
+            clusters(i)%length = length  ! (If you add length/width to your clus type)
+            clusters(i)%width = width
+      
+            ! Write the spine to a trajectory file to view in Ovito/VMD
+            call write_spine_lammpstrj("worm_spine.lammpstrj", nstep, r, spine, spine_len, sidel)
+            deallocate(spine) ! Don't forget to clean up the spine array for the next loop!
+         endif
          ! Calculate cluster size distro
          ind = nint(real(j)/real(dcl))
          sizedist(ind) = sizedist(ind) + 1

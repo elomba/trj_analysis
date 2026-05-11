@@ -6,10 +6,11 @@ module folded_worm_analysis
 
 contains
 
-  subroutine analyze_worm_from_global_graph(c, pos, length, width, spine, spine_len)
+  subroutine analyze_worm_from_global_graph(c, pos, ndim, length, width, spine, spine_len)
     type(clus), intent(in) :: c
-    real(myprec), intent(in) :: pos(3, *)     ! Global coordinates [x, y, z]
+    real(myprec), intent(in) :: pos(ndim, *)     ! Global coordinates [x, y, z]
     real(myprec), intent(out) :: length, width
+    integer, intent(in) :: ndim
     integer, intent(out) :: spine_len
     integer, allocatable, intent(out) :: spine(:)
 
@@ -105,7 +106,7 @@ contains
     integer, intent(inout) :: queue(:), dist(:), parent(:)
     logical, intent(inout) :: visited(:)
     
-    integer :: head, tail, u, v, k, start, stop, i
+    integer :: head, tail, u, v, k, start, stopn, i
 
     ! Optimization: Only initialize the elements belonging to this cluster.
     ! This ensures the initialization time scales with O(N_cluster), not O(Nsites).
@@ -127,9 +128,9 @@ contains
        
        ! Use your global CSR offset arrays directly
        start = offset(u)
-       stop  = start + neighbors(u) - 1
+       stopn  = start + neighbors(u) - 1
        
-       do k = start, stop
+       do k = start, stopn
           v = adjacency(k)
           
           ! Only traverse if the neighbor belongs to this specific cluster
