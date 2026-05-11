@@ -147,7 +147,6 @@ program trj_analysis
         write(*,"('** Check ncfs_from_to in input file and consistency with NetCDF file (ncdump -h <file.nc> )!')")
         stop
     endif
-    print *, 'ntypes=', ntypes_tr, 'nsp', nsp
     ! Set number of species from netcdf file or from selected species from namelist
     call select_species(nsp, ntypes_tr, Nsites, natoms)
     call set_equipartition_cte()
