@@ -1,4 +1,4 @@
-module folded_worm_analysis
+module worm_analysis
   use mod_common  ! Pulls in offset, neighbors, adjacency, Nsites
   implicit none
   
@@ -145,4 +145,122 @@ contains
     end do
   end subroutine run_cluster_bfs
 
-end module folded_worm_analysis
+  subroutine analyze_branched_worm(c, pos, r_smooth, total_spine_atoms, all_spine_coords, spine_cluster_ids)
+    use mod_common
+    implicit none
+    
+    type(clus), intent(in) :: c
+    real(myprec), intent(in) :: pos(3, *)
+    real(myprec), intent(in) :: r_smooth      ! Smoothing radius (e.g., 2.5)
+    integer, intent(inout) :: total_spine_atoms
+    real(myprec), intent(inout) :: all_spine_coords(3, *)
+    integer, intent(inout) :: spine_cluster_ids(*)
+
+    integer :: n, i, k, u, v, curr, start, stop
+    integer :: root_node, num_tips, smooth_count
+    real(myprec) :: min_dist, dist_sq
+    real(myprec) :: com(3), local_com(3)
+    logical :: is_tip
+
+    ! Graph traversal arrays (allocate to Nsites for fast global lookup)
+    integer, allocatable :: queue(:), dist(:), parent(:), tips(:)
+    logical, allocatable :: visited(:), is_member(:), is_spine(:)
+
+    n = c%clsize
+    if (n < 5) return ! Ignore extremely small fragments
+
+    allocate(is_member(Nsites), visited(Nsites), is_spine(Nsites))
+    allocate(dist(Nsites), parent(Nsites), queue(n), tips(n))
+
+    ! 1. Initialize cluster mask
+    is_member = .false.
+    is_spine = .false.
+    com = 0.0_myprec
+    do i = 1, n
+       is_member(c%members(i)) = .true.
+       com = com + pos(:, c%members(i))
+    end do
+    com = com / real(n, myprec)
+
+    ! 2. Find the Root Node (atom closest to the Center of Mass)
+    min_dist = huge(1.0_myprec)
+    root_node = c%members(1)
+    do i = 1, n
+       u = c%members(i)
+       dist_sq = sum((pos(:, u) - com)**2)
+       if (dist_sq < min_dist) then
+          min_dist = dist_sq
+          root_node = u
+       end if
+    end do
+
+    ! 3. Run BFS from the central Root Node
+    call run_cluster_bfs(c, is_member, root_node, queue, visited, dist, parent)
+
+    ! 4. Identify all Branch Tips (Local maxima in the distance field)
+    num_tips = 0
+    do i = 1, n
+       u = c%members(i)
+       is_tip = .true.
+       
+       ! Require branches to be at least a few bonds long to ignore rough surface bumps
+       if (dist(u) < 4) is_tip = .false. 
+       
+       if (is_tip) then
+          start = offset(u)
+          stop  = start + neighbors(u) - 1
+          do k = start, stop
+             v = adjacency(k)
+             ! If a neighbor is further from the center, 'u' is not a tip
+             if (is_member(v) .and. dist(v) > dist(u)) then
+                is_tip = .false.
+                exit
+             end if
+          end do
+       end if
+       
+       if (is_tip) then
+          num_tips = num_tips + 1
+          tips(num_tips) = u
+       end if
+    end do
+
+    ! 5. Trace all branches back to the center to form the tree
+    do i = 1, num_tips
+       curr = tips(i)
+       ! Stop tracing if we hit an atom already marked as part of the spine
+       do while (curr /= 0 .and. .not. is_spine(curr))
+          is_spine(curr) = .true.
+          curr = parent(curr)
+       end do
+    end do
+
+    ! 6. Extract, Smooth, and Store the branched skeleton
+    do i = 1, n
+       u = c%members(i)
+       if (is_spine(u)) then
+          
+          ! Apply Center-of-Mass smoothing to center the spine in the 2D tube
+          local_com = 0.0_myprec
+          smooth_count = 0
+          
+          do k = 1, n
+             v = c%members(k)
+             dist_sq = sum((pos(:, v) - pos(:, u))**2)
+             if (dist_sq <= r_smooth**2) then
+                local_com = local_com + pos(:, v)
+                smooth_count = smooth_count + 1
+             end if
+          end do
+          
+          total_spine_atoms = total_spine_atoms + 1
+          all_spine_coords(:, total_spine_atoms) = local_com / real(smooth_count, myprec)
+          ! Use 'c' index to identify which cluster this branch belongs to
+          spine_cluster_ids(total_spine_atoms) = c%clsize ! Or pass in the loop 'i' as cluster ID
+       end if
+    end do
+
+    deallocate(queue, dist, parent, visited, is_member, is_spine, tips)
+  end subroutine analyze_branched_worm
+
+end module worm_analysis

@@ -100,7 +100,7 @@
 module mod_clusters
    use mod_precision
    use mod_common
-   use folded_worm_analysis
+   use worm_analysis
    use mod_input
    use mod_sq
    use mod_rdf
@@ -197,6 +197,7 @@ contains
          allocate(all_spines(natoms),spine_cluster_ids(natoms),spine_coords(indim,natoms))
          total_spine_atoms = 0
       endif
+      R_smooth = 2*rcl
       do I = 1, cluster_id
          j = cluster(i)%clsize
          if (worms .and. j > worm_msize) then
@@ -211,9 +212,9 @@ contains
                smooth_count = 0
                ! 2. Find all cluster members near this spine atom
                do k = 1, j 
-                  dist_sq = sum((r(:, clusters(i)%members(k)) - r(:, spine(l)))**2)
+                  dist_sq = sum((r(:, cluster(i)%members(k)) - r(:, spine(l)))**2)
                   if (dist_sq <= R_smooth**2) then
-                     local_com = local_com + r_d(:, clusters(i)%members(k))
+                     local_com = local_com + r(:, cluster(i)%members(k))
                      smooth_count = smooth_count + 1
                   end if
                end do
