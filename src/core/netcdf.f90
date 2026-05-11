@@ -185,6 +185,8 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
    integer, dimension(:), allocatable :: tempty
    logical, save :: first = .true., typedefined = .false.
    integer :: i, j, tipo, iunit, k, ioerr, tmty(1), ntt
+   logical, allocatable :: seen_type(:)
+   integer :: max_ity
    if (.not.present(unit)) then
       iunit = 6
    else
@@ -451,29 +453,49 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          return
       end if
    end do
-   if (typedefined) then
+   
+    if (typedefined) then
       if (first) then
-         allocate(tempty(100),wtypes(nsp))
-         tempty(:) = -1
-         tempty(1) = ity(1,1)
+         allocate(tempty(100), wtypes(nsp))
+         
+         ! 1. Find the highest type ID to size our tracking array
+         ! This is a single, highly vectorized O(N) pass.
+         max_ity = maxval(ity(1:natoms, 1))
+         
+         ! 2. Allocate and initialize the O(1) lookup array
+         allocate(seen_type(max_ity))
+         seen_type(:) = .false.
+         
          ntypes = 0
          ntt = 0
-         print *, ' tempty(1) = ',tempty(1)
+         
          do i = 1, natoms
-            if (.not. any(tempty(:) == ity(i,1))) then
-               tmty = findloc(sp_types_selected(1:nsp),ity(i,1))
-               ntt = ntt+1
+            ! 3. O(1) instantaneous check: Have we seen this type?
+            if (.not. seen_type(ity(i,1))) then
+               ! Mark it as seen so we don't process it again
+               seen_type(ity(i,1)) = .true.
+               
+               ntt = ntt + 1
                tempty(ntt) = ity(i,1)
+               
+               ! Check if this discovered type is one of our selected species
+               tmty = findloc(sp_types_selected(1:nsp), ity(i,1))
+               
                if (tmty(1) > 0) then
-                  ntypes = ntypes+1
+                  ntypes = ntypes + 1
                   wtypes(ntypes) = tempty(ntt)
                   nmass(ntypes) = mat(tmty(1))
                   nbscat(ntypes) = bsc(tmty(1))
                endif
             endif
          end do
+         
+         ! Clean up the temporary tracking array
+         deallocate(seen_type)
+         
          ! store number of types in trajectory file
          ntypes_tr = ntt
+ 
          write  (iunit,"(/' ** Reading trajectory from file: ',A)") trim(adjustl(ncfname))
          write (*,"(/' ** Reading trajectory from file: ',A)") trim(adjustl(ncfname))
          write (iunit, "(' ** Number of configurations in file =',i)") nconf_i
