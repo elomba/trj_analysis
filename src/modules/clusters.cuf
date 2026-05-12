@@ -203,12 +203,16 @@ contains
          if (worms .and. j > worm_msize) then
             ! The new routine handles the graph building, tip finding, intersection 
             ! handling, active-contour smoothing, AND array accumulation all at once!
-            ! call analyze_branched_worm(cluster(i), r, ndim, R_smooth, &
-            !                           total_spine_atoms, spine_coords, spine_cluster_ids)
             !call analyze_worm_centered(cluster(i), r, ndim, R_smooth, &
             !                           total_spine_atoms, spine_coords, spine_cluster_ids)
-            call analyze_worm_iterative(cluster(i), r, ndim, 10, total_spine_atoms, &
-                            spine_coords, spine_cluster_ids) 
+            call analyze_worm_complete(cluster(i), r, ndim, 10, total_spine_atoms, &
+                                       spine_coords, spine_cluster_ids, &
+                                       length, width)
+            
+            ! Store properties back to your cluster type
+            cluster(i)%length = length 
+            cluster(i)%width  = width
+            cluster(i)%ratio  = length / width 
          endif
    
          ! Calculate cluster size distro
