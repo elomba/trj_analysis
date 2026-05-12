@@ -213,9 +213,10 @@ contains
             ! a single line, a single "length" or "width" variable doesn't make 
             ! physical sense anymore (which branch do you measure?). 
             ! The skeleton coordinates are now the primary output.
-            call analyze_worm_branched_pruned(cluster(i), r, ndim, R_smooth, 10, &
-                                              total_spine_atoms, spine_coords, spine_cluster_ids)
-                                              
+            !call analyze_worm_branched_pruned(cluster(i), r, ndim, R_smooth, 10, &
+            !                                  total_spine_atoms, spine_coords, spine_cluster_ids)
+            call analyze_worm_perfect(cluster(i), r, ndim, 10, total_spine_atoms, &
+                                      spine_coords, spine_cluster_ids)
          endif
    
          ! Calculate cluster size distro
