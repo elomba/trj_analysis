@@ -207,9 +207,8 @@ contains
             !                           total_spine_atoms, spine_coords, spine_cluster_ids)
             !call analyze_worm_centered(cluster(i), r, ndim, R_smooth, &
             !                           total_spine_atoms, spine_coords, spine_cluster_ids)
-            
-            call analyze_worm_robust(cluster(i), r, ndim, R_smooth, 10, &
-                        & total_spine_atoms, spine_coords, spine_cluster_ids)
+            call analyze_worm_iterative(cluster(i), r, ndim, 10, total_spine_atoms, &
+                            spine_coords, spine_cluster_ids) 
          endif
    
          ! Calculate cluster size distro
