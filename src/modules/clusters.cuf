@@ -205,14 +205,17 @@ contains
             ! handling, active-contour smoothing, AND array accumulation all at once!
             ! call analyze_branched_worm(cluster(i), r, ndim, R_smooth, &
             !                           total_spine_atoms, spine_coords, spine_cluster_ids)
-            call analyze_worm_centered(cluster(i), r, ndim, R_smooth, &
-                                       total_spine_atoms, spine_coords, spine_cluster_ids)
+            !call analyze_worm_centered(cluster(i), r, ndim, R_smooth, &
+            !                           total_spine_atoms, spine_coords, spine_cluster_ids)
             
+
             ! Note: Because the worms are now intersecting "trees" rather than 
             ! a single line, a single "length" or "width" variable doesn't make 
             ! physical sense anymore (which branch do you measure?). 
             ! The skeleton coordinates are now the primary output.
-            
+            call analyze_worm_branched_pruned(cluster(i), r, ndim, R_smooth, 10, &
+                                              total_spine_atoms, spine_coords, spine_cluster_ids)
+                                              
          endif
    
          ! Calculate cluster size distro
