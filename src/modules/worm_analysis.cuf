@@ -239,9 +239,9 @@ subroutine analyze_worm_centered(c, pos, ndim, r_smooth, total_spine_atoms, all_
 
     integer :: n, i, j, k, u, v, curr, start, nstop
     integer :: node_A, node_B, num_paths, p, step, trace_len, tmp
-    real(myprec) :: max_dist, dist_sq, mean_dist_sq
+    real(myprec) :: max_dist, dist_sq, mean_dist_sq, min_d
     real(myprec) :: local_com(ndim)
-    integer :: count
+    integer :: count, num_tipsa, k, 
     logical :: is_tip_flag
 
     integer, parameter :: MAX_PATHS = 50
