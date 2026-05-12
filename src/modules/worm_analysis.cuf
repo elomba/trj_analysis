@@ -6,271 +6,48 @@ module worm_analysis
 
 contains
 
-  subroutine analyze_worm_from_global_graph(c, pos, ndim, length, width, spine, spine_len)
-    type(clus), intent(in) :: c
-    real(myprec), intent(in) :: pos(ndim, *)     ! Global coordinates [x, y, z]
-    real(myprec), intent(out) :: length, width
-    integer, intent(in) :: ndim
-    integer, intent(out) :: spine_len
-    integer, allocatable, intent(out) :: spine(:)
-
-    integer :: n, i, j, curr
-    integer :: node_A, node_B
-    real(myprec) :: max_dist, mean_dist_sq, min_spine_dist, dist_sq
-
-    ! Graph traversal arrays
-    integer, allocatable :: queue(:), dist(:), parent(:)
-    logical, allocatable :: visited(:), is_member(:)
-
-    n = c%clsize
-    if (n < 2) then
-       length = 0.0_myprec; width = 0.0_myprec; spine_len = 0
-       return
-    end if
-
-    ! Allocate tracking arrays to the size of the whole system (Nsites) 
-    ! This allows O(1) instantaneous lookups using global particle IDs.
-    allocate(is_member(Nsites), visited(Nsites))
-    allocate(dist(Nsites), parent(Nsites), queue(n))
-
-    ! 1. Create a fast logical mask for this specific cluster
-    is_member = .false.
-    do i = 1, n
-       is_member(c%members(i)) = .true.
-    end do
-
-    ! 2. Find Node A (One tip) via BFS from the first cluster member
-    call run_cluster_bfs(c, is_member, c%members(1), queue, visited, dist, parent)
-    
-    node_A = c%members(1)
-    max_dist = -1.0_myprec
-    do i = 1, n
-       curr = c%members(i)
-       if (dist(curr) > max_dist) then
-          max_dist = dist(curr)
-          node_A = curr
-       end if
-    end do
-
-    ! 3. Find Node B (The other tip) via BFS from Node A
-    call run_cluster_bfs(c, is_member, node_A, queue, visited, dist, parent)
-    
-    node_B = node_A
-    max_dist = -1.0_myprec
-    do i = 1, n
-       curr = c%members(i)
-       if (dist(curr) > max_dist) then
-          max_dist = dist(curr)
-          node_B = curr
-       end if
-    end do
-
-    ! 4. Trace the Spine (Backtrack from B to A using the parent array)
-    spine_len = dist(node_B) + 1
-    allocate(spine(spine_len))
-    
-    curr = node_B
-    do i = spine_len, 1, -1
-       spine(i) = curr
-       curr = parent(curr)
-    end do
-
-    ! 5. Calculate Metric Length along the spine
-    length = 0.0_myprec
-    do i = 1, spine_len - 1
-       length = length + sqrt(sum((pos(:, spine(i+1)) - pos(:, spine(i)))**2))
-    end do
-
-    ! 6. Calculate Average Width (RMS distance of all cluster atoms to nearest spine atom)
-    mean_dist_sq = 0.0_myprec
-    do i = 1, n
-       min_spine_dist = huge(1.0_myprec)
-       do j = 1, spine_len
-          dist_sq = sum((pos(:, c%members(i)) - pos(:, spine(j)))**2)
-          if (dist_sq < min_spine_dist) min_spine_dist = dist_sq
-       end do
-       mean_dist_sq = mean_dist_sq + min_spine_dist
-    end do
-    
-    width = 2.0_myprec * sqrt(mean_dist_sq / real(n, myprec))
-
-    deallocate(queue, dist, parent, visited, is_member)
-  end subroutine analyze_worm_from_global_graph
-
-
-  
-subroutine analyze_worm_centered(c, pos, ndim, r_smooth, total_spine_atoms, all_spine_coords, spine_cluster_ids)
-    use mod_common
-    implicit none
-    
-    type(clus), intent(in) :: c
-    integer, intent(in) :: ndim               
-    real(myprec), intent(in) :: pos(ndim, *)             ! Matches your r(ndim, Nsites)
-    real(myprec), intent(in) :: r_smooth      
-    integer, intent(inout) :: total_spine_atoms
-    real(myprec), intent(inout) :: all_spine_coords(ndim, *) ! MUST match caller allocation
-    integer, intent(inout) :: spine_cluster_ids(*)
-
-    integer :: n, i, k, u, v, curr
-    integer :: node_A, node_B
-    real(myprec) :: max_dist, dist_sq
-    
-    ! Active contour variables natively sized to ndim
-    real(myprec) :: local_com(ndim), tangent(ndim), shift(ndim), shift_ortho(ndim), norm
-    integer :: iter, step, path_len, smooth_count
-
-    ! Graph traversal arrays
-    integer, allocatable :: queue(:), dist(:), parent(:), path(:)
-    logical, allocatable :: visited(:), is_member(:)
-    real(myprec), allocatable :: temp_spine(:,:)
-
-    n = c%clsize
-    if (n < 2) return
-
-    allocate(is_member(Nsites), visited(Nsites))
-    allocate(dist(Nsites), parent(Nsites), queue(n))
-    allocate(path(n), temp_spine(ndim, n))               ! Allocated to ndim
-
-    ! 1. Initialize cluster mask
-    is_member = .false.
-    do i = 1, n
-       is_member(c%members(i)) = .true.
-    end do
-
-    ! 2. Find Node A (One end of the worm) via BFS
-    call run_cluster_bfs(c, is_member, c%members(1), queue, visited, dist, parent)
-    node_A = c%members(1)
-    max_dist = -1.0_myprec
-    do i = 1, n
-       curr = c%members(i)
-       if (dist(curr) > max_dist) then
-          max_dist = dist(curr)
-          node_A = curr
-       end if
-    end do
-
-    ! 3. Find Node B (The other end) via BFS
-    call run_cluster_bfs(c, is_member, node_A, queue, visited, dist, parent)
-    node_B = node_A
-    max_dist = -1.0_myprec
-    do i = 1, n
-       curr = c%members(i)
-       if (dist(curr) > max_dist) then
-          max_dist = dist(curr)
-          node_B = curr
-       end if
-    end do
-
-    ! 4. Trace the SINGLE clean path
-    path_len = dist(node_B) + 1
-    curr = node_B
-    do i = path_len, 1, -1
-       path(i) = curr
-       temp_spine(:, i) = pos(:, curr)  ! Automatically copies 'ndim' coordinates
-       curr = parent(curr)
-    end do
-
-    ! 5. Apply Iterative Orthogonal Centering (Active Contour)
-    tangent = 0.0_myprec
-    shift = 0.0_myprec
-    shift_ortho = 0.0_myprec
-
-    do iter = 1, 3
-       do step = 2, path_len - 1 
-          
-          ! Calculate local path tangent 
-          tangent = temp_spine(:, step-1) - temp_spine(:, step+1)
-          norm = sqrt(sum(tangent**2))
-          if (norm > 1e-6_myprec) tangent = tangent / norm
-          
-          ! Calculate the local center of mass within the tube
-          local_com = 0.0_myprec
-          smooth_count = 0
-          do k = 1, n
-             v = c%members(k)
-             dist_sq = sum((pos(:, v) - temp_spine(:, step))**2)
-             if (dist_sq <= r_smooth**2) then
-                local_com = local_com + pos(:, v)
-                smooth_count = smooth_count + 1
-             end if
-          end do
-          
-          ! Move the point towards the mass perpendicularly to the path
-          if (smooth_count > 0) then
-             local_com = local_com / real(smooth_count, myprec)
-             shift = local_com - temp_spine(:, step)
-             
-             ! Project out the parallel movement
-             shift_ortho = shift - dot_product(shift, tangent) * tangent
-             
-             ! Update the spine coordinate
-             temp_spine(:, step) = temp_spine(:, step) + shift_ortho
-          end if
-          
-       end do
-    end do
-
-    ! 6. Store the cleanly centered single path in the global array
-    do step = 1, path_len
-       total_spine_atoms = total_spine_atoms + 1
-       all_spine_coords(:, total_spine_atoms) = temp_spine(:, step)
-       spine_cluster_ids(total_spine_atoms) = c%clsize 
-    end do
-
-    deallocate(queue, dist, parent, visited, is_member, path, temp_spine)
-  end subroutine analyze_worm_centered
-
-
-  subroutine analyze_worm_fast_branched(c, pos, ndim, r_smooth, min_branch_len, total_spine_atoms, &
-                                        all_spine_coords, spine_cluster_ids, c_length, c_width)
+ subroutine analyze_worm_single_spine(c, pos, ndim, r_smooth, total_spine_atoms, &
+                                       all_spine_coords, spine_cluster_ids, c_length, c_width)
     use mod_common
     implicit none
     
     type(clus), intent(in) :: c
     integer, intent(in) :: ndim               
     real(myprec), intent(in) :: pos(ndim, *)             
-    real(myprec), intent(in) :: r_smooth                 ! e.g., 1.5 * rcl
-    integer, intent(in) :: min_branch_len                ! Cutoff for surface bumps (e.g., 8)
+    real(myprec), intent(in) :: r_smooth                 ! Max radius of the tube (e.g., 1.5 * rcl)
     integer, intent(inout) :: total_spine_atoms
     real(myprec), intent(inout) :: all_spine_coords(ndim, *) 
     integer, intent(inout) :: spine_cluster_ids(*)
     real(myprec), intent(out) :: c_length                
     real(myprec), intent(out) :: c_width                 
 
-    integer :: n, i, j, k, u, v, curr, start, nstop
-    integer :: node_A, node_B, num_paths, p, step, trace_len, tmp
-    real(myprec) :: max_dist, dist_sq, mean_dist_sq, min_d
-    real(myprec) :: local_com(ndim)
-    integer :: count, num_tips 
-    logical :: is_tip_flag
-
-    integer, parameter :: MAX_PATHS = 50
+    integer :: n, i, k, u, v, curr, start, nstop
+    integer :: node_A, node_B, path_len, step, count
+    real(myprec) :: max_dist, dist_sq, mean_dist_sq, proj
+    real(myprec) :: local_com(ndim), tangent(ndim), vec(ndim), norm, slice_thick
 
     ! Graph traversal arrays
-    integer, allocatable :: queue(:), dist(:), parent(:), tips(:)
-    logical, allocatable :: visited(:), is_member(:), is_spine(:)
+    integer, allocatable :: queue(:), dist(:), parent(:), path(:)
+    logical, allocatable :: visited(:), is_member(:)
 
     ! Path storage arrays
-    integer, allocatable :: path_len(:), path_nodes(:,:)
     real(myprec), allocatable :: temp_spine(:,:)
 
     n = c%clsize
-    if (n < 5) then
+    if (n < 2) then
        c_length = 0.0_myprec; c_width = 0.0_myprec
        return 
     end if
 
-    allocate(is_member(Nsites), visited(Nsites), is_spine(Nsites))
-    allocate(dist(Nsites), parent(Nsites), queue(n), tips(n))
-    allocate(path_len(MAX_PATHS), path_nodes(MAX_PATHS, n), temp_spine(ndim, n))
+    allocate(is_member(Nsites), visited(Nsites), queue(n))
+    allocate(dist(Nsites), parent(Nsites), path(n), temp_spine(ndim, n))
 
     is_member = .false.
-    is_spine = .false.
     do i = 1, n
        is_member(c%members(i)) = .true.
     end do
 
-    ! 1. Fast BFS to find Node A (Arbitrary Tip)
+    ! --- 1. Fast BFS to find Node A (Tip 1) ---
     call run_cluster_bfs(c, is_member, c%members(1), queue, visited, dist, parent)
     node_A = c%members(1); max_dist = -1.0_myprec
     do i = 1, n
@@ -280,124 +57,92 @@ subroutine analyze_worm_centered(c, pos, ndim, r_smooth, total_spine_atoms, all_
        end if
     end do
 
-    ! 2. Fast BFS from Node A to map the entire worm's distance field
+    ! --- 2. Fast BFS to find Node B (Tip 2) ---
     call run_cluster_bfs(c, is_member, node_A, queue, visited, dist, parent)
-
-    ! 3. Identify all branch tips (Local maxima in distance field)
-    num_tips = 0
+    node_B = node_A; max_dist = -1.0_myprec
     do i = 1, n
        u = c%members(i)
-       is_tip_flag = .true.
-       start = offset(u); nstop = start + neighbors(u) - 1
-       do k = start, nstop
-          v = adjacency(k)
-          if (is_member(v) .and. dist(v) > dist(u)) then
-             is_tip_flag = .false.; exit
-          end if
-       end do
-       if (is_tip_flag) then
-          num_tips = num_tips + 1
-          tips(num_tips) = u
+       if (dist(u) > max_dist) then
+          max_dist = dist(u); node_B = u
        end if
     end do
 
-    ! 4. Sort tips descending by distance (Guarantees the main backbone is traced first)
-    do i = 1, num_tips - 1
-       do j = i + 1, num_tips
-          if (dist(tips(j)) > dist(tips(i))) then
-             tmp = tips(i); tips(i) = tips(j); tips(j) = tmp
-          end if
-       end do
+    ! --- 3. Extract the Single Main Backbone ---
+    path_len = dist(node_B) + 1
+    curr = node_B
+    do i = path_len, 1, -1
+       path(i) = curr
+       temp_spine(:, i) = pos(:, curr)
+       curr = parent(curr)
     end do
 
-    ! 5. Trace and Prune Branches
-    num_paths = 0
-    do i = 1, num_tips
-       if (num_paths >= MAX_PATHS) exit
-       
-       ! Check how long this branch is before it hits the already-marked spine
-       trace_len = 0; curr = tips(i)
-       do while (curr /= 0 .and. .not. is_spine(curr))
-          trace_len = trace_len + 1; curr = parent(curr)
-       end do
-       
-       ! Accept if it is the primary backbone (i=1) OR if it passes the branch length filter
-       if (i == 1 .or. trace_len >= min_branch_len) then
-          num_paths = num_paths + 1
-          path_len(num_paths) = 0
-          curr = tips(i)
-          do while (curr /= 0 .and. .not. is_spine(curr))
-             is_spine(curr) = .true.
-             path_len(num_paths) = path_len(num_paths) + 1
-             path_nodes(num_paths, path_len(num_paths)) = curr
-             curr = parent(curr)
-          end do
-          if (curr /= 0) then ! Add anchor joint
-             path_len(num_paths) = path_len(num_paths) + 1
-             path_nodes(num_paths, path_len(num_paths)) = curr
-          end if
-       end if
-    end do
+    ! --- 4. Cross-Sectional Slicing (Perfect Centering) ---
+    ! We only accept atoms within a slice thickness proportional to the radius
+    slice_thick = 0.5_myprec * r_smooth 
 
-    ! 6. Topologically-Masked Spatial Centering
-    c_length = 0.0_myprec
-    do p = 1, num_paths
-       do step = 1, path_len(p)
-          u = path_nodes(p, step)
-          local_com = 0.0_myprec
-          count = 0
+    do step = 2, path_len - 1
+       ! A. Calculate Path Tangent
+       tangent = temp_spine(:, step+1) - temp_spine(:, step-1)
+       norm = sqrt(sum(tangent**2))
+       if (norm > 1e-6_myprec) tangent = tangent / norm
+       
+       local_com = 0.0_myprec
+       count = 0
+       
+       ! B. Find Center of Mass of the local cross-section
+       do k = 1, n
+          v = c%members(k)
+          vec = pos(:, v) - temp_spine(:, step)
+          dist_sq = sum(vec**2)
           
-          do k = 1, n
-             v = c%members(k)
-             dist_sq = sum((pos(:, v) - pos(:, u))**2)
-             if (dist_sq <= r_smooth**2) then
-                ! THE MAGIC SHIELD: Only average atoms within +/- 4 graph hops.
-                ! This completely ignores adjacent folds across a U-bend!
-                if (abs(dist(v) - dist(u)) <= 4) then
-                   local_com = local_com + pos(:, v)
-                   count = count + 1
-                end if
+          if (dist_sq <= r_smooth**2) then
+             ! Project vector onto tangent to see if it lies in the slice plane
+             proj = abs(dot_product(vec, tangent))
+             
+             ! Only average atoms that are perpendicular to the path
+             if (proj < slice_thick) then
+                local_com = local_com + pos(:, v)
+                count = count + 1
              end if
-          end do
-          
-          if (count > 0) then
-             temp_spine(:, step) = local_com / real(count, myprec)
-          else
-             temp_spine(:, step) = pos(:, u)
           end if
        end do
-
-       ! Extract Coordinates & Accumulate Length
-       do step = 1, path_len(p)
-          if (step > 1) then
-             c_length = c_length + sqrt(sum((temp_spine(:, step) - temp_spine(:, step-1))**2))
-          end if
-          if (p == 1 .or. step < path_len(p)) then
-             total_spine_atoms = total_spine_atoms + 1
-             all_spine_coords(:, total_spine_atoms) = temp_spine(:, step)
-             spine_cluster_ids(total_spine_atoms) = c%clsize 
-          end if
-       end do
+       
+       ! C. Update position
+       if (count > 0) then
+          temp_spine(:, step) = local_com / real(count, myprec)
+       end if
     end do
 
-    ! 7. Calculate Average Width
+    ! --- 5. Extract Final Coordinates & Calculate Total Length ---
+    c_length = 0.0_myprec
+    do step = 1, path_len
+       ! Add length 
+       if (step > 1) then
+          c_length = c_length + sqrt(sum((temp_spine(:, step) - temp_spine(:, step-1))**2))
+       end if
+
+       ! Store globally for LAMMPS output
+       total_spine_atoms = total_spine_atoms + 1
+       all_spine_coords(:, total_spine_atoms) = temp_spine(:, step)
+       spine_cluster_ids(total_spine_atoms) = c%clsize 
+    end do
+
+    ! --- 6. Calculate Average Width (RMS distance) ---
     mean_dist_sq = 0.0_myprec
     do i = 1, n
        u = c%members(i)
-       min_d = huge(1.0_myprec)
-       do p = 1, num_paths
-          do step = 1, path_len(p)
-             dist_sq = sum((pos(:, u) - temp_spine(:, step))**2)
-             if (dist_sq < min_d) min_d = dist_sq
-          end do
+       dist_sq = huge(1.0_myprec)
+       ! Find distance to the closest spine atom
+       do step = 1, path_len
+          max_dist = sum((pos(:, u) - temp_spine(:, step))**2) ! Reusing max_dist as temp
+          if (max_dist < dist_sq) dist_sq = max_dist
        end do
-       mean_dist_sq = mean_dist_sq + min_d
+       mean_dist_sq = mean_dist_sq + dist_sq
     end do
     c_width = 2.0_myprec * sqrt(mean_dist_sq / real(n, myprec))
 
-    deallocate(dist, parent, visited, is_member, is_spine, queue, tips)
-    deallocate(temp_spine, path_len, path_nodes)
-  end subroutine analyze_worm_fast_branched
+    deallocate(dist, parent, visited, is_member, queue, path, temp_spine)
+  end subroutine analyze_worm_single_spine 
 
   ! --- HELPER: Fast Unweighted BFS ---
   subroutine run_cluster_bfs(c, is_member, start_node, queue, visited, dist, parent)
