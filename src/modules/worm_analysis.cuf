@@ -106,7 +106,7 @@ contains
     integer, intent(inout) :: queue(:), dist(:), parent(:)
     logical, intent(inout) :: visited(:)
     
-    integer :: head, tail, u, v, k, start, stopn, i
+    integer :: headl, tail, u, v, k, start, stopn, i
 
     ! Optimization: Only initialize the elements belonging to this cluster.
     ! This ensures the initialization time scales with O(N_cluster), not O(Nsites).
@@ -117,14 +117,14 @@ contains
        parent(u) = 0
     end do
     
-    head = 1; tail = 1
+    headl = 1; tail = 1
     queue(tail) = start_node
     visited(start_node) = .true.
     dist(start_node) = 0
     
-    do while (head <= tail)
+    do while (headl <= tail)
        u = queue(head)
-       head = head + 1
+       headl = headl + 1
        
        ! Use your global CSR offset arrays directly
        start = offset(u)
@@ -444,7 +444,7 @@ subroutine analyze_branched_worm(c, pos, ndim, r_smooth, total_spine_atoms, all_
     real(myprec), intent(inout) :: all_spine_coords(ndim, *) 
     integer, intent(inout) :: spine_cluster_ids(*)
 
-    integer :: n, i, k, u, v, curr, head, tail, start, nstop
+    integer :: n, i, k, u, v, curr, headl, tail, start, nstop
     integer :: node_A, node_B, num_paths, p, step, w, w_start, w_end, iter
     real(myprec) :: max_dist
 
@@ -512,7 +512,7 @@ subroutine analyze_branched_worm(c, pos, ndim, r_smooth, total_spine_atoms, all_
     visited = .false.
     dist = -1
     parent = 0
-    head = 1; tail = 0
+    headl = 1; tail = 0
 
     do i = 1, n
        u = c%members(i)
@@ -524,9 +524,9 @@ subroutine analyze_branched_worm(c, pos, ndim, r_smooth, total_spine_atoms, all_
        end if
     end do
 
-    do while (head <= tail)
-       u = queue(head)
-       head = head + 1
+    do while (headl <= tail)
+       u = queue(headl)
+       headl = headl + 1
        start = offset(u)
        nstop = start + neighbors(u) - 1
        do k = start, nstop
@@ -624,7 +624,7 @@ subroutine analyze_branched_worm(c, pos, ndim, r_smooth, total_spine_atoms, all_
     deallocate(queue, dist, parent, visited, is_member, is_spine, is_tip)
     deallocate(path_len, path_nodes, temp_spine, new_spine)
   end subroutine analyze_worm_perfect
-  
+
   subroutine write_all_spines_lammpstrj(filename, timestep, spine_coords, ndim, spine_cluster_id, total_atoms, box)
     implicit none
     character(len=*), intent(in) :: filename
