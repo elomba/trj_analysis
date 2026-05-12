@@ -144,50 +144,57 @@ contains
        end do
     end do
   end subroutine run_cluster_bfs
-
-  subroutine analyze_branched_worm(c, pos, r_smooth, total_spine_atoms, all_spine_coords, spine_cluster_ids)
+subroutine analyze_branched_worm(c, pos, ndim, r_smooth, total_spine_atoms, all_spine_coords, spine_cluster_ids)
     use mod_common
     implicit none
     
     type(clus), intent(in) :: c
-    real(myprec), intent(in) :: pos(3, *)
+    real(myprec), intent(in) :: pos(ndim, *)
+    integer, intent(in) :: ndim               ! 2 for 2D, 3 for 3D
     real(myprec), intent(in) :: r_smooth      ! Smoothing radius (e.g., 2.5)
     integer, intent(inout) :: total_spine_atoms
-    real(myprec), intent(inout) :: all_spine_coords(3, *)
+    real(myprec), intent(inout) :: all_spine_coords(ndim, *)
     integer, intent(inout) :: spine_cluster_ids(*)
 
-    integer :: n, i, k, u, v, curr, start, stop
+    integer :: n, i, k, u, v, curr, start, nstop
     integer :: root_node, num_tips, smooth_count
     real(myprec) :: min_dist, dist_sq
-    real(myprec) :: com(3), local_com(3)
+    real(myprec) :: com(ndim), local_com(ndim)
     logical :: is_tip
 
-    ! Graph traversal arrays (allocate to Nsites for fast global lookup)
-    integer, allocatable :: queue(:), dist(:), parent(:), tips(:)
+    ! Graph traversal arrays
+    integer, allocatable :: queue(:), dist(:), parent(:), tips(:), path(:)
     logical, allocatable :: visited(:), is_member(:), is_spine(:)
+    real(myprec), allocatable :: temp_spine(:,:)
+
+    ! Active contour (centering) variables
+    real(myprec) :: tangent(3), shift(3), shift_ortho(3), norm
+    integer :: iter, step, path_len
 
     n = c%clsize
     if (n < 5) return ! Ignore extremely small fragments
 
     allocate(is_member(Nsites), visited(Nsites), is_spine(Nsites))
     allocate(dist(Nsites), parent(Nsites), queue(n), tips(n))
+    allocate(path(n), temp_spine(ndim, n))
 
-    ! 1. Initialize cluster mask
+    ! 1. Initialize cluster mask and Global Center of Mass (using ndim)
     is_member = .false.
     is_spine = .false.
     com = 0.0_myprec
+    
     do i = 1, n
        is_member(c%members(i)) = .true.
-       com = com + pos(:, c%members(i))
+       com(1:ndim) = com(1:ndim) + pos(1:ndim, c%members(i))
     end do
-    com = com / real(n, myprec)
+    com(1:ndim) = com(1:ndim) / real(n, myprec)
 
     ! 2. Find the Root Node (atom closest to the Center of Mass)
     min_dist = huge(1.0_myprec)
     root_node = c%members(1)
     do i = 1, n
        u = c%members(i)
-       dist_sq = sum((pos(:, u) - com)**2)
+       dist_sq = sum((pos(1:ndim, u) - com(1:ndim))**2)
        if (dist_sq < min_dist) then
           min_dist = dist_sq
           root_node = u
@@ -208,10 +215,9 @@ contains
        
        if (is_tip) then
           start = offset(u)
-          stop  = start + neighbors(u) - 1
-          do k = start, stop
+          nstop  = start + neighbors(u) - 1
+          do k = start, nstop
              v = adjacency(k)
-             ! If a neighbor is further from the center, 'u' is not a tip
              if (is_member(v) .and. dist(v) > dist(u)) then
                 is_tip = .false.
                 exit
@@ -225,42 +231,133 @@ contains
        end if
     end do
 
-    ! 5. Trace all branches back to the center to form the tree
+    ! 5. Trace branches and apply Iterative Orthogonal Centering
+    tangent = 0.0_myprec
+    shift = 0.0_myprec
+    shift_ortho = 0.0_myprec
+
     do i = 1, num_tips
        curr = tips(i)
-       ! Stop tracing if we hit an atom already marked as part of the spine
+       path_len = 0
+       
+       ! A. Extract the raw path sequence for this specific branch
        do while (curr /= 0 .and. .not. is_spine(curr))
           is_spine(curr) = .true.
+          path_len = path_len + 1
+          path(path_len) = curr
+          temp_spine(:, path_len) = pos(:, curr) ! Copy full 3D coordinates safely
           curr = parent(curr)
+       end do
+       
+       ! Add anchor joint if it connects to an older branch
+       if (curr /= 0 .and. path_len > 0) then
+          path_len = path_len + 1
+          path(path_len) = curr
+          temp_spine(:, path_len) = pos(:, curr)
+       end if
+
+       ! B. Iterative Orthogonal Centering restricted by ndim
+       do iter = 1, 3
+          do step = 2, path_len - 1 
+             
+             ! Calculate local path tangent 
+             tangent(1:ndim) = temp_spine(1:ndim, step-1) - temp_spine(1:ndim, step+1)
+             norm = sqrt(sum(tangent(1:ndim)**2))
+             if (norm > 1e-6_myprec) tangent(1:ndim) = tangent(1:ndim) / norm
+             
+             ! Calculate the local center of mass within the tube
+             local_com = 0.0_myprec
+             smooth_count = 0
+             do k = 1, n
+                v = c%members(k)
+                dist_sq = sum((pos(1:ndim, v) - temp_spine(1:ndim, step))**2)
+                if (dist_sq <= r_smooth**2) then
+                   local_com(1:ndim) = local_com(1:ndim) + pos(1:ndim, v)
+                   smooth_count = smooth_count + 1
+                end if
+             end do
+             
+             ! Move the point towards the mass perpendicularly to the path
+             if (smooth_count > 0) then
+                local_com(1:ndim) = local_com(1:ndim) / real(smooth_count, myprec)
+                shift(1:ndim) = local_com(1:ndim) - temp_spine(1:ndim, step)
+                
+                ! Project out the parallel movement using ndim
+                shift_ortho(1:ndim) = shift(1:ndim) - &
+                                      dot_product(shift(1:ndim), tangent(1:ndim)) * tangent(1:ndim)
+                
+                ! Update the spine coordinate
+                temp_spine(1:ndim, step) = temp_spine(1:ndim, step) + shift_ortho(1:ndim)
+             end if
+             
+          end do
+       end do
+
+       ! C. Store the centered points in the global array
+       do step = 1, path_len
+          ! Do not output the anchor node, to avoid duplicate atoms
+          if (step == path_len .and. curr /= 0) cycle 
+          
+          total_spine_atoms = total_spine_atoms + 1
+          all_spine_coords(:, total_spine_atoms) = temp_spine(:, step)
+          
+          ! Tag it with its specific cluster ID
+          spine_cluster_ids(total_spine_atoms) = c%clsize 
        end do
     end do
 
-    ! 6. Extract, Smooth, and Store the branched skeleton
-    do i = 1, n
-       u = c%members(i)
-       if (is_spine(u)) then
-          
-          ! Apply Center-of-Mass smoothing to center the spine in the 2D tube
-          local_com = 0.0_myprec
-          smooth_count = 0
-          
-          do k = 1, n
-             v = c%members(k)
-             dist_sq = sum((pos(:, v) - pos(:, u))**2)
-             if (dist_sq <= r_smooth**2) then
-                local_com = local_com + pos(:, v)
-                smooth_count = smooth_count + 1
-             end if
-          end do
-          
-          total_spine_atoms = total_spine_atoms + 1
-          all_spine_coords(:, total_spine_atoms) = local_com / real(smooth_count, myprec)
-          ! Use 'c' index to identify which cluster this branch belongs to
-          spine_cluster_ids(total_spine_atoms) = c%clsize ! Or pass in the loop 'i' as cluster ID
-       end if
-    end do
-
-    deallocate(queue, dist, parent, visited, is_member, is_spine, tips)
+    deallocate(queue, dist, parent, visited, is_member, is_spine, tips, path, temp_spine)
   end subroutine analyze_branched_worm
+ 
+ 
+  subroutine write_all_spines_lammpstrj(filename, timestep, spine_coords, ndim, spine_cluster_id, total_atoms, box)
+    implicit none
+    character(len=*), intent(in) :: filename
+    integer, intent(in) :: timestep, ndim
+    real(myprec), intent(in) :: spine_coords(ndim, *)  ! <--- Now takes actual coordinates
+    integer, intent(in) :: total_atoms
+    integer, intent(in) :: spine_cluster_id(total_atoms)
+    real(myprec), intent(in) :: box(ndim)
 
+    integer :: i, iunit
+    logical :: file_exists
+
+    if (total_atoms == 0) return
+
+    inquire(file=trim(filename), exist=file_exists)
+    if (file_exists) then
+       open(newunit=iunit, file=trim(filename), status='old', position='append', action='write')
+    else
+       open(newunit=iunit, file=trim(filename), status='new', action='write')
+    end if
+
+    write(iunit, '(A)') 'ITEM: TIMESTEP'
+    write(iunit, '(I0)') timestep
+    write(iunit, '(A)') 'ITEM: NUMBER OF ATOMS'
+    write(iunit, '(I0)') total_atoms
+    write(iunit, '(A)') 'ITEM: BOX BOUNDS pp pp pp'
+    write(iunit, '(2F15.6)') 0.0_myprec, box(1)
+    write(iunit, '(2F15.6)') 0.0_myprec, box(2)
+    if (ndim == 3) then
+       write(iunit, '(2F15.6)') 0.0_myprec, box(3)
+    else
+       write(iunit, '(2F15.6)') -0.5, 0.5
+    endif
+
+    write(iunit, '(A)') 'ITEM: ATOMS id mol type x y z'
+    
+    do i = 1, total_atoms
+       ! Use the smoothed coordinates directly
+      if (ndim == 3) then
+         write(iunit, '(I8, I8, I4, 3F15.6)') i, spine_cluster_id(i), 1, &
+               spine_coords(1, i), spine_coords(2, i), spine_coords(3, i)
+      else
+         write(iunit, '(I8, I8, I4, 3F15.6)') i, spine_cluster_id(i), 1, &
+               spine_coords(1, i), spine_coords(2, i), 0.0
+      endif
+    end do
+    close(iunit)
+  end subroutine write_all_spines_lammpstrj
+
+  
 end module worm_analysis

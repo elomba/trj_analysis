@@ -197,34 +197,20 @@ contains
          allocate(all_spines(natoms),spine_cluster_ids(natoms),spine_coords(ndim,natoms))
          total_spine_atoms = 0
       endif
-      R_smooth = 2*rcl
+      R_smooth = 1.5*rcl
       do I = 1, cluster_id
          j = cluster(i)%clsize
          if (worms .and. j > worm_msize) then
-            call analyze_worm_from_global_graph(cluster(i), r, ndim, lengths, widths, spine, spine_len)
-      
-            ! Store or print the properties
-            cluster(i)%length = lengths  ! (If you add length/width to your clus type)
-            cluster(i)%width = widths
-            do l = 1, spine_len
-               ! 1. Initialize local center of mass calculation
-               local_com = 0.0_myprec
-               smooth_count = 0
-               ! 2. Find all cluster members near this spine atom
-               do k = 1, j 
-                  dist_sq = sum((r(:, cluster(i)%members(k)) - r(:, spine(l)))**2)
-                  if (dist_sq <= R_smooth**2) then
-                     local_com = local_com + r(:, cluster(i)%members(k))
-                     smooth_count = smooth_count + 1
-                  end if
-               end do
-      
-               ! 3. Store the smoothed geometric center instead of the exact atom position
-               total_spine_atoms = total_spine_atoms + 1
-               spine_coords(:, total_spine_atoms) = local_com / real(smooth_count, myprec)
-               spine_cluster_ids(total_spine_atoms) = i 
-            end do
-            deallocate(spine) ! Don't forget to clean up the spine array for the next loop!
+            ! The new routine handles the graph building, tip finding, intersection 
+            ! handling, active-contour smoothing, AND array accumulation all at once!
+            call analyze_branched_worm(cluster(i), r, ndim, R_smooth, &
+                                       total_spine_atoms, spine_coords, spine_cluster_ids)
+            
+            ! Note: Because the worms are now intersecting "trees" rather than 
+            ! a single line, a single "length" or "width" variable doesn't make 
+            ! physical sense anymore (which branch do you measure?). 
+            ! The skeleton coordinates are now the primary output.
+            
          endif
    
          ! Calculate cluster size distro
@@ -731,13 +717,13 @@ contains
       implicit none
 
       integer, intent(in) :: j, i
-      integer :: k, start, stop
+      integer :: k, start, nstop
 
       is_neighbor = .false.
 
       start = offset(j)
-      stop  = start + neighbors(j) - 1
-      do k = start, stop
+      nstop  = start + neighbors(j) - 1
+      do k = start, nstop
          if (adjacency(k) == i) then
             is_neighbor = .true.
             return
@@ -1109,112 +1095,5 @@ subroutine clusters_clear()
 
 end subroutine clusters_clear
 
- 
-  subroutine write_all_spines_lammpstrj2(filename, timestep, pos, ndim, all_spines, spine_cluster_id, total_atoms, box)
-    implicit none
-    character(len=*), intent(in) :: filename
-    integer, intent(in) :: timestep
-    real(myprec), intent(in) :: pos(ndim, *)
-    integer, intent(in) :: total_atoms, ndim
-    integer, intent(in) :: all_spines(total_atoms)
-    integer, intent(in) :: spine_cluster_id(total_atoms)
-    real(myprec), intent(in) :: box(ndim)
-
-    integer :: i, atom_idx, iunit
-    logical :: file_exists
-
-    ! If no spines were found in this frame, do nothing
-    if (total_atoms == 0) return
-
-    inquire(file=trim(filename), exist=file_exists)
-    
-    if (file_exists) then
-       open(newunit=iunit, file=trim(filename), status='old', position='append', action='write')
-    else
-       open(newunit=iunit, file=trim(filename), status='new', action='write')
-    end if
-
-    ! Write single header for the entire timestep
-    write(iunit, '(A)') 'ITEM: TIMESTEP'
-    write(iunit, '(I0)') timestep
-    
-    write(iunit, '(A)') 'ITEM: NUMBER OF ATOMS'
-    write(iunit, '(I0)') total_atoms
-    
-    write(iunit, '(A)') 'ITEM: BOX BOUNDS pp pp pp'
-    write(iunit, '(2F15.6)') 0.0_myprec, box(1)
-    write(iunit, '(2F15.6)') 0.0_myprec, box(2)
-    if (ndim == 3) then
-       write(iunit, '(2F15.6)') 0.0_myprec, box(3)
-    else 
-      write(iunit, '(2F15.6)') -0.5, 0.5
-    endif
-    
-    ! Added 'mol' to separate different worms in visualization
-    write(iunit, '(A)') 'ITEM: ATOMS id mol type x y z'
-    
-    do i = 1, total_atoms
-       atom_idx = all_spines(i)
-       ! I8 for ID, I8 for Mol (Cluster ID), I4 for Type
-       if (ndim == 3) then
-          write(iunit, '(I8, I8, I4, 3F15.6)') i, spine_cluster_id(i), 1, &
-                                            pos(1, atom_idx), pos(2, atom_idx), pos(3, atom_idx)
-       else
-          write(iunit, '(I8, I8, I4, 3F15.6)') i, spine_cluster_id(i), 1, &
-                                            pos(1, atom_idx), pos(2, atom_idx), 0.0
-       endif
-    end do
-
-    close(iunit)
-  end subroutine write_all_spines_lammpstrj2
-
-  subroutine write_all_spines_lammpstrj(filename, timestep, spine_coords, ndim, spine_cluster_id, total_atoms, box)
-    implicit none
-    character(len=*), intent(in) :: filename
-    integer, intent(in) :: timestep, ndim
-    real(myprec), intent(in) :: spine_coords(ndim, *)  ! <--- Now takes actual coordinates
-    integer, intent(in) :: total_atoms
-    integer, intent(in) :: spine_cluster_id(total_atoms)
-    real(myprec), intent(in) :: box(ndim)
-
-    integer :: i, iunit
-    logical :: file_exists
-
-    if (total_atoms == 0) return
-
-    inquire(file=trim(filename), exist=file_exists)
-    if (file_exists) then
-       open(newunit=iunit, file=trim(filename), status='old', position='append', action='write')
-    else
-       open(newunit=iunit, file=trim(filename), status='new', action='write')
-    end if
-
-    write(iunit, '(A)') 'ITEM: TIMESTEP'
-    write(iunit, '(I0)') timestep
-    write(iunit, '(A)') 'ITEM: NUMBER OF ATOMS'
-    write(iunit, '(I0)') total_atoms
-    write(iunit, '(A)') 'ITEM: BOX BOUNDS pp pp pp'
-    write(iunit, '(2F15.6)') 0.0_myprec, box(1)
-    write(iunit, '(2F15.6)') 0.0_myprec, box(2)
-    if (ndim == 3) then
-       write(iunit, '(2F15.6)') 0.0_myprec, box(3)
-    else
-       write(iunit, '(2F15.6)') -0.5, 0.5
-    endif
-
-    write(iunit, '(A)') 'ITEM: ATOMS id mol type x y z'
-    
-    do i = 1, total_atoms
-       ! Use the smoothed coordinates directly
-      if (ndim == 3) then
-         write(iunit, '(I8, I8, I4, 3F15.6)') i, spine_cluster_id(i), 1, &
-               spine_coords(1, i), spine_coords(2, i), spine_coords(3, i)
-      else
-         write(iunit, '(I8, I8, I4, 3F15.6)') i, spine_cluster_id(i), 1, &
-               spine_coords(1, i), spine_coords(2, i), 0.0
-      endif
-    end do
-    close(iunit)
-  end subroutine write_all_spines_lammpstrj
 
 end module mod_clusters
