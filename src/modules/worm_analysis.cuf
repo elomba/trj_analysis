@@ -408,7 +408,7 @@ subroutine analyze_worm_centered(c, pos, ndim, r_smooth, total_spine_atoms, all_
     integer, intent(in) :: start_node
     integer, intent(inout) :: queue(:), dist(:), parent(:)
     logical, intent(inout) :: visited(:)
-    integer :: i, u, v, head, tail, start, nstop
+    integer :: i, u, v, head, tail, start, nstop, k
 
     do i = 1, c%clsize
        u = c%members(i)
