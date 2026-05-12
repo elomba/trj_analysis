@@ -268,7 +268,7 @@ subroutine analyze_worm_centered(c, pos, ndim, r_smooth, total_spine_atoms, all_
 
 
   subroutine analyze_worm_robust(c, pos, ndim, r_smooth, min_branch_len, total_spine_atoms, all_spine_coords, spine_cluster_ids)
-    use mod_common
+    use mod_common, head_common=>head
     implicit none
     
     type(clus), intent(in) :: c
