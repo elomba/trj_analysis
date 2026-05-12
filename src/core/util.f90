@@ -340,10 +340,10 @@ contains
                icl = icl + 1
                id = cluster(i)%members(k)
                if (ndim == 3) then
-                  write (io_lastclconf, "(I8,I4,3F15.7,3F15.7)") &
+                  write (io_lastclconf, "(I8,2I4,3F15.7,3F15.7)") &
                      & icl, i, mod(j,maxcolor), r(1:ndim,id)+org(1:ndim,1)
                else
-                  write (io_lastclconf, "(I8,I4,2F15.7,3F15.7)") &
+                  write (io_lastclconf, "(I8,2I4,2F15.7,3F15.7)") &
                      & icl, i, mod(j,maxcolor), r(1:ndim,id)+org(1:ndim,1), 0.0
                end if
          end do
