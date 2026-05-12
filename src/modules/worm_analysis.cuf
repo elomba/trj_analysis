@@ -401,7 +401,8 @@ subroutine analyze_worm_centered(c, pos, ndim, r_smooth, total_spine_atoms, all_
 
   ! --- HELPER: Fast Unweighted BFS ---
   subroutine run_cluster_bfs(c, is_member, start_node, queue, visited, dist, parent)
-    use mod_common; implicit none
+    use mod_common, head_common=>head
+    implicit none
     type(clus), intent(in) :: c
     logical, intent(in) :: is_member(:)
     integer, intent(in) :: start_node
