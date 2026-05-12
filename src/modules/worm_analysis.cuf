@@ -98,53 +98,7 @@ contains
   end subroutine analyze_worm_from_global_graph
 
 
-  ! --- Helper Subroutine: Cluster-Restricted Breadth-First Search ---
-  subroutine run_cluster_bfs(c, is_member, start_node, queue, visited, dist, parent)
-    type(clus), intent(in) :: c
-    logical, intent(in) :: is_member(:)
-    integer, intent(in) :: start_node
-    integer, intent(inout) :: queue(:), dist(:), parent(:)
-    logical, intent(inout) :: visited(:)
-    
-    integer :: headl, tail, u, v, k, start, stopn, i
-
-    ! Optimization: Only initialize the elements belonging to this cluster.
-    ! This ensures the initialization time scales with O(N_cluster), not O(Nsites).
-    do i = 1, c%clsize
-       u = c%members(i)
-       visited(u) = .false.
-       dist(u) = -1
-       parent(u) = 0
-    end do
-    
-    headl = 1; tail = 1
-    queue(tail) = start_node
-    visited(start_node) = .true.
-    dist(start_node) = 0
-    
-    do while (headl <= tail)
-       u = queue(headl)
-       headl = headl + 1
-       
-       ! Use your global CSR offset arrays directly
-       start = offset(u)
-       stopn  = start + neighbors(u) - 1
-       
-       do k = start, stopn
-          v = adjacency(k)
-          
-          ! Only traverse if the neighbor belongs to this specific cluster
-          if (is_member(v) .and. .not. visited(v)) then
-             visited(v) = .true.
-             dist(v) = dist(u) + 1
-             parent(v) = u
-             tail = tail + 1
-             queue(tail) = v
-          end if
-       end do
-    end do
-  end subroutine run_cluster_bfs
-
+  
 subroutine analyze_worm_centered(c, pos, ndim, r_smooth, total_spine_atoms, all_spine_coords, spine_cluster_ids)
     use mod_common
     implicit none
@@ -266,30 +220,34 @@ subroutine analyze_worm_centered(c, pos, ndim, r_smooth, total_spine_atoms, all_
     deallocate(queue, dist, parent, visited, is_member, path, temp_spine)
   end subroutine analyze_worm_centered
 
-  subroutine analyze_worm_complete(c, pos, ndim, min_branch_len, total_spine_atoms, &
-                                   all_spine_coords, spine_cluster_ids, c_length, c_width)
+
+  subroutine analyze_worm_fast_branched(c, pos, ndim, r_smooth, min_branch_len, total_spine_atoms, &
+                                        all_spine_coords, spine_cluster_ids, c_length, c_width)
     use mod_common
     implicit none
     
     type(clus), intent(in) :: c
     integer, intent(in) :: ndim               
     real(myprec), intent(in) :: pos(ndim, *)             
+    real(myprec), intent(in) :: r_smooth                 ! e.g., 1.5 * rcl
     integer, intent(in) :: min_branch_len                ! Cutoff for surface bumps (e.g., 8)
     integer, intent(inout) :: total_spine_atoms
     real(myprec), intent(inout) :: all_spine_coords(ndim, *) 
     integer, intent(inout) :: spine_cluster_ids(*)
-    real(myprec), intent(out) :: c_length                ! Total sum of all branch lengths
-    real(myprec), intent(out) :: c_width                 ! Average thickness of the worm
+    real(myprec), intent(out) :: c_length                
+    real(myprec), intent(out) :: c_width                 
 
-    integer :: n, i, k, u, v, curr, start, nstop
-    integer :: node_A, node_B, num_paths, p, step, trace_len
-    real(myprec) :: max_dist, min_d, edge_cost, dist_sq, mean_dist_sq
-    
+    integer :: n, i, j, k, u, v, curr, start, nstop
+    integer :: node_A, node_B, num_paths, p, step, trace_len, tmp
+    real(myprec) :: max_dist, dist_sq, mean_dist_sq
+    real(myprec) :: local_com(ndim)
+    integer :: count
+    logical :: is_tip_flag
+
     integer, parameter :: MAX_PATHS = 50
 
     ! Graph traversal arrays
-    integer, allocatable :: parent(:), loc_density(:)
-    real(myprec), allocatable :: dist(:)
+    integer, allocatable :: queue(:), dist(:), parent(:), tips(:)
     logical, allocatable :: visited(:), is_member(:), is_spine(:)
 
     ! Path storage arrays
@@ -298,108 +256,123 @@ subroutine analyze_worm_centered(c, pos, ndim, r_smooth, total_spine_atoms, all_
 
     n = c%clsize
     if (n < 5) then
-       c_length = 0.0_myprec
-       c_width = 0.0_myprec
+       c_length = 0.0_myprec; c_width = 0.0_myprec
        return 
     end if
 
-    allocate(is_member(Nsites), visited(Nsites), is_spine(Nsites), loc_density(Nsites))
-    allocate(dist(Nsites), parent(Nsites), temp_spine(ndim, n))
-    allocate(path_len(MAX_PATHS), path_nodes(MAX_PATHS, n))
+    allocate(is_member(Nsites), visited(Nsites), is_spine(Nsites))
+    allocate(dist(Nsites), parent(Nsites), queue(n), tips(n))
+    allocate(path_len(MAX_PATHS), path_nodes(MAX_PATHS, n), temp_spine(ndim, n))
 
-    ! 1. Initialize cluster mask and local density (used to keep spine centered)
     is_member = .false.
     is_spine = .false.
     do i = 1, n
-       u = c%members(i)
-       is_member(u) = .true.
-       loc_density(u) = neighbors(u) 
+       is_member(c%members(i)) = .true.
     end do
 
-    ! 2. Find Node A (Arbitrary Tip) via Dijkstra
-    call run_dijkstra(c, is_member, loc_density, is_spine, c%members(1), dist, parent, visited)
+    ! 1. Fast BFS to find Node A (Arbitrary Tip)
+    call run_cluster_bfs(c, is_member, c%members(1), queue, visited, dist, parent)
     node_A = c%members(1); max_dist = -1.0_myprec
     do i = 1, n
        u = c%members(i)
-       if (dist(u) > max_dist .and. dist(u) < huge(1.0_myprec)) then
+       if (dist(u) > max_dist) then
           max_dist = dist(u); node_A = u
        end if
     end do
 
-    ! 3. Find Node B (The True Furthest End)
-    call run_dijkstra(c, is_member, loc_density, is_spine, node_A, dist, parent, visited)
-    node_B = node_A; max_dist = -1.0_myprec
+    ! 2. Fast BFS from Node A to map the entire worm's distance field
+    call run_cluster_bfs(c, is_member, node_A, queue, visited, dist, parent)
+
+    ! 3. Identify all branch tips (Local maxima in distance field)
+    num_tips = 0
     do i = 1, n
        u = c%members(i)
-       if (dist(u) > max_dist .and. dist(u) < huge(1.0_myprec)) then
-          max_dist = dist(u); node_B = u
-       end if
-    end do
-
-    ! 4. Trace the Main Backbone
-    num_paths = 1
-    path_len(1) = 0
-    curr = node_B
-    do while (curr /= 0)
-       is_spine(curr) = .true.
-       path_len(1) = path_len(1) + 1
-       path_nodes(1, path_len(1)) = curr
-       curr = parent(curr)
-    end do
-
-    ! 5. Iteratively Extract Branches (X and Y arms)
-    do p = 2, MAX_PATHS
-       ! Multi-source Dijkstra starting from the entire current spine
-       call run_dijkstra(c, is_member, loc_density, is_spine, 0, dist, parent, visited)
-       
-       ! Find the furthest point from the current skeleton
-       max_dist = -1.0_myprec; u = 0
-       do i = 1, n
-          v = c%members(i)
-          if (dist(v) > max_dist .and. dist(v) < huge(1.0_myprec)) then
-             max_dist = dist(v); u = v
+       is_tip_flag = .true.
+       start = offset(u); nstop = start + neighbors(u) - 1
+       do k = start, nstop
+          v = adjacency(k)
+          if (is_member(v) .and. dist(v) > dist(u)) then
+             is_tip_flag = .false.; exit
           end if
        end do
-       
-       ! Check if the furthest point makes a valid long branch
-       trace_len = 0
-       curr = u
-       do while (curr /= 0 .and. .not. is_spine(curr))
-          trace_len = trace_len + 1
-          curr = parent(curr)
-       end do
-       
-       if (trace_len < min_branch_len .or. u == 0) exit ! No branches left
-
-       ! Trace and store the valid branch
-       num_paths = num_paths + 1
-       path_len(num_paths) = 0
-       curr = u
-       do while (curr /= 0 .and. .not. is_spine(curr))
-          is_spine(curr) = .true.
-          path_len(num_paths) = path_len(num_paths) + 1
-          path_nodes(num_paths, path_len(num_paths)) = curr
-          curr = parent(curr)
-       end do
-       if (curr /= 0) then ! Anchor joint
-          path_len(num_paths) = path_len(num_paths) + 1
-          path_nodes(num_paths, path_len(num_paths)) = curr
+       if (is_tip_flag) then
+          num_tips = num_tips + 1
+          tips(num_tips) = u
        end if
     end do
 
-    ! 6. Extract Coordinates & Calculate Total Length
+    ! 4. Sort tips descending by distance (Guarantees the main backbone is traced first)
+    do i = 1, num_tips - 1
+       do j = i + 1, num_tips
+          if (dist(tips(j)) > dist(tips(i))) then
+             tmp = tips(i); tips(i) = tips(j); tips(j) = tmp
+          end if
+       end do
+    end do
+
+    ! 5. Trace and Prune Branches
+    num_paths = 0
+    do i = 1, num_tips
+       if (num_paths >= MAX_PATHS) exit
+       
+       ! Check how long this branch is before it hits the already-marked spine
+       trace_len = 0; curr = tips(i)
+       do while (curr /= 0 .and. .not. is_spine(curr))
+          trace_len = trace_len + 1; curr = parent(curr)
+       end do
+       
+       ! Accept if it is the primary backbone (i=1) OR if it passes the branch length filter
+       if (i == 1 .or. trace_len >= min_branch_len) then
+          num_paths = num_paths + 1
+          path_len(num_paths) = 0
+          curr = tips(i)
+          do while (curr /= 0 .and. .not. is_spine(curr))
+             is_spine(curr) = .true.
+             path_len(num_paths) = path_len(num_paths) + 1
+             path_nodes(num_paths, path_len(num_paths)) = curr
+             curr = parent(curr)
+          end do
+          if (curr /= 0) then ! Add anchor joint
+             path_len(num_paths) = path_len(num_paths) + 1
+             path_nodes(num_paths, path_len(num_paths)) = curr
+          end if
+       end if
+    end do
+
+    ! 6. Topologically-Masked Spatial Centering
     c_length = 0.0_myprec
     do p = 1, num_paths
        do step = 1, path_len(p)
-          temp_spine(:, step) = pos(:, path_nodes(p, step))
+          u = path_nodes(p, step)
+          local_com = 0.0_myprec
+          count = 0
           
-          ! Add length (Euclidean distance between connected spine nodes)
+          do k = 1, n
+             v = c%members(k)
+             dist_sq = sum((pos(:, v) - pos(:, u))**2)
+             if (dist_sq <= r_smooth**2) then
+                ! THE MAGIC SHIELD: Only average atoms within +/- 4 graph hops.
+                ! This completely ignores adjacent folds across a U-bend!
+                if (abs(dist(v) - dist(u)) <= 4) then
+                   local_com = local_com + pos(:, v)
+                   count = count + 1
+                end if
+             end if
+          end do
+          
+          if (count > 0) then
+             temp_spine(:, step) = local_com / real(count, myprec)
+          else
+             temp_spine(:, step) = pos(:, u)
+          end if
+       end do
+
+       ! Extract Coordinates & Accumulate Length
+       do step = 1, path_len(p)
           if (step > 1) then
              c_length = c_length + sqrt(sum((temp_spine(:, step) - temp_spine(:, step-1))**2))
           end if
-
-          ! Store globally for LAMMPS output
-          if (p == 1 .or. step < path_len(p)) then ! Avoid duplicate anchor nodes
+          if (p == 1 .or. step < path_len(p)) then
              total_spine_atoms = total_spine_atoms + 1
              all_spine_coords(:, total_spine_atoms) = temp_spine(:, step)
              spine_cluster_ids(total_spine_atoms) = c%clsize 
@@ -407,15 +380,14 @@ subroutine analyze_worm_centered(c, pos, ndim, r_smooth, total_spine_atoms, all_
        end do
     end do
 
-    ! 7. Calculate Average Width (RMS cylinder diameter)
+    ! 7. Calculate Average Width
     mean_dist_sq = 0.0_myprec
     do i = 1, n
        u = c%members(i)
        min_d = huge(1.0_myprec)
-       ! Find distance to the closest spine atom
        do p = 1, num_paths
           do step = 1, path_len(p)
-             dist_sq = sum((pos(:, u) - pos(:, path_nodes(p, step)))**2)
+             dist_sq = sum((pos(:, u) - temp_spine(:, step))**2)
              if (dist_sq < min_d) min_d = dist_sq
           end do
        end do
@@ -423,61 +395,44 @@ subroutine analyze_worm_centered(c, pos, ndim, r_smooth, total_spine_atoms, all_
     end do
     c_width = 2.0_myprec * sqrt(mean_dist_sq / real(n, myprec))
 
-    deallocate(dist, parent, visited, is_member, is_spine, loc_density)
+    deallocate(dist, parent, visited, is_member, is_spine, queue, tips)
     deallocate(temp_spine, path_len, path_nodes)
-  end subroutine analyze_worm_complete
+  end subroutine analyze_worm_fast_branched
 
-
-  ! --- HELPER: Inlined Multi-Source Density Dijkstra ---
-  subroutine run_dijkstra(c, is_member, loc_density, is_spine, single_start, dist, parent, visited)
-    use mod_common
-     implicit none
+  ! --- HELPER: Fast Unweighted BFS ---
+  subroutine run_cluster_bfs(c, is_member, start_node, queue, visited, dist, parent)
+    use mod_common; implicit none
     type(clus), intent(in) :: c
-    logical, intent(in) :: is_member(:), is_spine(:)
-    integer, intent(in) :: loc_density(:), single_start
-    real(myprec), intent(inout) :: dist(:)
-    integer, intent(inout) :: parent(:)
+    logical, intent(in) :: is_member(:)
+    integer, intent(in) :: start_node
+    integer, intent(inout) :: queue(:), dist(:), parent(:)
     logical, intent(inout) :: visited(:)
-    integer :: i, k, u, v, start, nstop
-    real(myprec) :: min_d, edge_cost
+    integer :: i, u, v, head, tail, start, nstop
 
     do i = 1, c%clsize
        u = c%members(i)
-       visited(u) = .false.; parent(u) = 0
-       ! If single_start=0, initialize from ALL spine nodes (multi-source flood fill)
-       if (single_start == 0 .and. is_spine(u)) then
-          dist(u) = 0.0_myprec
-       else if (single_start /= 0 .and. u == single_start) then
-          dist(u) = 0.0_myprec
-       else
-          dist(u) = huge(1.0_myprec)
-       end if
+       visited(u) = .false.; dist(u) = -1; parent(u) = 0
     end do
     
-    do i = 1, c%clsize
-       min_d = huge(1.0_myprec); u = 0
-       do k = 1, c%clsize
-          v = c%members(k)
-          if (.not. visited(v) .and. dist(v) < min_d) then
-             min_d = dist(v); u = v
-          end if
-       end do
-       if (u == 0) exit 
-
-       visited(u) = .true.
+    head = 1; tail = 1
+    queue(tail) = start_node
+    visited(start_node) = .true.
+    dist(start_node) = 0
+    
+    do while (head <= tail)
+       u = queue(head); head = head + 1
        start = offset(u); nstop = start + neighbors(u) - 1
        do k = start, nstop
           v = adjacency(k)
           if (is_member(v) .and. .not. visited(v)) then
-             edge_cost = 1.0_myprec / (real(loc_density(v), myprec)**3.0_myprec + 0.1_myprec)
-             if (dist(u) + edge_cost < dist(v)) then
-                dist(v) = dist(u) + edge_cost; parent(v) = u
-             end if
+             visited(v) = .true.; dist(v) = dist(u) + 1; parent(v) = u
+             tail = tail + 1; queue(tail) = v
           end if
        end do
     end do
-  end subroutine run_dijkstra
-
+  end subroutine run_cluster_bfs
+  
+  
   subroutine write_all_spines_lammpstrj(filename, timestep, spine_coords, ndim, spine_cluster_id, total_atoms, box)
     implicit none
     character(len=*), intent(in) :: filename

@@ -205,10 +205,9 @@ contains
             ! handling, active-contour smoothing, AND array accumulation all at once!
             !call analyze_worm_centered(cluster(i), r, ndim, R_smooth, &
             !                           total_spine_atoms, spine_coords, spine_cluster_ids)
-            call analyze_worm_complete(cluster(i), r, ndim, 10, total_spine_atoms, &
-                                       spine_coords, spine_cluster_ids, &
-                                       lengths, widths)
-            
+            call analyze_worm_fast_branched(cluster(i), r, ndim, R_smooth, 10, total_spine_atoms, &
+                                spine_coords, spine_cluster_ids, &
+                                current_length, current_width)            
             ! Store properties back to your cluster type
             cluster(i)%length = lengths 
             cluster(i)%width  = widths
