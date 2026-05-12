@@ -328,10 +328,10 @@ contains
       write (io_lastconf, "('ITEM: TIMESTEP'/I12/'ITEM: NUMBER OF ATOMS'/I12/'ITEM: BOX BOUNDS pp pp pp')") nstep, Natoms
       write (io_lastclconf, "(2f15.7)") (org(i,1), org(i,1)+sidel(i), i=1, ndim)
       if (ndim == 2) write (io_lastclconf, "('-0.5 0.5')")
-      write (io_lastclconf, "('ITEM: ATOMS id type x y z')")
+      write (io_lastclconf, "('ITEM: ATOMS id mol type x y z')")
       write (io_lastconf, "(2f15.7)") (org(i,1), org(i,1)+sidel(i), i=1, ndim)
       if (ndim == 2) write (io_lastconf, "('-0.5 0.5')")
-      write (io_lastconf, "('ITEM: ATOMS id type x y z')")
+      write (io_lastconf, "('ITEM: ATOMS id mol type x y z')")
       ! Loop over clusters and print atom positions with modified types for cluster visualization
       icl = 0
       do i = 1, maxcln
@@ -341,10 +341,10 @@ contains
                id = cluster(i)%members(k)
                if (ndim == 3) then
                   write (io_lastclconf, "(I8,I4,3F15.7,3F15.7)") &
-                     & icl, mod(j,maxcolor), r(1:ndim,id)+org(1:ndim,1)
+                     & icl, mol, mod(j,maxcolor), r(1:ndim,id)+org(1:ndim,1)
                else
                   write (io_lastclconf, "(I8,I4,2F15.7,3F15.7)") &
-                     & icl, mod(j,maxcolor), r(1:ndim,id)+org(1:ndim,1), 0.0
+                     & icl, mol, mod(j,maxcolor), r(1:ndim,id)+org(1:ndim,1), 0.0
                end if
          end do
       end do
