@@ -207,7 +207,7 @@ contains
             !                           total_spine_atoms, spine_coords, spine_cluster_ids)
             call analyze_worm_fast_branched(cluster(i), r, ndim, R_smooth, 10, total_spine_atoms, &
                                 spine_coords, spine_cluster_ids, &
-                                current_length, current_width)            
+                                lengths, widths)            
             ! Store properties back to your cluster type
             cluster(i)%length = lengths 
             cluster(i)%width  = widths
