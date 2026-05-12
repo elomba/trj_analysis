@@ -163,7 +163,7 @@ contains
       real(myprec) :: R_smooth, dist_sq
       real(myprec) :: local_com(ndim)
       integer, intent(IN) :: Iconf
-      integer  :: spine_len, total_spine_atoms
+      integer  :: total_spine_atoms
       integer, allocatable :: spine(:), all_spines(:), spine_cluster_ids(:)
       real(myprec), allocatable ::spine_coords(:,:)
       integer :: i, j, k, l, cluster_id, icl, ip, ind, indr, &
@@ -207,12 +207,12 @@ contains
             !                           total_spine_atoms, spine_coords, spine_cluster_ids)
             call analyze_worm_complete(cluster(i), r, ndim, 10, total_spine_atoms, &
                                        spine_coords, spine_cluster_ids, &
-                                       length, width)
+                                       lengths, widths)
             
             ! Store properties back to your cluster type
-            cluster(i)%length = length 
-            cluster(i)%width  = width
-            cluster(i)%ratio  = length / width 
+            cluster(i)%length = lengths 
+            cluster(i)%width  = widths
+            cluster(i)%ratio  = lengths / widths 
          endif
    
          ! Calculate cluster size distro
