@@ -123,7 +123,7 @@ contains
     dist(start_node) = 0
     
     do while (headl <= tail)
-       u = queue(head)
+       u = queue(headl)
        headl = headl + 1
        
        ! Use your global CSR offset arrays directly
