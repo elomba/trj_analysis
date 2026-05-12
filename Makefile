@@ -48,7 +48,7 @@ TARGET = $(BIN_DIR)/trj_analysis
 
 # Base flat list of objects
 OBJ_FILES = precision.o thrust.o common.o sorts.o input.o moltools.o netcdf.o cells.o \
-	sq.o rdf.o densprof.o thermo.o worm_analysis.o clusters.o order.o log.o fftwlib.o dynamics.o \
+	sq.o rdf.o densprof.o thermo.o clusters.o order.o log.o fftwlib.o dynamics.o \
 	util.o trj_analysis.o ex-scan.o
 
 # Translate raw object files to be placed in the obj/ directory

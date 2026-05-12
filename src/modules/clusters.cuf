@@ -100,7 +100,6 @@
 module mod_clusters
    use mod_precision
    use mod_common
-   use worm_analysis
    use mod_input
    use mod_sq
    use mod_rdf
@@ -163,9 +162,6 @@ contains
       real(myprec) :: R_smooth, dist_sq
       real(myprec) :: local_com(ndim)
       integer, intent(IN) :: Iconf
-      integer  :: total_spine_atoms
-      integer, allocatable :: spine(:), all_spines(:), spine_cluster_ids(:)
-      real(myprec), allocatable ::spine_coords(:,:)
       integer :: i, j, k, l, cluster_id, icl, ip, ind, indr, &
       & clsz, clussize, cmin, NP_lconf, icount, im, countlarge
       integer :: smooth_count
@@ -193,24 +189,8 @@ contains
       icl = 0
       cluster(:)%rg = 0
       if (Iconf == Nconf) NP_lconf = 0
-      if(worms) then 
-         allocate(all_spines(natoms),spine_cluster_ids(natoms),spine_coords(ndim,natoms))
-         total_spine_atoms = 0
-      endif
-      R_smooth = 1.5*rcl
       do I = 1, cluster_id
          j = cluster(i)%clsize
-         if (worms .and. j > worm_msize) then
-            ! The new routine handles the graph building, tip finding, intersection 
-            call analyze_worm_single_spine(cluster(i), r, ndim, R_smooth,  total_spine_atoms, &
-                                spine_coords, spine_cluster_ids, &
-                                lengths, widths)            
-            ! Store properties back to your cluster type
-            cluster(i)%length = lengths 
-            cluster(i)%width  = widths
-            cluster(i)%ratio  = lengths / widths 
-         endif
-   
          ! Calculate cluster size distro
          ind = nint(real(j)/real(dcl))
          sizedist(ind) = sizedist(ind) + 1
@@ -257,11 +237,6 @@ contains
          if (Iconf == Nconf) NP_lconf = NP_lconf + j
       end do
 
-      if (total_spine_atoms > 0) then
-            call write_all_spines_lammpstrj("worm_spines.lammpstrj", nstep, spine_coords, &
-            ndim, spine_cluster_ids, total_spine_atoms, sidel)
-      end if
-      if (worms) deallocate(all_spines, spine_coords, spine_cluster_ids)
       clmfrac(1:nsp) = 0.0
       ! Count particle types
       do i = 1, cluster_id
