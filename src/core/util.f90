@@ -353,10 +353,10 @@ contains
       do i = 1, Natoms
          if (ndim == 3) then
             write (io_lastconf, "(I8,I4,3F15.7,3F15.7)") &
-               & i, itype(i), r(1:ndim,i)+org(1:ndim,1)
+               & i, i, itype(i), r(1:ndim,i)+org(1:ndim,1)
          else
             write (io_lastconf, "(I8,I4,2F15.7,3F15.7)") &
-               & i, itype(i), r(1:ndim,i)+org(1:ndim,1), 0.0
+               & i, i, itype(i), r(1:ndim,i)+org(1:ndim,1), 0.0
          end if
       end do
       close(io_lastclconf)
