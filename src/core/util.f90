@@ -352,10 +352,10 @@ contains
       ! Print last complete system configuration with original atom types for reference
       do i = 1, Natoms
          if (ndim == 3) then
-            write (io_lastconf, "(I8,I4,3F15.7,3F15.7)") &
+            write (io_lastconf, "(I8,2I4,3F15.7,3F15.7)") &
                & i, i, itype(i), r(1:ndim,i)+org(1:ndim,1)
          else
-            write (io_lastconf, "(I8,I4,2F15.7,3F15.7)") &
+            write (io_lastconf, "(I8,2I4,2F15.7,3F15.7)") &
                & i, i, itype(i), r(1:ndim,i)+org(1:ndim,1), 0.0
          end if
       end do
