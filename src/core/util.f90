@@ -352,9 +352,9 @@ contains
       ! 
       ! Print last configuration in LAMMPS format readable by VMD. 
       !
-      use mod_common, only : itype, wtype, r, u_p, sidel, nstep, ex_vel, ex_mol, Nconf, i_mol
+      use mod_common, only : itype, r, u_p, sidel, nstep, ex_vel, ex_mol, Nconf, i_mol
       use mod_input,only : ndim
-      use mod_nc_conf, only : org
+      use mod_nc_conf, only : org, wtypes
       implicit none
       integer :: i, j, k, icl, id, imol, io_lastconf
       open(newunit=io_lastconf, file='last_conf.lammpstrj', status='replace')
@@ -385,36 +385,36 @@ contains
             if (ex_qc) then
                if (run_thermo) then
                   write(io_lastconf, "(2I8,I4,2F15.7,3F15.7)") &
-                  & i, imol, wtype(itype(i)), qcharge(i),r(1:ndim,i)+org(1:ndim,1), u_p(i)
+                  & i, imol, wtypes(itype(i)), qcharge(i),r(1:ndim,i)+org(1:ndim,1), u_p(i)
                else
                   write(io_lastconf, "(2I8,I4,3F15.7,3F15.7)") &
-                  & i, imol, wtype(itype(i)), qcharge(i),r(1:ndim,i)+org(1:ndim,1)
+                  & i, imol, wtypes(itype(i)), qcharge(i),r(1:ndim,i)+org(1:ndim,1)
                endif
             else
                if (run_thermo) then
                   write(io_lastconf, "(2I8,I4,2F15.7,3F15.7)") &
-                  & i, imol, wtype(itype(i)), r(1:ndim,i)+org(1:ndim,1), u_p(i)
+                  & i, imol, wtypes(itype(i)), r(1:ndim,i)+org(1:ndim,1), u_p(i)
                else  
                   write (io_lastconf, "(2I8,I4,3F15.7,3F15.7)") &
-                  & i, imol, wtype(itype(i)), r(1:ndim,i)+org(1:ndim,1)
+                  & i, imol, wtypes(itype(i)), r(1:ndim,i)+org(1:ndim,1)
                endif
             endif
          else
             if (ex_qc) then 
                if (run_thermo) then
                   write(io_lastconf, "(2I8,I4,2F15.7,3F15.7)") &
-                  & i, imol, wtype(itype(i)), qcharge(i),r(1:ndim,i)+org(1:ndim,1), 0.0, u_p(i)
+                  & i, imol, wtypes(itype(i)), qcharge(i),r(1:ndim,i)+org(1:ndim,1), 0.0, u_p(i)
                else
                   write(io_lastconf, "(2I8,I4,2F15.7,3F15.7)") &
-                  & i, imol, wtype(itype(i)), qcharge(i),r(1:ndim,i)+org(1:ndim,1), 0.0
+                  & i, imol, wtypes(itype(i)), qcharge(i),r(1:ndim,i)+org(1:ndim,1), 0.0
                endif
             else  
                if (run_thermo) then
                   write(io_lastconf, "(2I8,I4,2F15.7,3F15.7)") &
-                  & i, imol, wtype(itype(i)), r(1:ndim,i)+org(1:ndim,1), 0.0, u_p(i)
+                  & i, imol, wtypes(itype(i)), r(1:ndim,i)+org(1:ndim,1), 0.0, u_p(i)
                else
                   write (io_lastconf, "(2I8,I4,2F15.7,3F15.7)") &
-                  & i, imol, wtype(itype(i)), r(1:ndim,i)+org(1:ndim,1), 0.0
+                  & i, imol, wtypes(itype(i)), r(1:ndim,i)+org(1:ndim,1), 0.0
                endif
             endif
          end if
