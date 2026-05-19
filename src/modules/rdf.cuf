@@ -343,7 +343,6 @@ contains
       if(.not.twoDstruc_3D) then
          call find_first_minimum_interp(gtot, lsmax, deltar, rmingr)
          if (iconf==1) then
-            print *, ' units=', units
             if (units == 'lj') then
                write(*,"(/' *** Suggested rcl (NN and/or connectivity distance): ',f8.4,' σ')" ) rmingr
             else
