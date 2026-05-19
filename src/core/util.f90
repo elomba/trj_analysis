@@ -315,7 +315,7 @@ contains
       ! Last complete system configuration is also printed in last.lammpstrj,
       ! with original atom types, for reference.
       !
-      use mod_common, only : cluster, itype, r, u_p, sidel, nstep, ex_vel, Nconf, i_mol
+      use mod_common, only : cluster, itype, r, u_p, sidel, nstep, ex_vel, ex_mol, Nconf, i_mol
       use mod_input,only : ndim
       use mod_nc_conf, only : org
       implicit none
