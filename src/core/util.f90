@@ -300,6 +300,8 @@ contains
             call printPotEngCl()
          end if
       end if
+      ! Print last configuration
+      call print_last_conf()
       ! Print order parameter results
       if (run_order) then
          call print_order()
@@ -315,35 +317,18 @@ contains
       ! Last complete system configuration is also printed in last.lammpstrj,
       ! with original atom types, for reference.
       !
-      use mod_common, only : cluster, itype, r, u_p, sidel, nstep, ex_vel, ex_mol, Nconf, i_mol
+      use mod_common, only : cluster, itype, r, u_p, sidel, nstep, ex_vel, Nconf
       use mod_input,only : ndim
       use mod_nc_conf, only : org
       implicit none
       ! maxcolor is set to 32, so cluster size distinguished by color in VMD
-      integer :: i, j, k, icl, id, imol, io_lastclconf, natcl, maxcolor=32, io_lastconf
+      integer :: i, j, k, icl, id, imol, io_lastclconf, natcl, maxcolor=32
       natcl = sum(cluster(1:maxcln)%clsize)
       open(newunit=io_lastclconf, file='last_clconf.lammpstrj', status='replace')
-      open(newunit=io_lastconf, file='last_conf.lammpstrj', status='replace')
       write (io_lastclconf, "('ITEM: TIMESTEP'/I12/'ITEM: NUMBER OF ATOMS'/I12/'ITEM: BOX BOUNDS pp pp pp')") nstep, natcl
-      write (io_lastconf, "('ITEM: TIMESTEP'/I12/'ITEM: NUMBER OF ATOMS'/I12/'ITEM: BOX BOUNDS pp pp pp')") nstep, Natoms
       write (io_lastclconf, "(2f15.7)") (org(i,1), org(i,1)+sidel(i), i=1, ndim)
       if (ndim == 2) write (io_lastclconf, "('-0.5 0.5')")
       write (io_lastclconf, "('ITEM: ATOMS id mol type x y z')")
-      write (io_lastconf, "(2f15.7)") (org(i,1), org(i,1)+sidel(i), i=1, ndim)
-      if (ndim == 2) write (io_lastconf, "('-0.5 0.5')")
-      if (ex_qc) then
-         if (run_thermo) then
-            write(io_lastconf, "('ITEM: ATOMS id mol type q x y z c_ener')")
-         else
-            write(io_lastconf, "('ITEM: ATOMS id mol type q x y z')")
-         endif
-      else
-         if (run_thermo) then
-            write(io_lastconf, "('ITEM: ATOMS id mol type x y z c_ener')")
-         else
-            write(io_lastconf, "('ITEM: ATOMS id mol type x y z')")
-         endif
-      endif
       ! Loop over clusters and print atom positions with modified types for cluster visualization
       icl = 0
       do i = 1, maxcln
@@ -360,7 +345,35 @@ contains
                end if
          end do
       end do
+      close(io_lastclconf)
+   end subroutine print_last_clustconf
 
+    subroutine print_last_conf()
+      ! 
+      ! Print last configuration in LAMMPS format readable by VMD. 
+      !
+      use mod_common, only : itype, r, u_p, sidel, nstep, ex_vel, ex_mol, Nconf, i_mol
+      use mod_input,only : ndim
+      use mod_nc_conf, only : org
+      implicit none
+      integer :: i, j, k, icl, id, imol, io_lastconf
+      open(newunit=io_lastconf, file='last_conf.lammpstrj', status='replace')
+      write (io_lastconf, "('ITEM: TIMESTEP'/I12/'ITEM: NUMBER OF ATOMS'/I12/'ITEM: BOX BOUNDS pp pp pp')") nstep, Natoms
+      write (io_lastconf, "(2f15.7)") (org(i,1), org(i,1)+sidel(i), i=1, ndim)
+      if (ndim == 2) write (io_lastconf, "('-0.5 0.5')")
+      if (ex_qc) then
+         if (run_thermo) then
+            write(io_lastconf, "('ITEM: ATOMS id mol type q x y z c_ener')")
+         else
+            write(io_lastconf, "('ITEM: ATOMS id mol type q x y z')")
+         endif
+      else
+         if (run_thermo) then
+            write(io_lastconf, "('ITEM: ATOMS id mol type x y z c_ener')")
+         else
+            write(io_lastconf, "('ITEM: ATOMS id mol type x y z')")
+         endif
+      endif
       ! Print last complete system configuration with original atom types for reference
       do i = 1, Natoms
          if (ex_mol) then
@@ -406,9 +419,8 @@ contains
             endif
          end if
       end do
-      close(io_lastclconf)
       close(io_lastconf)
-   end subroutine print_last_clustconf
+   end subroutine print_last_conf
 
    
    subroutine reformat_input_conf(io,final_conf,current_conf,ntypes,nsp)
