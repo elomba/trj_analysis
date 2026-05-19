@@ -232,7 +232,7 @@ contains
          sqfp(:, :) = 0
       endif
       nq(:) = 0
-      if (idir>0) then
+      if (confned) then
          run_sqw=.false.
          write(*,*) "*** S(Q,w) calculation disabled for directional sampling (idir>0) **"
       endif
@@ -242,7 +242,7 @@ contains
          ! Loop to determine the number of i,j,k that match the input qw to calculate S(Q,w)
          do i = 0, nint(qmm/(2*pi/sidel(1)))
             do j = 0, nint(qmm/(2*pi/sidel(2)))
-               if (ndim==3.and.idir>0) then
+               if (ndim==3.and.confined) then
                   kmaxz = nint(qmm/(2*pi/sidel(3)))
                else
                   kmaxz = 0
