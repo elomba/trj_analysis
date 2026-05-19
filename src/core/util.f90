@@ -385,36 +385,36 @@ contains
             if (ex_qc) then
                if (run_thermo) then
                   write(io_lastconf, "(2I8,I4,2F15.7,3F15.7)") &
-                  & i, imol, itype(i), qcharge(i),r(1:ndim,i)+org(1:ndim,1), u_p(i)
+                  & i, imol, wtype(itype(i)), qcharge(i),r(1:ndim,i)+org(1:ndim,1), u_p(i)
                else
                   write(io_lastconf, "(2I8,I4,3F15.7,3F15.7)") &
-                  & i, imol, itype(i), qcharge(i),r(1:ndim,i)+org(1:ndim,1)
+                  & i, imol, wtype(itype(i)), qcharge(i),r(1:ndim,i)+org(1:ndim,1)
                endif
             else
                if (run_thermo) then
                   write(io_lastconf, "(2I8,I4,2F15.7,3F15.7)") &
-                  & i, imol, itype(i), r(1:ndim,i)+org(1:ndim,1), u_p(i)
+                  & i, imol, wtype(itype(i)), r(1:ndim,i)+org(1:ndim,1), u_p(i)
                else  
                   write (io_lastconf, "(2I8,I4,3F15.7,3F15.7)") &
-                  & i, imol, itype(i), r(1:ndim,i)+org(1:ndim,1)
+                  & i, imol, wtype(itype(i)), r(1:ndim,i)+org(1:ndim,1)
                endif
             endif
          else
             if (ex_qc) then 
                if (run_thermo) then
                   write(io_lastconf, "(2I8,I4,2F15.7,3F15.7)") &
-                  & i, imol, itype(i), qcharge(i),r(1:ndim,i)+org(1:ndim,1), 0.0, u_p(i)
+                  & i, imol, wtype(itype(i)), qcharge(i),r(1:ndim,i)+org(1:ndim,1), 0.0, u_p(i)
                else
                   write(io_lastconf, "(2I8,I4,2F15.7,3F15.7)") &
-                  & i, imol, itype(i), qcharge(i),r(1:ndim,i)+org(1:ndim,1), 0.0
+                  & i, imol, wtype(itype(i)), qcharge(i),r(1:ndim,i)+org(1:ndim,1), 0.0
                endif
             else  
                if (run_thermo) then
                   write(io_lastconf, "(2I8,I4,2F15.7,3F15.7)") &
-                  & i, imol, itype(i), r(1:ndim,i)+org(1:ndim,1), 0.0, u_p(i)
+                  & i, imol, wtype(itype(i)), r(1:ndim,i)+org(1:ndim,1), 0.0, u_p(i)
                else
                   write (io_lastconf, "(2I8,I4,2F15.7,3F15.7)") &
-                  & i, imol, itype(i), r(1:ndim,i)+org(1:ndim,1), 0.0
+                  & i, imol, wtype(itype(i)), r(1:ndim,i)+org(1:ndim,1), 0.0
                endif
             endif
          end if
