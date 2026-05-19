@@ -232,7 +232,7 @@ contains
          sqfp(:, :) = 0
       endif
       nq(:) = 0
-      if (confned) then
+      if (confined) then
          run_sqw=.false.
          write(*,*) "*** S(Q,w) calculation disabled for directional sampling (idir>0) **"
       endif
