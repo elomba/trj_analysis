@@ -375,7 +375,7 @@ contains
          endif
       endif
       ! Print last complete system configuration with original atom types for reference
-      do i = 1, Natoms
+      do i = 1, Nsites
          if (ex_mol) then
             imol = i_mol(i)
          else 
