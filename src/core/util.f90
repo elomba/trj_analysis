@@ -352,7 +352,7 @@ contains
       ! 
       ! Print last configuration in LAMMPS format readable by VMD. 
       !
-      use mod_common, only : itype, r, u_p, sidel, nstep, ex_vel, ex_mol, Nconf, i_mol
+      use mod_common, only : itype, wtype, r, u_p, sidel, nstep, ex_vel, ex_mol, Nconf, i_mol
       use mod_input,only : ndim
       use mod_nc_conf, only : org
       implicit none
