@@ -582,11 +582,12 @@ end subroutine reset_Nsites
 subroutine select_ncdfinput()
    ! Select atoms in wtypes from netcdf file and remap coordinates in species order
    use mod_nc_conf, only: org, cell_in => cell, r_in => r, v_in => v, f_in => fxyz, &
-      ity_in => ity, nstep_in => step, natoms, ntypes, wtypes, u_pi, stress_i, orgty, qc, &
+      ity_in => ity, imol, nstep_in => step, natoms, ntypes, wtypes, u_pi, stress_i, orgty, qc, &
       nct, counter
    use mod_common, only: vel, r, force, cell, sidel, sidelv, side, volumen, itype, bscat, tunit, &
       ntype, masa, nstep, vector_product, Nsites, ex_vel, ex_force, ex_qc, &
-      tuniti, side2, u_p, stress, voigt, run_thermo, ex_stress, qcharge, chgh, ncharge, cntch, periodic
+      tuniti, side2, u_p, stress, voigt, run_thermo, ex_stress, ex_mol, qcharge, i_mol, &
+      chgh, ncharge, cntch, periodic
    use mod_input, only: ndim, mat, bsc, rcrdf, nsp, charge, idir, sp_types_selected, nsp
 
    implicit none
