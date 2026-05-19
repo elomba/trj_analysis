@@ -352,7 +352,7 @@ contains
       ! 
       ! Print last configuration in LAMMPS format readable by VMD. 
       !
-      use mod_common, only : itype, r, u_p, sidel, nstep, ex_vel, ex_mol, Nconf, i_mol
+      use mod_common, only : itype, r, u_p, sidel, nstep, ex_vel, ex_mol, Nconf, i_mol, Nsites=>Nsites_in
       use mod_input,only : ndim
       use mod_nc_conf, only : org, wtypes
       implicit none
@@ -375,7 +375,7 @@ contains
          endif
       endif
       ! Print last complete system configuration with original atom types for reference
-      do i = 1, Nsites
+      do i = 1, Nsites_in
          if (ex_mol) then
             imol = i_mol(i)
          else 
