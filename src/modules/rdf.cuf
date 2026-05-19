@@ -187,7 +187,7 @@ contains
       !
       implicit none
       integer, intent(IN) :: Nsites, Iconf, nbcuda, nthread
-      character(len=20), intent(IN) :: units
+      character(:), intent(IN) :: units
       integer :: istart, i, ind, k, j, l, istat=0, ierrSync, rdfb, rdfth, islice
       real :: time_gpu, suma, deltaV, ri
       ! Initialize histograms to zero for this configuration

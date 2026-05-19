@@ -161,7 +161,7 @@ program trj_analysis
     !
     call form_dependencies()
     ! Init common variables & print outs
-    call common_init(Nsites, ndim, nthread, idir, conf(4)%units,conf(4)%scale, nsp)
+    call common_init(Nsites, ndim, nthread, idir, conf(4)%units, conf(4)%scale, nsp)
     ! Analysis begins from first configuration selected
     Nccount = 0
 
