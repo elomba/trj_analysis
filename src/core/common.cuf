@@ -54,7 +54,7 @@ module mod_common
       voigt, nrandom=0, ndrclus=100, maxnbpp=25, nmrigid=0, rigid_mols(nrig_max)
    integer :: cntch(100), ncharge, nslice=-1
    real(double), dimension(100) :: chgh
-   integer, allocatable, dimension(:) :: ntype, itype, lty, list, label, nq, countslice
+   integer, allocatable, dimension(:) :: ntype, itype, i_mol, lty, list, label, nq, countslice
    integer, allocatable, dimension(:, :) :: ipos, densprofi,  histomixi, countpslice
    integer, allocatable, dimension(:, :, :) :: _xyi
    integer (kind=2), allocatable, dimension(:,:) :: indqw
@@ -429,6 +429,9 @@ end subroutine count_q_slice
       allocate (ipos(nsp, Nsites))
       allocate (bscat(Nsites))
       allocate (masa(Nsites))
+      if (ex_mol) then
+         allocate (i_mol(Nsites))
+      endif
       if (ex_qc) then
          allocate (qcharge(Nsites))
          allocate (qcharge_d(Nsites))

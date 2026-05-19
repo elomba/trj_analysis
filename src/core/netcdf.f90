@@ -642,17 +642,17 @@ subroutine select_ncdfinput()
    do i = 1, natoms
       if (any(sp_types_selected(1:nsp) == wtypes(ity_in(i,1)))) then
          it = findloc(wtypes,wtypes(ity_in(i, 1)))
-!         it(1) = ity_in(i, 1)
          counter(it(1)) = counter(it(1)) + 1
          j = counter(it(1))
          !
          ! NOTE: when ndim=2, z component of r_in,v_in is discarded
          !
+         r(1:ndim, j) = r_in(1:ndim, i, 1)
          if (ex_vel) vel(1:ndim, j) = v_in(1:ndim, i, 1)*tunit/tuniti
          if (ex_force) force(1:ndim, j) = f_in(1:ndim, i, 1)
          if (run_thermo) u_p(j) = u_pi(i,1)
          if (ex_stress) stress(1:voigt,j)=stress_i(1:voigt,i,1)
-         r(1:ndim, j) = r_in(1:ndim, i, 1)
+         if(ex_mol) i_mol(j) = imol(i,1)
          if (ex_qc) then
             qcharge(j) = qc(i,1)
             if (compcharge) then

@@ -315,12 +315,12 @@ contains
       ! Last complete system configuration is also printed in last.lammpstrj,
       ! with original atom types, for reference.
       !
-      use mod_common, only : cluster, itype, r, sidel, nstep, ex_vel, Nconf
+      use mod_common, only : cluster, itype, r, u_p, sidel, nstep, ex_vel, Nconf, i_mol
       use mod_input,only : ndim
       use mod_nc_conf, only : org
       implicit none
       ! maxcolor is set to 32, so cluster size distinguished by color in VMD
-      integer :: i, j, k, icl, id, io_lastclconf, natcl, maxcolor=32, io_lastconf
+      integer :: i, j, k, icl, id, imol, io_lastclconf, natcl, maxcolor=32, io_lastconf
       natcl = sum(cluster(1:maxcln)%clsize)
       open(newunit=io_lastclconf, file='last_clconf.lammpstrj', status='replace')
       open(newunit=io_lastconf, file='last_conf.lammpstrj', status='replace')
@@ -331,7 +331,19 @@ contains
       write (io_lastclconf, "('ITEM: ATOMS id mol type x y z')")
       write (io_lastconf, "(2f15.7)") (org(i,1), org(i,1)+sidel(i), i=1, ndim)
       if (ndim == 2) write (io_lastconf, "('-0.5 0.5')")
-      write (io_lastconf, "('ITEM: ATOMS id mol type x y z')")
+      if (ex_qc) then
+         if (run_thermo) then
+            write(io_lastconf, "('ITEM: ATOMS id mol type q x y z c_ener')")
+         else
+            write(io_lastconf, "('ITEM: ATOMS id mol type q x y z')")
+         endif
+      else
+         if (run_thermo) then
+            write(io_lastconf, "('ITEM: ATOMS id mol type x y z c_ener')")
+         else
+            write(io_lastconf, "('ITEM: ATOMS id mol type x y z')")
+         endif
+      endif
       ! Loop over clusters and print atom positions with modified types for cluster visualization
       icl = 0
       do i = 1, maxcln
@@ -351,12 +363,47 @@ contains
 
       ! Print last complete system configuration with original atom types for reference
       do i = 1, Natoms
+         if (ex_mol) then
+            imol = i_mol(i)
+         else 
+            imol = i
+         endif
          if (ndim == 3) then
-            write (io_lastconf, "(2I8,I4,3F15.7,3F15.7)") &
-               & i, i, itype(i), r(1:ndim,i)+org(1:ndim,1)
+            if (ex_qc) then
+               if (run_thermo) then
+                  write(io_lastconf, "(2I8,I4,2F15.7,3F15.7)") &
+                  & i, imol, itype(i), qcharge(i),r(1:ndim,i)+org(1:ndim,1), u_p(i)
+               else
+                  write(io_lastconf, "(2I8,I4,3F15.7,3F15.7)") &
+                  & i, imol, itype(i), qcharge(i),r(1:ndim,i)+org(1:ndim,1)
+               endif
+            else
+               if (run_thermo) then
+                  write(io_lastconf, "(2I8,I4,2F15.7,3F15.7)") &
+                  & i, imol, itype(i), r(1:ndim,i)+org(1:ndim,1), u_p(i)
+               else  
+                  write (io_lastconf, "(2I8,I4,3F15.7,3F15.7)") &
+                  & i, imol, itype(i), r(1:ndim,i)+org(1:ndim,1)
+               endif
+            endif
          else
-            write (io_lastconf, "(2I8,I4,2F15.7,3F15.7)") &
-               & i, i, itype(i), r(1:ndim,i)+org(1:ndim,1), 0.0
+            if (ex_qc) then 
+               if (run_thermo) then
+                  write(io_lastconf, "(2I8,I4,2F15.7,3F15.7)") &
+                  & i, imol, itype(i), qcharge(i),r(1:ndim,i)+org(1:ndim,1), 0.0, u_p(i)
+               else
+                  write(io_lastconf, "(2I8,I4,2F15.7,3F15.7)") &
+                  & i, imol, itype(i), qcharge(i),r(1:ndim,i)+org(1:ndim,1), 0.0
+               endif
+            else  
+               if (run_thermo) then
+                  write(io_lastconf, "(2I8,I4,2F15.7,3F15.7)") &
+                  & i, imol, itype(i), r(1:ndim,i)+org(1:ndim,1), 0.0, u_p(i)
+               else
+                  write (io_lastconf, "(2I8,I4,2F15.7,3F15.7)") &
+                  & i, imol, itype(i), r(1:ndim,i)+org(1:ndim,1), 0.0
+               endif
+            endif
          end if
       end do
       close(io_lastclconf)
