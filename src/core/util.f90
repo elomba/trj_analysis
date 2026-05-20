@@ -273,11 +273,11 @@ contains
       ! Print summary of species information
       do i = 1, nsp
          if (ex_qc) then
-            write (*, '(" ** ",i6," atoms of type ",i2,", in LAMMPS (",i2,"), ",f8.4,&
+            write (*, '(" ** ",i6," atoms of type ",i2,", in LAMMPS (",i2,"), ",f10.4,&
             & " amu, average charge ",f9.5," e ")")') &
             & ntype(i), i, wtypes(i), mat(i), charge(i)
          else
-            write (*, '(" ** ",i6," atoms of type ",i2,", in LAMMPS (",i2,"), ",f8.4, &
+            write (*, '(" ** ",i6," atoms of type ",i2,", in LAMMPS (",i2,"), ",f10.4, &
             & " amu  ")') ntype(i), i, wtypes(i), mat(i)
          endif
       end do

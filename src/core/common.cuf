@@ -384,9 +384,9 @@ end subroutine count_q_slice
       character(*), intent(in) :: units
       if (rcl>0) then
          if (units == 'lj') then
-            write(*,"(//' *** Note: rcl (NN and/or connectivity distance) set to ',f8.4,' σ')" ) rcl
+            write(*,"(//' *** Note: rcl (NN and/or connectivity distance) set to ',f10.4,' σ')" ) rcl
          else
-            write(*,"(//' *** Note: rcl (NN and/or connectivity distance) set to ',f8.4,' Å')" ) rcl
+            write(*,"(//' *** Note: rcl (NN and/or connectivity distance) set to ',f10.4,' Å')" ) rcl
          endif
       endif
       Nsites = natoms !! WARN, change when molecules are implemented
