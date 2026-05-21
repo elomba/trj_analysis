@@ -646,12 +646,10 @@ contains
       ! Normalize cluster size distribution a s*n(s)/Ntotal
       !
       write (1001, "('#   N                %clus.               rho_cl ')")
-      suma = 0
       ndist = nint(real(Nsites)/real(dcl))
       norm = (0.5*(sizedist(1) + sizedist(ndist)) + sum(sizedist(2:ndist - 1)))*dcl
       do i = 1, ndist
-         suma = i*sizedist(i)*dcl + suma
-         if (sizedist(i) > 0) write (1001, '(4f15.7)') (i - 0.5)*dcl, real(i*sizedist(i))/(real(Nconf*dcl*Nsites)), real(sizedist(i))/norm
+         if (sizedist(i) > 0) write (1001, '(4f15.7)') i*dcl, real(i*sizedist(i))/(real(Nconf*dcl*Nsites)), real(sizedist(i))/norm
       end do
       close (1001)
       close (999)
