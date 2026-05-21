@@ -149,6 +149,8 @@ contains
       & .or. rdf_sq_cl_dyn_sqw_conf_ord(3) == .true. .or. rdf_sq_cl_dyn_sqw_conf_ord(5) == .true.  ) read (unit=io_input_file, nml=INPUT_SQ)
       if (rdf_sq_cl_dyn_sqw_conf_ord(3) == .true.) then
          read (unit=io_input_file, nml=INPUT_CL)
+         ! Ensure grid in cluster distribution >= 1 particle
+         dcl = max(1.0,dcl)
          if (rcl <= 0.0) then
             write(*,'("*** Error: rcl (cluster distance) must be positive to compute clusters !")')
             stop
