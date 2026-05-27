@@ -58,13 +58,13 @@ contains
             ! Calculate cell index in x direction
             i = int((R(1, n))/cellx)
             if (i < 0 .or. i >= maxi) then
-                print *, ' error in cells in x direction for ', n, R(1, n), cellx, i, maxi
+                print *, ' *** Error in cells in x direction for ', n, R(1, n), cellx, i, maxi
                 stop
             end if
             ! Calculate cell index in y direction
             j = int((R(2, n))/celly)
             if (j < 0 .or. j >= maxj) then
-                print *, ' error in cells in y direction for ', n, R(2, n), celly, j, maxj
+                print *, ' *** Error in cells in y direction for ', n, R(2, n), celly, j, maxj
 
                 stop
             end if
@@ -72,7 +72,7 @@ contains
                 ! Calculate cell index in z direction (3D only)
                 k = int((R(3, n))/cellz)
                 if (k < 0 .or. k >= maxk) then
-                    print *, ' error in cells in z direction for ', n, R(3, n), cellz, k, maxk
+                    print *, ' *** Error in cells in z direction for ', n, R(3, n), cellz, k, maxk
                     stop
                 end if
                 ! Linear cell index for 3D

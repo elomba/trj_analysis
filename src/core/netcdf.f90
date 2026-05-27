@@ -320,7 +320,7 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
             ! Simulation box origin set to zero, except along confinement 
             ! direction
             !
-            if (k.ne. idir) then
+            if (periodic(k)) then
                r(k, 1:natoms, 1) = r(k, 1:natoms, 1) - org(k, 1)
             end if
             if (cell(k, 1) == 0) then
