@@ -208,7 +208,7 @@ contains
             theta(1:ndim) = 2*pi*rv(1:ndim)/sidelv(1:ndim)
             xss(1:ndim) = xss(1:ndim) + cos(theta(1:ndim))
             sss(1:ndim) = sss(1:ndim) + sin(theta(1:ndim))
-            vcl(1:ndim) = vcl(1:ndim) + masa(ip)*vel(1:ndim, ip)
+            if (ex_vel) vcl(1:ndim) = vcl(1:ndim) + masa(ip)*vel(1:ndim, ip)
             mcl = mcl + masa(ip)
          end do
          xss(1:ndim) = xss(1:ndim)/j
@@ -221,14 +221,20 @@ contains
          !
          ! Store cluster's center of mass velocity and net mass
          !
-         cluster(i)%vl(1:ndim) = vcl(1:ndim)/mcl
+         if (ex_vel) then
+            cluster(i)%vl(1:ndim) = vcl(1:ndim)/mcl
+         else
+            cluster(i)%vl(1:ndim) = 0.0
+         endif
          cluster(i)%mass = mcl
          ekcls = 0
-         do k = 1, j
-            ip = cluster(i)%members(k)
-            ekcls = ekcls + 0.5*masa(ip)*dot_product(vel(:, ip)&
-            &- cluster(i)%vl(:), vel(:, ip) - cluster(i)%vl(:))
-         end do
+         if (ex_vel) then
+            do k = 1, j
+               ip = cluster(i)%members(k)
+               ekcls = ekcls + 0.5*masa(ip)*dot_product(vel(:, ip)&
+               &- cluster(i)%vl(:), vel(:, ip) - cluster(i)%vl(:))
+            end do
+         endif
          cluster(i)%ekin = ekcls
          ! Print trajectory file of clusters' mass centers
          if (maxcln > cl_thresh) then
