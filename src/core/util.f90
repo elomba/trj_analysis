@@ -358,7 +358,7 @@ contains
       implicit none
       integer :: i, j, k, icl, id, imol, io_lastconf
       open(newunit=io_lastconf, file='last_conf.lammpstrj', status='replace')
-      write (io_lastconf, "('ITEM: TIMESTEP'/I12/'ITEM: NUMBER OF ATOMS'/I12/'ITEM: BOX BOUNDS pp pp pp')") nstep, Natoms
+      write (io_lastconf, "('ITEM: TIMESTEP'/I12/'ITEM: NUMBER OF ATOMS'/I12/'ITEM: BOX BOUNDS pp pp pp')") nstep, Nsites_in
       write (io_lastconf, "(2f15.7)") (org(i,1), org(i,1)+sidel(i), i=1, ndim)
       if (ndim == 2) write (io_lastconf, "('-0.5 0.5')")
       if (ex_qc) then
