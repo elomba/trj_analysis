@@ -296,6 +296,8 @@ contains
          if (maxcln>cl_thresh) call print_clusinfo(nqmin, Nsites)
          ! Print last cluster configuration
          call print_last_clustconf()
+         ! Print last border configuration
+         call print_last_brdconf()
          if (run_thermo) then
             call printPotEngCl()
          end if
@@ -347,6 +349,92 @@ contains
       end do
       close(io_lastclconf)
    end subroutine print_last_clustconf
+
+   subroutine print_last_brdconf()
+      ! 
+      ! Print last border configuration in LAMMPS format.
+      ! Consistent with last_conf.lammpstrj
+      !
+      use mod_common, only : cluster, itype, r, u_p, sidel, nstep, ex_vel, ex_mol, Nconf, i_mol, label, neighbors, Nsites_in=>Nsites
+      use mod_input, only : ndim, minPts
+      use mod_nc_conf, only : org
+      implicit none
+      integer :: i, j, k, icl, id, imol, io_lastbrdconf, nbrd, maxcolor=32
+      ! First, count how many border points we have
+      nbrd = 0
+      do i = 1, Nsites_in
+         if (label(i) > 0 .and. neighbors(i) < minPts - 1) then
+            nbrd = nbrd + 1
+         end if
+      end do
+
+      open(newunit=io_lastbrdconf, file='last_brdconf.lammpstrj', status='replace')
+      write (io_lastbrdconf, "('ITEM: TIMESTEP'/I12/'ITEM: NUMBER OF ATOMS'/I12/'ITEM: BOX BOUNDS pp pp pp')") nstep, nbrd
+      write (io_lastbrdconf, "(2f15.7)") (org(i,1), org(i,1)+sidel(i), i=1, ndim)
+      if (ndim == 2) write (io_lastbrdconf, "('-0.5 0.5')")
+
+      if (ex_qc) then
+         if (run_thermo) then
+            write(io_lastbrdconf, "('ITEM: ATOMS id mol type q x y z c_ener')")
+         else
+            write(io_lastbrdconf, "('ITEM: ATOMS id mol type q x y z')")
+         endif
+      else
+         if (run_thermo) then
+            write(io_lastbrdconf, "('ITEM: ATOMS id mol type x y z c_ener')")
+         else
+            write(io_lastbrdconf, "('ITEM: ATOMS id mol type x y z')")
+         endif
+      endif
+
+      ! Loop over all particles and print border points
+      icl = 0
+      do i = 1, Nsites_in
+         if (label(i) > 0 .and. neighbors(i) < minPts - 1) then
+            icl = icl + 1
+            imol = label(i) ! Cluster ID is the molecule ID
+            j = cluster(imol)%clsize ! cluster size
+            if (ndim == 3) then
+               if (ex_qc) then
+                  if (run_thermo) then
+                     write(io_lastbrdconf, "(2I8,I4,2F15.7,3F15.7)") &
+                     & icl, imol, mod(j, maxcolor), qcharge(i), r(1:ndim,i)+org(1:ndim,1), u_p(i)
+                  else
+                     write(io_lastbrdconf, "(2I8,I4,3F15.7,3F15.7)") &
+                     & icl, imol, mod(j, maxcolor), qcharge(i), r(1:ndim,i)+org(1:ndim,1)
+                  endif
+               else
+                  if (run_thermo) then
+                     write(io_lastbrdconf, "(2I8,I4,2F15.7,3F15.7)") &
+                     & icl, imol, mod(j, maxcolor), r(1:ndim,i)+org(1:ndim,1), u_p(i)
+                  else  
+                     write (io_lastbrdconf, "(2I8,I4,3F15.7,3F15.7)") &
+                     & icl, imol, mod(j, maxcolor), r(1:ndim,i)+org(1:ndim,1)
+                  endif
+               endif
+            else
+               if (ex_qc) then 
+                  if (run_thermo) then
+                     write(io_lastbrdconf, "(2I8,I4,2F15.7,3F15.7)") &
+                     & icl, imol, mod(j, maxcolor), qcharge(i), r(1:ndim,i)+org(1:ndim,1), 0.0, u_p(i)
+                  else
+                     write(io_lastbrdconf, "(2I8,I4,2F15.7,3F15.7)") &
+                     & icl, imol, mod(j, maxcolor), qcharge(i), r(1:ndim,i)+org(1:ndim,1), 0.0
+                  endif
+               else  
+                  if (run_thermo) then
+                     write(io_lastbrdconf, "(2I8,I4,2F15.7,3F15.7)") &
+                     & icl, imol, mod(j, maxcolor), r(1:ndim,i)+org(1:ndim,1), 0.0, u_p(i)
+                  else
+                     write (io_lastbrdconf, "(2I8,I4,2F15.7,3F15.7)") &
+                     & icl, imol, mod(j, maxcolor), r(1:ndim,i)+org(1:ndim,1), 0.0
+                  endif
+               endif
+            end if
+         end if
+      end do
+      close(io_lastbrdconf)
+   end subroutine print_last_brdconf
 
     subroutine print_last_conf()
       ! 
