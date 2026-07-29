@@ -47,47 +47,52 @@ module mod_cells
 
 contains
 
+    attributes(global) subroutine gpu_cells_build_kernel(r_d, listad, headd, ndim, natms, cellx, celly, cellz, maxi, maxj, maxk, ncell)
+        implicit none
+        integer, value, intent(in) :: ndim, natms, maxi, maxj, maxk, ncell
+        real(double), value, intent(in) :: cellx, celly, cellz
+        real, dimension(ndim, natms), intent(in) :: r_d
+        integer, dimension(natms), intent(out) :: listad
+        integer, dimension(0:ncell-1), intent(inout) :: headd
+
+        integer :: n, i, j, k, icell, old_head
+
+        n = (blockIdx%x - 1) * blockDim%x + threadIdx%x
+        if (n <= natms) then
+            i = int(r_d(1, n) / cellx)
+            if (i < 0) i = 0
+            if (i >= maxi) i = maxi - 1
+
+            j = int(r_d(2, n) / celly)
+            if (j < 0) j = 0
+            if (j >= maxj) j = maxj - 1
+
+            if (ndim == 3) then
+                k = int(r_d(3, n) / cellz)
+                if (k < 0) k = 0
+                if (k >= maxk) k = maxk - 1
+                icell = (i * maxj + j) * maxk + k
+            else
+                icell = i * maxj + j
+            end if
+
+            old_head = atomicExch(headd(icell), n)
+            listad(n) = old_head
+        end if
+    end subroutine gpu_cells_build_kernel
+
     subroutine cells_build()
         implicit none
-        integer :: n, i, j, k, icell
-        ! Initialize linked cell lists
-        head(:) = 0
-        lista(:) = 0
-        ! Assign each particle to its cell and build linked lists
-        do n = 1, natms
-            ! Calculate cell index in x direction
-            i = int((R(1, n))/cellx)
-            if (i < 0 .or. i >= maxi) then
-                print *, ' *** Error in cells in x direction for ', n, R(1, n), cellx, i, maxi
-                stop
-            end if
-            ! Calculate cell index in y direction
-            j = int((R(2, n))/celly)
-            if (j < 0 .or. j >= maxj) then
-                print *, ' *** Error in cells in y direction for ', n, R(2, n), celly, j, maxj
+        integer :: nthreads, nblocks, istat
 
-                stop
-            end if
-            if (ndim == 3) then
-                ! Calculate cell index in z direction (3D only)
-                k = int((R(3, n))/cellz)
-                if (k < 0 .or. k >= maxk) then
-                    print *, ' *** Error in cells in z direction for ', n, R(3, n), cellz, k, maxk
-                    stop
-                end if
-                ! Linear cell index for 3D
-                icell = (i*maxj + j)*maxk + k
-            else
-                ! Linear cell index for 2D
-                icell = i*maxj + j
-            end if
-            ! Add particle to cell's linked list
-            lista(n) = head(icell)
-            head(icell) = n
-        end do
-        ! Transfer cell lists to GPU device memory
-        listad(1:natms) = lista(1:natms)
-        headd(0:ncell - 1) = head(0:ncell - 1)
+        headd(0:ncell - 1) = 0
+        listad(1:natms) = 0
+
+        nthreads = 256
+        nblocks = (natms + nthreads - 1) / nthreads
+
+        call gpu_cells_build_kernel<<<nblocks, nthreads>>>(r_d, listad, headd, ndim, natms, cellx, celly, cellz, maxi, maxj, maxk, ncell)
+        istat = cudaDeviceSynchronize()
     end subroutine cells_build
 
     Subroutine cells_init_post_nc_read()

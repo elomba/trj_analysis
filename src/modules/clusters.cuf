@@ -161,10 +161,12 @@ contains
       Real(kind=8) ::  mcl, ekcls, suma, rgsum, averg, volcl
       real(myprec) :: R_smooth, dist_sq
       real(myprec) :: local_com(ndim)
+      real(myprec) :: t0_cl, t1_cl
       integer, intent(IN) :: Iconf
       integer :: i, j, k, l, cluster_id, icl, ip, ind, indr, &
       & clsz, clussize, cmin, NP_lconf, icount, im, countlarge
       integer :: smooth_count
+      call cpu_time(t0_cl)
       !
       ! Initialize cluster structures
       !
@@ -283,7 +285,7 @@ contains
       if (iconf > 1) then
          deallocate (rclxyz)
          deallocate (rclxyzd)
-         if(geometry)deallocate (densav)
+         deallocate (densav)
       end if
       allocate (rclxyz(ndim, cluster_id), densav(cluster_id))
       allocate (rclxyzd(ndim, cluster_id))
@@ -398,6 +400,8 @@ contains
       endif
       ! Potential Energy
       if (run_thermo .and. iconf ==1 ) call thermo_init_cluster(natms, ndim, sidel, side2, maxcln, cluster)
+      call cpu_time(t1_cl)
+      t_cl_analysis = t_cl_analysis + (t1_cl - t0_cl)
    end subroutine cluster_analysis
 
    subroutine cluster_geometry(Iconf)
@@ -725,7 +729,7 @@ contains
       implicit none
       integer :: cluster_id, i, j, k, istat, iter, cluster_id_local, inherited_cluster, nb
       real :: time_gpu
-      Character :: error_msg*64
+      Character :: error_msg*128
       integer :: active
       integer :: border_next(Nsites)
       logical :: iactive
@@ -783,8 +787,9 @@ contains
       time_gpu = gptime(stopEvent, startEvent)
       tbfs = tbfs + time_gpu
       ! Check for redimensioning of neighbor list
-      if (maxval(neighbors(:)) > 60) then
-         write (error_msg, '(" Warning:redimension next to at least ", i5)') maxval(neighbors(:))
+      if (maxval(neighbors(:)) > maxnbpp - 5) then
+         write (error_msg, '(" Warning: max neighbors (", i0, ") is close to maxnbpp (", i0, "). Please increase maxnbpp in common.cuf.")') &
+         & maxval(neighbors(:)), maxnbpp
          stop(error_msg)
       end if
       maxcln = cluster_id
@@ -811,7 +816,9 @@ contains
             ! Set flag to continue BFS expansion
             ! Active cluster expansion: mark neighbors of j as border if not visited
             active = .true.
-            gborder(gadjacency(offj:offj+nbj-1)) = 1
+            do k = offj, offj+nbj-1
+               gborder(gadjacency(k)) = 1
+            end do
          end if
       end if
    end if
@@ -1073,6 +1080,66 @@ subroutine clusters_clear()
    close (io_clusevol_file)
 
 end subroutine clusters_clear
+
+
+attributes(global) subroutine compute_asymmetry_kernel(r_d, sidel_d, offset_d, neighbors_d, adjacency_d, label_d, ndim, Nsites, asym_d)
+   implicit none
+   integer, value, intent(in) :: ndim, Nsites
+   real, dimension(ndim, Nsites), intent(in) :: r_d
+   real, dimension(ndim), intent(in) :: sidel_d
+   integer, dimension(Nsites), intent(in) :: offset_d, neighbors_d, label_d
+   integer, dimension(*), intent(in) :: adjacency_d
+   real, dimension(Nsites), intent(out) :: asym_d
+
+   integer :: i, j, k, id
+   real :: dr(3), S(3), dist
+
+   i = (blockIdx%x - 1) * blockDim%x + threadIdx%x
+   if (i <= Nsites) then
+      asym_d(i) = 0.0
+      if (label_d(i) > 0 .and. neighbors_d(i) > 0) then
+         S(:) = 0.0
+         do k = offset_d(i), offset_d(i) + neighbors_d(i) - 1
+            id = adjacency_d(k)
+            dr(1:ndim) = r_d(1:ndim, id) - r_d(1:ndim, i)
+            do j = 1, ndim
+               dr(j) = dr(j) - sidel_d(j) * nint(dr(j) / sidel_d(j))
+            end do
+            dist = sqrt(sum(dr(1:ndim)**2))
+            if (dist > 0.0) then
+               S(1:ndim) = S(1:ndim) + dr(1:ndim) / dist
+            end if
+         end do
+         asym_d(i) = sqrt(sum(S(1:ndim)**2)) / real(neighbors_d(i))
+      end if
+   end if
+end subroutine compute_asymmetry_kernel
+
+subroutine compute_asymmetry_gpu(Nsites, asym)
+   use mod_common, only : r_d, sidel_d, goffset, gneighbors, gadjacency, glabel
+   use mod_input, only : ndim
+   implicit none
+   integer, intent(in) :: Nsites
+   real(kind=8), dimension(Nsites), intent(out) :: asym
+   real, device, allocatable, dimension(:) :: gasym
+   real, allocatable, dimension(:) :: asym_sp
+   integer :: nthreads, nblocks, istat
+
+   allocate(gasym(Nsites))
+   allocate(asym_sp(Nsites))
+
+   nthreads = 256
+   nblocks = (Nsites + nthreads - 1) / nthreads
+
+   call compute_asymmetry_kernel<<<nblocks, nthreads>>>(r_d, sidel_d, goffset, gneighbors, gadjacency, glabel, ndim, Nsites, gasym)
+   
+   istat = cudaDeviceSynchronize()
+   asym_sp(:) = gasym(:)
+   asym(:) = real(asym_sp(:), kind=8)
+
+   deallocate(gasym)
+   deallocate(asym_sp)
+end subroutine compute_asymmetry_gpu
 
 
 end module mod_clusters

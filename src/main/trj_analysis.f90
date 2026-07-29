@@ -198,14 +198,14 @@ program trj_analysis
         endif
         tread = tread + t1 - t0
         
+        ! Transfer data to GPU
+        call transfer_cpu_gpu(ndim)
+
         ! Linked cells for cluster analysis
         if (use_cell) then
             call cells_build()
             call cells_reset_struct()
         end if
-        !
-        ! Transfer data to GPU
-        call transfer_cpu_gpu(ndim)
 
         ! Run RDF
         if (run_rdf) call RDFcomp(Nsites, i, nbcuda, nthread, conf(4)%units)
@@ -253,7 +253,7 @@ program trj_analysis
 
     ! Print simulation time
     time_total = time_total + (time_cpu_stop - time_cpu_start)
-    call print_total_time(time_total, time_gput, Nccount, 6)
-    call print_total_time(time_total, time_gput, Nccount, io_log_file)
+    call print_total_time(time_total, time_gput, tread, t_cl_analysis, t_d2h, t_ascii_io, run_clusters, Nccount, 6)
+    call print_total_time(time_total, time_gput, tread, t_cl_analysis, t_d2h, t_ascii_io, run_clusters, Nccount, io_log_file)
     call log_close()
 end program trj_analysis

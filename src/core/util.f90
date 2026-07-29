@@ -236,17 +236,24 @@ contains
       call input_clear()
    end subroutine clean_memory
 
-   subroutine print_total_time(time_total, time_gput, nconf, iunit)
+   subroutine print_total_time(time_total, time_gput, tread, t_cl_analysis, t_d2h, t_ascii_io, run_clusters, nconf, iunit)
       implicit none
-      real(myprec), intent(in) :: time_total, time_gput
+      real(myprec), intent(in) :: time_total, time_gput, tread, t_cl_analysis, t_d2h, t_ascii_io
+      logical, intent(in) :: run_clusters
       integer, intent(in) :: nconf, iunit
       if (iunit == 6) then
          write(*,"(a,90('_'),a)") char(27)//'[33m', char(27)//'[0m'
       else
          write(iunit,"(a,90('_'))") 
       endif
-      write (iunit, '(/,A,F15.7,A,f6.3,"s/frame")') '**** Total time:     ', time_total, ' s;  ', time_total/nconf
-      write (iunit, '(A,F15.7,A,f6.3,"s/frame")') '**** Total GPU time: ', time_gput, ' s;  ', time_gput/nconf
+      write (iunit, '(/,A,F15.7,A,f6.3,"s/frame")') '**** Total time:           ', time_total, ' s;  ', time_total/nconf
+      write (iunit, '(A,F15.7,A,f6.3,"s/frame")')   '**** Total GPU time:       ', time_gput, ' s;  ', time_gput/nconf
+      write (iunit, '(A,F15.7,A,f6.3,"s/frame")')   '**** NetCDF I/O time:      ', tread, ' s;  ', tread/nconf
+      if (run_clusters) then
+         write (iunit, '(A,F15.7,A,f6.3,"s/frame")') '**** CPU cluster analysis: ', t_cl_analysis, ' s;  ', t_cl_analysis/nconf
+      end if
+      write (iunit, '(A,F15.7,A,f6.3,"s/frame")')   '**** GPU-Host transfers:   ', t_d2h, ' s;  ', t_d2h/nconf
+      write (iunit, '(A,F15.7,A,f6.3,"s/frame")')   '**** ASCII file writing:   ', t_ascii_io, ' s;  ', t_ascii_io/nconf
       if (iunit == 6) then
          write(*,"(a,90('_'),a)") char(27)//'[33m', char(27)//'[0m'
       else
@@ -258,12 +265,13 @@ contains
       use mod_precision
       use mod_input, only : mat, charge, cl_thresh
       implicit none
-      real(myprec) :: rcl
+      real(myprec) :: rcl, t0_io, t1_io
       integer, intent(in) :: nsp, lsmax, Nsites, nqmin
       integer, dimension(nsp), intent(in) :: ntype
       logical, intent(in) :: run_sq,  run_rdf, run_dyn, run_clusters, run_thermo
       integer :: i
 
+      call cpu_time(t0_io)
       ! Print out S(Q)'s
       if (run_sq) then
          call sq_transfer_gpu_cpu()  ! Transfer results from GPU to CPU
@@ -308,6 +316,8 @@ contains
       if (run_order) then
          call print_order()
       endif
+      call cpu_time(t1_io)
+      t_ascii_io = t_ascii_io + (t1_io - t0_io)
    end subroutine print_results
 
    subroutine print_last_clustconf()
@@ -352,21 +362,39 @@ contains
 
    subroutine print_last_brdconf()
       ! 
-      ! Print last border configuration in LAMMPS format.
-      ! Consistent with last_conf.lammpstrj
+      ! Version 1.7 - Print last border configuration in LAMMPS format.
+      ! Consistent with last_conf.lammpstrj.
+      ! Uses the geometric asymmetry parameter (normalized net neighbor vector magnitude)
+      ! to classify border/surface atoms rather than minPts alone.
       !
-      use mod_common, only : cluster, itype, r, u_p, sidel, nstep, ex_vel, ex_mol, Nconf, i_mol, label, neighbors, Nsites_in=>Nsites
-      use mod_input, only : ndim, minPts
-      use mod_nc_conf, only : org
-      implicit none
-      integer :: i, j, k, icl, id, imol, io_lastbrdconf, nbrd, maxcolor=32
-      ! First, count how many border points we have
-      nbrd = 0
-      do i = 1, Nsites_in
-         if (label(i) > 0 .and. neighbors(i) < minPts - 1) then
-            nbrd = nbrd + 1
-         end if
-      end do
+       use mod_common, only : cluster, itype, r, u_p, sidel, nstep, ex_vel, ex_mol, Nconf, i_mol, label, neighbors, Nsites_in=>Nsites, maxcln, offset, adjacency
+       use mod_input, only : ndim, minPts
+       use mod_nc_conf, only : org
+       use mod_clusters, only : compute_asymmetry_gpu
+       implicit none
+       integer :: i, j, k, icl, id, imol, io_lastbrdconf, nbrd, maxcolor=32
+       integer, allocatable :: nbrd_in_cl(:)
+       real(kind=8), allocatable :: asym(:)
+       real(kind=8) :: asym_threshold = 0.5D0
+       real :: t1, t2
+
+       write(*, '(" *** Surface detection using geometric asymmetry parameter (threshold: ", F4.2, ")")') asym_threshold
+
+       allocate(asym(Nsites_in))
+       call cpu_time(t1)
+       call compute_asymmetry_gpu(Nsites_in, asym)
+       call cpu_time(t2)
+       write(*, '("   ··Time for asymmetry calculation = ", F12.7, " s")') t2 - t1
+
+       allocate(nbrd_in_cl(max(1, maxcln)))
+       nbrd_in_cl(:) = 0
+       nbrd = 0
+       do i = 1, Nsites_in
+          if (label(i) > 0 .and. asym(i) >= asym_threshold) then
+             nbrd = nbrd + 1
+             nbrd_in_cl(label(i)) = nbrd_in_cl(label(i)) + 1
+          end if
+       end do
 
       open(newunit=io_lastbrdconf, file='last_brdconf.lammpstrj', status='replace')
       write (io_lastbrdconf, "('ITEM: TIMESTEP'/I12/'ITEM: NUMBER OF ATOMS'/I12/'ITEM: BOX BOUNDS pp pp pp')") nstep, nbrd
@@ -390,10 +418,10 @@ contains
       ! Loop over all particles and print border points
       icl = 0
       do i = 1, Nsites_in
-         if (label(i) > 0 .and. neighbors(i) < minPts - 1) then
+         if (label(i) > 0 .and. asym(i) >= asym_threshold) then
             icl = icl + 1
             imol = label(i) ! Cluster ID is the molecule ID
-            j = cluster(imol)%clsize ! cluster size
+            j = nbrd_in_cl(imol) ! number of border atoms in this cluster
             if (ndim == 3) then
                if (ex_qc) then
                   if (run_thermo) then
@@ -434,6 +462,8 @@ contains
          end if
       end do
       close(io_lastbrdconf)
+      deallocate(nbrd_in_cl)
+      deallocate(asym)
    end subroutine print_last_brdconf
 
     subroutine print_last_conf()

@@ -127,6 +127,8 @@ contains
 
    subroutine sq_transfer_gpu_cpu()
       implicit none
+      real(myprec) :: t0_tr, t1_tr
+      call cpu_time(t0_tr)
 
       if (run_clusters .and. run_sq .and. geometry) sqfcl(1:nqmax) = sqfcl_d(1:nqmax)
       if (twoDstruc_3D) then
@@ -145,6 +147,8 @@ contains
             sqfq(0:nqmax) = sqfq_d(0:nqmax)/avq2
          endif
       end if
+      call cpu_time(t1_tr)
+      t_d2h = t_d2h + (t1_tr - t0_tr)
    end subroutine sq_transfer_gpu_cpu
 
    subroutine sq_init(Nsites, nsp, nbcuda)

@@ -22,7 +22,7 @@ This program performs advanced structural, thermodynamic, and dynamic analysis o
 **A. Díaz-Pozuelo** & **E. Lomba** (Main developers)  
 **R. Lomba** (Optimized G-DBSCAN implementation)  
 Instituto de Química Física Blas Cabrera, CSIC (Madrid) / Universidade de Santiago de Compostela (USC)  
-April 2026
+Version 1.7 - July 2026
 
 ## License
 
@@ -59,6 +59,7 @@ or  positions only:
 ### Cluster Analysis
 
 * **G-DBSCAN Optimization**: Highly optimized density-based spatial clustering.
+* **Border/Surface Atom Identification**: Identification of cluster surfaces and chain endpoints in patchy networks using a geometric asymmetry parameter $\alpha_i \ge 0.50$, where $\alpha_i = |\sum_{j} \vec{r}_{ij}/r_{ij}| / N_{\text{neighbors}}$.
 * **Cluster Distributions**: Analysis of cluster sizes and radii of gyration.
 * **Geometric Descriptors**: Cluster shape descriptors including sphericity and cylindricity.
 * **Internal Energy**: Distributions of potential energy per particle and total energy within clusters.
@@ -229,3 +230,4 @@ The input uses Fortran namelist format. All variables found in the source code a
 * `ordprof_clcum.dat`: Cumulative Steinhardt profiles.
 * `centers.lammpstrj`: Cluster center-of-mass trajectory for visualization.
 * `last_clconf.lammpstrj`: Final configuration with particles colored by cluster ID.
+* `last_brdconf.lammpstrj`: Final configuration showing border/surface atoms colored by cluster ID.
