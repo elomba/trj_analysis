@@ -237,7 +237,10 @@ program trj_analysis
         ! Compute order parameter
         if (run_order) call compute_order(Nsites, ndim, rcl, sidel)
         ! Print periodic output
+        call cpu_time(t0)
         call print_output(i)
+        call cpu_time(t1)
+        t_ascii_io = t_ascii_io + (t1 - t0)
         Nccount = Nccount + 1
     end do
     ! Normalize density profiles computed along the non-periodic dimension

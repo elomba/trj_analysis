@@ -43,7 +43,7 @@
 !===============================================================================
 module mod_order
     use mod_precision
-    use mod_common, only: r_d, r, sidel_d, cellxd, cellyd, cellzd, maxjd, maxkd, nnd, headd, listad, neighd, gptime, startEvent, stopEvent, tord, side2, ndrclus, drclus, neighbors
+    use mod_common, only: r_d, r, sidel_d, cellxd, cellyd, cellzd, maxjd, maxkd, nnd, headd, listad, neighd, gptime, startEvent, stopEvent, tord, t_d2h, side2, ndrclus, drclus, neighbors
     use mod_input, only: norder, orderp, nnbond, nthread, run_clusters, rclcl, deltar,  use_cell, ndim, geometry 
     use mod_clusters, only: cluster, avcluster_order, avcluster_order_cos, avcluster_order_sin, &
     cluster_order_cos, cluster_order_sin, maxcln, rclxyz, neighbor_search, goffset, gneighbors, gadjacency, cluster_ql, llmax

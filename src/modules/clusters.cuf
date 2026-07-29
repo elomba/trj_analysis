@@ -186,7 +186,10 @@ contains
       ! Write trajectory file with centers of mass of clusters if sufficient clusters found
       !
       if (maxcln > cl_thresh) then
+         call cpu_time(t0_cl)
          call centers_header(io_centers_file, nstep, maxcln, ex_vel)
+         call cpu_time(t1_cl)
+         t_ascii_io = t_ascii_io + (t1_cl - t0_cl)
       endif
       icl = 0
       cluster(:)%rg = 0
@@ -240,7 +243,10 @@ contains
          cluster(i)%ekin = ekcls
          ! Print trajectory file of clusters' mass centers
          if (maxcln > cl_thresh) then
+            call cpu_time(t0_cl)
             call centers_print(io_centers_file, i, ex_vel, factorv)
+            call cpu_time(t1_cl)
+            t_ascii_io = t_ascii_io + (t1_cl - t0_cl)
          endif
          if (Iconf == Nconf) NP_lconf = NP_lconf + j
       end do

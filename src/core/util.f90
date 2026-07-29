@@ -36,7 +36,7 @@ module mod_util
    use mod_common, only : shmsize, maxthread,  run_thermo, ex_stress, &
       printDevPropShort, printDeviceProperties, common_clear, nit, ener_name, press_name, &
       run_sq, run_sqw, run_rdf, run_clusters, run_dyn, rigid, &
-      printcudaerror, ex_qc, nconf, qcharge, lsmax, maxcln, zsliced, countsliced, zslice, countslice
+      printcudaerror, ex_qc, nconf, qcharge, lsmax, maxcln, zsliced, countsliced, zslice, countslice, t_ascii_io
    use mod_densprof, only : prof_init, prof_clear
    use mod_sq, only : sq_init, printsq, sq_clear, sq_transfer_gpu_cpu
    use mod_rdf, only : rdf_init, printrdf, rdf_clear, test_alloc
@@ -241,19 +241,25 @@ contains
       real(myprec), intent(in) :: time_total, time_gput, tread, t_cl_analysis, t_d2h, t_ascii_io
       logical, intent(in) :: run_clusters
       integer, intent(in) :: nconf, iunit
+      real(myprec) :: t_cpu_active
+
+      t_cpu_active = tread + t_d2h + t_ascii_io
+      if (run_clusters) t_cpu_active = t_cpu_active + t_cl_analysis
+
       if (iunit == 6) then
          write(*,"(a,90('_'),a)") char(27)//'[33m', char(27)//'[0m'
       else
          write(iunit,"(a,90('_'))") 
       endif
-      write (iunit, '(/,A,F15.7,A,f6.3,"s/frame")') '**** Total time:           ', time_total, ' s;  ', time_total/nconf
-      write (iunit, '(A,F15.7,A,f6.3,"s/frame")')   '**** Total GPU time:       ', time_gput, ' s;  ', time_gput/nconf
-      write (iunit, '(A,F15.7,A,f6.3,"s/frame")')   '**** NetCDF I/O time:      ', tread, ' s;  ', tread/nconf
+      write (iunit, '(/,A,F15.7,A,f6.3,"s/frame")') '**** Total wall-clock time:   ', time_total, ' s;  ', time_total/nconf
+      write (iunit, '(A,F15.7,A,f6.3,"s/frame")')   '**** Total GPU hardware time: ', time_gput, ' s;  ', time_gput/nconf
+      write (iunit, '(A,F15.7,A,f6.3,"s/frame")')   '**** Total CPU active time:   ', t_cpu_active, ' s;  ', t_cpu_active/nconf
+      write (iunit, '(A,F15.7,A,f6.3,"s/frame")')   '       ··· NetCDF I/O time:   ', tread, ' s;  ', tread/nconf
       if (run_clusters) then
-         write (iunit, '(A,F15.7,A,f6.3,"s/frame")') '**** CPU cluster analysis: ', t_cl_analysis, ' s;  ', t_cl_analysis/nconf
+         write (iunit, '(A,F15.7,A,f6.3,"s/frame")') '       ··· CPU cluster math:  ', t_cl_analysis, ' s;  ', t_cl_analysis/nconf
       end if
-      write (iunit, '(A,F15.7,A,f6.3,"s/frame")')   '**** GPU-Host transfers:   ', t_d2h, ' s;  ', t_d2h/nconf
-      write (iunit, '(A,F15.7,A,f6.3,"s/frame")')   '**** ASCII file writing:   ', t_ascii_io, ' s;  ', t_ascii_io/nconf
+      write (iunit, '(A,F15.7,A,f6.3,"s/frame")')   '       ··· GPU-Host transfers:', t_d2h, ' s;  ', t_d2h/nconf
+      write (iunit, '(A,F15.7,A,f6.3,"s/frame")')   '       ··· ASCII file writing:', t_ascii_io, ' s;  ', t_ascii_io/nconf
       if (iunit == 6) then
          write(*,"(a,90('_'),a)") char(27)//'[33m', char(27)//'[0m'
       else
