@@ -54,7 +54,7 @@ module mod_input
                geometry=.true.
    logical, dimension(7) :: rdf_sq_cl_dyn_sqw_conf_ord
    real(myprec) :: deltar, dcl, qmin, qmax, rcrdf, rclcl=0.0, &
-      tmax=-1, tmaxp=-1, tlimit=-1, potengmargin=0.0
+      tmax=-1, tmaxp=-1, tlimit=-1, potengmargin=0.0, asym_threshold=0.5_myprec
    ! mat and bsc at atomic mass and scattering length, respectively by species, masa and mscat correspond to individual atoms
    real(myprec), allocatable, dimension(:) :: mat, bsc, charge, qw, tmqw
    integer, allocatable, dimension(:) :: orderp
@@ -68,7 +68,7 @@ module mod_input
    namelist /INPUT_SP/ sp_types_selected, mat, rigid, nmrigid, rigid_mols 
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
    namelist /INPUT_SQ/ qmax, qmin, bsc
-   namelist /INPUT_CL/ dcl, minPts, ndrclus, cl_thresh, geometry
+   namelist /INPUT_CL/ dcl, minPts, ndrclus, cl_thresh, geometry, asym_threshold
    namelist /INPUT_CONF/ zslice, zgrid
    namelist /INPUT_DYN/ nbuffer, tmax, tmaxp, tlimit, jump
    namelist /INPUT_SQW/ qw, tmqw

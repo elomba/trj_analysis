@@ -145,6 +145,7 @@ The input uses Fortran namelist format. All variables found in the source code a
 | `ndrclus` | int | - | Bins for cluster radial profiles. |
 | `cl_thresh` | int | 10 | Min cluster count for correlations. |
 | `geometry` | log | True | Enable geometry and correlation computations. |
+| `asym_threshold` | real | 0.5 | Geometric asymmetry threshold for border/surface atom detection. |
 
 ### `/INPUT_ORDER/` - Order Parameters
 

@@ -374,14 +374,13 @@ contains
       ! to classify border/surface atoms rather than minPts alone.
       !
        use mod_common, only : cluster, itype, r, u_p, sidel, nstep, ex_vel, ex_mol, Nconf, i_mol, label, neighbors, Nsites_in=>Nsites, maxcln, offset, adjacency
-       use mod_input, only : ndim, minPts
+       use mod_input, only : ndim, minPts, asym_threshold
        use mod_nc_conf, only : org
        use mod_clusters, only : compute_asymmetry_gpu
        implicit none
        integer :: i, j, k, icl, id, imol, io_lastbrdconf, nbrd, maxcolor=32
        integer, allocatable :: nbrd_in_cl(:)
        real(kind=8), allocatable :: asym(:)
-       real(kind=8) :: asym_threshold = 0.5D0
        real :: t1, t2
 
        write(*, '(" *** Surface detection using geometric asymmetry parameter (threshold: ", F4.2, ")")') asym_threshold
