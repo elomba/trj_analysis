@@ -1,0 +1,114 @@
+# 3d Lennard-Jones melt
+
+units		real
+atom_style	full
+dimension 3
+
+# Define initial configuration 
+#
+# Define initial configuration 
+
+variable dens equal 0.0003
+variable latconst equal ((1.0/${dens})^0.3333333)
+variable N equal 16000
+variable nrep equal round((${N})^0.333333)
+lattice sc ${latconst}
+region  box block 0 1 0 1  0 1  units lattice
+create_box      1 box
+create_atoms 1 box
+replicate ${nrep} ${nrep} ${nrep} 
+
+
+
+#read_restart restart.beg
+
+mass		1 10.0
+
+set type 1 charge		0.0
+variable tstep equal 0.01
+
+timestep ${tstep}
+
+write_dump all atom init.lammpstrj modify scale no
+
+variable Tdamp equal 100*${tstep}
+
+variable Nrun equal 200
+variable Nsnaps equal 10
+variable Nequil equal 50
+variable Nf equal 20
+variable Nther equal 10*${Nf}
+variable Ne equal 1
+variable Nr equal ${Nf}/${Ne}
+variable Ndump equal ${Nrun}/${Nsnaps}
+variable Nr_rdf equal 0.5*${Nrun}/${Ne}
+
+
+variable Text equal 10.0
+variable Text2 equal 10.0
+
+#velocity all create  ${Text2} 123456
+
+# Define force field
+
+# Warning !!!! Define rc also in py_pot.py
+variable Rc equal 60.0
+variable Nint equal 100000
+pair_style      python ${Rc}
+pair_coeff      * * py_pot.SALR 1  
+shell rm -f salr11.dat
+pair_write 1 1 ${Nint} rsq 0.000001 ${Rc} salr11.dat SALR11
+pair_style  table linear ${Nint} 
+pair_coeff 1 1 salr11.dat SALR11 ${Rc}
+neighbor	5.0 bin
+neigh_modify	every 10 delay 0 check yes
+
+
+thermo_style custom step temp ke  pe etotal press
+thermo		100
+fix integrate all nvt temp ${Text2} ${Text} ${Tdamp}
+#fix integrate all nve
+#fix resc all temp/rescale 100 ${Text} ${Text} 0.5 1.0
+
+dump trj1 all custom ${Ndump} equil.lammpstrj  id type id x y z vx vy vz 
+dump_modify trj1 sort id
+
+run ${Nequil}
+#unfix resc
+unfix integrate
+fix integrate all nvt temp ${Text} ${Text} ${Tdamp}
+
+#compute msd A msd com yes
+#fix msd A ave/time 1 1 500 c_msd[4] file A.msd
+
+#compute msdm B msd com yes
+#fix msdm B ave/time 1 1 500 c_msdm[4] file B.msd
+
+
+
+#compute rdf all rdf 1000  1 1 1 2 2 2
+#fix rdf all ave/time 50 100000 5000000 c_rdf[*] file 2dlj.rdf mode vector
+
+#fix avtem all ave/time 1 ${Nther} ${Nther}  c_thermo_temp c_thermo_press  c_thermo_pe file thermoout.dat ave running
+
+
+write_restart   restart.equil1
+
+undump trj1
+
+run ${Nequil}
+
+write_restart   restart.equil2
+
+compute ql all orientorder/atom degrees 4 4 6 8 12 nnn 6 cutoff 15.5 
+#compute yl all orientorder/atom degrees 1 4 components 4 nnn 14 cutoff 15.5
+#compute yl all orientorder/atom components 4 
+dump trjorder all custom ${Ndump} order.trj  id type x y z c_ql[*] 
+#dump trjorder all custom ${Ndump} orderyl.trj  id type x y z c_yl[*] 
+dump_modify trjorder sort id
+
+dump trj1 all netcdf ${Ndump} run.nc  id type x y z vx vy vz 
+dump_modify trj1 sort id
+
+run		${Nrun}
+write_restart   restart.fin

@@ -63,7 +63,7 @@ module mod_order
     real(myprec), dimension(:,:), allocatable :: pref
     real(myprec), device, dimension(:,:), allocatable :: yll,  prefd
     real(myprec), device, dimension(:), allocatable :: cosmphi, sinmphi
-    integer, parameter :: nmax_order = 6,  nmbmax = 50
+    integer, parameter :: nmax_order = 6,  nmbmax = 100
     real(myprec), parameter :: pi_constant=3.141592653589793
     integer, constant :: orderp_d(nmax_order)
 contains
@@ -278,52 +278,43 @@ contains
         real(myprec), intent(IN) :: x, y, z, prf(0:l)
         integer, intent(IN) :: l
         real(myprec), dimension(0:l) :: pr, pi
-        integer :: mmax, m, i
+        integer :: m, i
         real(myprec) :: pmm, pmmp1, pll
-        real(myprec) :: cx, sy, c0, s0, c1, s1, c2, s2, temp, signo
-        signo = sign(1.0_myprec,z)
+        real(myprec) :: cphi(0:llmax), sphi(0:llmax), plm(0:llmax), temp
         !
         ! Compute associated Legendre polynomial P_l^m(x) and cos(m*phi), sin(m*phi) using recursion
         ! to get Y_lm
+        ! x = cos(theta), y = cos(phi), z = sin(phi)
         !
-        cx = y
-        sy = z
-        c0 = 1.0
-        c1 = cx
-        s0 = 0.0
-        s1 = sy
-        pi(0) = 1
-        pi(1) = c1
+        cphi(0) = 1.0_myprec
+        sphi(0) = 0.0_myprec
+        if (l >= 1) then
+            cphi(1) = y
+            sphi(1) = z
+        end if
+        do m = 2, l
+            cphi(m) = cphi(m-1)*y - sphi(m-1)*z
+            sphi(m) = sphi(m-1)*y + cphi(m-1)*z
+        end do
         do m = 0, l
-            if (m>1) then
-                c2 = c1*cx-s1*sy
-                s2 = s1*cx+c1*sy
-                s0 = s1
-                s1 = s2
-                c0 = c1
-                c1 = c2
-                ! store cos(m*phi)
-                pi(m) = c2
-            endif
-            pmm = 1.0
+            pmm = 1.0_myprec
             do i = 1, m
-              pmm = pmm * (-sqrt(1.0 - x*x)) * (2*i - 1)
+              pmm = pmm * (-sqrt(max(0.0_myprec, 1.0_myprec - x*x))) * (2*i - 1)
             end do
-            if (m==l) pr(m) = pmm
+            if (m==l) plm(m) = pmm
             pmmp1 = x * (2*m + 1) * pmm
-            if (m+1==l) pr(m) = pmmp1
+            if (m+1==l) plm(m) = pmmp1
             do i = m + 2, l
                 pll = ((2*i - 1)*x*pmmp1 - (i + m - 1)*pmm)/(i - m)
                 pmm = pmmp1
                 pmmp1 = pll
-                if (i==l) pr(m) = pll
+                if (i==l) plm(m) = pll
             end do
         end do
         do m=0, l
-            temp = prf(m)*pr(m)
-            pr(m) = temp*pi(m)
-            ! compute sin(m*phi) using sin^2+cos^2=1 and preserve sign
-            pi(m) = temp*sqrt(max(0.0,1-pi(m)**2))*signo
+            temp = prf(m)*plm(m)
+            pr(m) = temp*cphi(m)
+            pi(m) = temp*sphi(m)
         enddo
     end subroutine ylm
 
