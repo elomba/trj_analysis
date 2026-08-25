@@ -6,6 +6,20 @@
 !   local and global crystalline order. Supports both 2D and 3D systems
 !   with flexible order parameter selection.
 !
+! References:
+!   Steinhardt, P. J., Nelson, D. I., & Keblinski, P. (2003). Local structural 
+!   order in liquids and glasses. Physical Review B, 67(5), 054106.
+!      
+!   W. Mickel, S. C. Kapfer, G. E. Schröder-Turk, and K. Mecke, “Shortcomings of 
+!   the bond orientational order parameters for the analysis of disordered
+!   particulate matter,” J. Chem. Phys., vol. 138, no. 4, Jan. 2013, 
+!   doi: 10.1063/1.4774084. 
+!       For cubic phases, reference values are:
+!       - FCC (111): Q_4 = 0.767, Q_6 = 0.518, Q_8 = 0.418
+!       - BCC (100): Q_4 = 0.292, Q_6 = 0.359, Q_8 = 0.374
+!       - HCP (100): Q_4 = 0.438, Q_6 = 0.388, Q_8 = 0.395
+!       - Simple Cubic (100): Q_4 = 0.083, Q_6 = 0.092, Q_8 = 0.098
+!
 ! Key Functionality:
 !   - Steinhardt order parameters Q_l and q_l (l = 1 to llmax)
 !   - Global averaged order parameters <Q_l>
