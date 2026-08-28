@@ -64,7 +64,7 @@ module mod_input
    namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread,  &
       & ncfs_from_to,  rdf_sq_cl_dyn_sqw_conf_ord, nqw, nslice, norder, ener_name, &
       & press_name, potnbins, potengmargin, rcl, periodic, nprint, topol, &
-      &  system_data_file
+      &  system_data_file, is_hs, model
    namelist /INPUT_SP/ sp_types_selected, mat, rigid, nmrigid, rigid_mols 
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
    namelist /INPUT_SQ/ qmax, qmin, bsc
@@ -85,6 +85,14 @@ contains
       rigid_mols(:) = -1
       open (newunit=io_input_file, file=input_filename, action='read')
       read (unit=io_input_file, nml=INPUT)
+
+      ! Auto-detect Hard Sphere (HS) mode
+      if (trim(model) == 'HS' .or. trim(model) == 'hs' .or. &
+          trim(ener_name) == 'HS' .or. trim(ener_name) == 'hs' .or. &
+          trim(ener_name) == 'none' .or. trim(ener_name) == 'NONE') then
+         is_hs = .true.
+      endif
+
       if (rdf_sq_cl_dyn_sqw_conf_ord(3) == .true.) then
          minPts = 2*ndim+1
       endif

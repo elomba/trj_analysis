@@ -311,18 +311,18 @@ contains
       endif
       ! Normalize histograms to get total g(r)
       do i=1, lsmax
-         ri = real(i)*deltar
+         ri = (real(i-1) + 0.5)*deltar
          if (ndim == 3) then
             if (twoDstruc_3D) then
                gtotxy(i,:) = 0
-               deltaV = pi*((ri + deltar/2)**2 - (ri - deltar/2)**2)*zgrid
+               deltaV = pi*(((i)*deltar)**2 - ((i-1)*deltar)**2)*zgrid
             else
                gtot(i) = 0
-               deltaV = 4*pi*((ri + deltar/2)**3 - (ri - deltar/2)**3)/3.0
+               deltaV = 4.0*pi*(((i)*deltar)**3 - ((i-1)*deltar)**3)/3.0
             end if
          else
             gtot(i) = 0
-            deltaV = pi*((ri + deltar/2)**2 - (ri - deltar/2)**2)
+            deltaV = pi*(((i)*deltar)**2 - ((i-1)*deltar)**2)
          end if
          !
          do j=1, nsp
@@ -371,7 +371,7 @@ contains
             rr2 = Dot_product(rv(1:dim), rv(1:dim))
             If (rr2 .Lt. side2) Then
                rr = sqrt(rr2)
-               ind = Nint(rr/deltar)
+               ind = int(rr/deltar) + 1
                if (ind>0 .and.ind<=lsmax)g(ind) = g(ind) + fact
             end If
          end if
@@ -398,7 +398,7 @@ contains
             rr2 = Dot_product(rv(1:dim), rv(1:dim))
             If (rr2 .Lt. side2) Then
                rr = sqrt(rr2)
-               ind = Nint(rr/deltar)
+               ind = int(rr/deltar) + 1
                if (ind>0.and.ind<=lsmax) g(ind) = g(ind) + fact
             end If
          end do
@@ -414,7 +414,7 @@ contains
             rr2 = Dot_product(rv(1:dim), rv(1:dim))
             If (rr2 .Lt. side2) Then
                rr = sqrt(rr2)
-               ind = Nint(rr/deltar)
+               ind = int(rr/deltar) + 1
                if (ind>0.and.ind<=lsmax) gi(ind:lsmax) = gi(ind:lsmax) + 1
             end If
          end do
@@ -459,7 +459,7 @@ contains
          If (rr2 .Lt. side2) Then
             itj = itype_d(j)
             rr = __fsqrt_rn(rr2)
-            ind = Nint(rr/deltar)
+            ind = int(rr/deltar) + 1
             if (ind <= lsmax .and. ind > 0) then
                !
                ! Use shared memory histogram to speed calculations
@@ -533,7 +533,7 @@ do k = 0, Nsites/blockDim%x + 1
       rr2 = xd*xd + yd*yd + zd*zd
       if (rr2 < side2) then
          rr = __fsqrt_rn(rr2)
-         ind = Nint(rr/deltar)
+         ind = int(rr/deltar) + 1
          do j= ind, lsmax
             ia=atomicadd(gi_s(j),1.0)
          enddo
@@ -595,7 +595,7 @@ do k = 0, Nsites/blockDim%x + 1
       rr2 = xd*xd + yd*yd
       if (rr2 < side2) then
          rr = __fsqrt_rn(rr2)
-         ind = Nint(rr/deltar)
+         ind = int(rr/deltar) + 1
          do j= ind, lsmax
             ia=atomicadd(gi_s(j),1.0)
          enddo
@@ -645,7 +645,7 @@ if (i <= Nsites - 1) then
       If (rr2 .Lt. side2) Then
          itj = itype_d(j)
          rr = __fsqrt_rn(rr2)
-         ind = Nint(rr/deltar)
+         ind = int(rr/deltar) + 1
          ij = ind_ij(iti, itj, nsp)
          !
          ! Use atomics over shared memory to minimize collisions

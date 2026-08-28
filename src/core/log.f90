@@ -125,6 +125,9 @@ contains
       character*15, dimension(nther) :: titlelj =(/"     T(K)","KE/epsilon","PE/epsilon",&
          " Psigma³/epsilon","      Pxxsigma³/epsilon","    Pyysigma³/epsilon","     Pzzsigma³/epsilon",&
          "      Pxysigma³/epsilon","    Pxzsigma³/epsilon","     Pyzsigma³/epsilon"/) 
+      character*15, dimension(nther) :: titlehs =(/"     T(K)","KE (Kcal/mol)","PE Kcal/mol",&
+         "   P\sigma^3/kT"," Pxx\sigma^3/kT"," Pyy\sigma^3/kT"," Pzz\sigma^3/kT",&
+         " Pxy\sigma^3/kT"," Pxz\sigma^3/kT"," Pyz\sigma^3/kT"/) 
       real(myprec) :: thermo_q(nther), Tfcl
       integer :: i, j
       ! Initialize thermodynamic array and select available quantities
@@ -146,7 +149,9 @@ contains
       if (sum(mascara)) then
          if (iconf == 1) then
             open(1000, file="thermo_run.dat")
-            if (tunits == 'lj') then
+            if (is_hs) then
+               write(1000,"('#    Conf  ',16a15)")pack(titlehs(1:nther),mascara)
+            else if (tunits == 'lj') then
                write(1000,"('#    Conf  ',16a15)")pack(titlelj(1:nther),mascara)
             else if (tunits == 'picosecond') then
                write(1000,"('#    Conf  ',16a15)")pack(titleeV(1:nther),mascara)
@@ -197,7 +202,9 @@ contains
             endif
          end if
          if (ex_stress) then
-            if (tunits == 'lj') then
+            if (is_hs) then
+               write (*, "(' ** Pressure*sigma**3/kT =',f15.4,' Average =',f15.4)") pressure, pressav/Iconf
+            else if (tunits == 'lj') then
                write (*, "(' ** Pressure*sigma**3/epsilon =',f15.4,' Average =',f15.4)") pressure, pressav/Iconf 
             else
                write (*, "(' ** Pressure =',f15.4,' bar, Average =',f15.4' bar')") pressure, pressav/Iconf !kcal_a3_to_bar*pressure, kcal_a3_to_bar*pressav/Iconf
@@ -482,21 +489,21 @@ contains
          if (nrandom>0)  write (199, "('#       r',16x,'s2n')")
       end if
       Do i = 1, lsmax - 2
-         ri = i*deltar
+         ri = (real(i-1, myprec) + 0.5_myprec)*deltar
          !
-         ! Compute 3d ad 2d normalizations factors
+         ! Compute 3d and 2d normalization factors
          !
          if (ndim == 3) then
             if (twoDstruc_3D) then
-               ! For 2D rdf din xy plane of 3D systems with confinement, use cylindrical shell volume for normalization
-               deltaV = pi*((ri + deltar/2)**2 - (ri - deltar/2)**2)*zgrid
+               ! For 2D rdf in xy plane of 3D systems with confinement, use cylindrical shell volume for normalization
+               deltaV = pi*(((i)*deltar)**2 - ((i-1)*deltar)**2)*zgrid
             else
                ! For 3D systems, use spherical shell volume for normalization
-               deltaV = 4*pi*((ri + deltar/2)**3 - (ri - deltar/2)**3)/3.0
+               deltaV = 4.0_myprec*pi*(((i)*deltar)**3 - ((i-1)*deltar)**3)/3.0_myprec
             endif
          else
             ! For 2D systems, use circular shell area for normalization
-            deltaV = pi*((ri + deltar/2)**2 - (ri - deltar/2)**2)
+            deltaV = pi*(((i)*deltar)**2 - ((i-1)*deltar)**2)
          end if
          !
          if (.not.twoDstruc_3D.and.ex_qc) then
