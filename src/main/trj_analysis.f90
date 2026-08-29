@@ -8,7 +8,7 @@
 !
 ! Analysis Capabilities (full list in README.md):
 !   STRUCTURAL:
-!     - Radial distribution functions (RDF) g_αβ(r) with species resolutioni, and charge-charge g_qq(r)
+!     - Radial distribution functions (RDF) g_αβ(r) with species resolution, and charge-charge g_qq(r)
 !     - Static structure factors S(Q) with adaptive Q-sampling, including partial S_αβ(Q), and charge-charge S_qq(Q)
 !     - Steinhardt orientational order parameters Q_l (2D and 3D)
 !     - Density and charge density profiles for confined systems
