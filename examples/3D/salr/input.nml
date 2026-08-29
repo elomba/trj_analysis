@@ -1,42 +1,54 @@
+!===============================================================================
+! Input Configuration: 3D SALR (Short-range Attraction, Long-range Repulsion)
+!===============================================================================
+
 &INPUT
-  log_output_file='trj_analysis.log'
-  trj_input_file='run.nc'
-  ndim=3
-  nsp=1
-  nqw=1
-  norder=5
-  ncfs_from_to=500 1 500
-  rcl=5.25
-  rdf_sq_cl_dyn_sqw_conf_ord=T T F T T  F F
-  ener_name="ener"
-  press_name="stress"
-  periodic=.t. .t. .t.
+  log_output_file='trj_analysis.log'  ! Log output filename
+  trj_input_file='run.nc'            ! Input NetCDF trajectory file
+  ndim=3                             ! Spatial dimensions (3D)
+  nsp=1                              ! Number of chemical species to analyze
+  nqw=1                              ! Number of Q-values for dynamic S(Q,w)
+  norder=5                           ! Number of Steinhardt order parameters in orderp
+  ncfs_from_to=500 1 500             ! Trajectory frames: [start, stride, end]
+  rcl=5.25                           ! Cutoff distance for nearest neighbors & clustering
+  rdf_sq_cl_dyn_sqw_conf_ord=T T F T T F F ! Module flags: [RDF, S(Q), Cluster, Dyn, S(Q,w), Conf, Order]
+  ener_name="ener"                   ! LAMMPS compute name for potential energy
+  press_name="stress"                ! LAMMPS compute name for stress tensor
+  periodic=.t. .t. .t.               ! Periodic boundary conditions for each dimension (x, y, z)
 /
+
 &INPUT_SP
-  sp_types_selected=1 
-  mat=1.0 
+  sp_types_selected=1                ! Selected LAMMPS atom type IDs for species
+  mat=1.0                            ! Atomic mass for each species
 /
+
 &INPUT_RDF
-  deltar=0.5
-  rcrdf=30.0 ! Cutoff in rdf
+  deltar=0.5                         ! Radial grid bin spacing for RDF g(r)
+  rcrdf=30.0                         ! Cutoff distance for RDF calculation
 /
+
 &INPUT_SQ
-  qmax=8.0
-  qmin=0.5
+  qmax=8.0                           ! Maximum wavevector magnitude Q for S(Q)
+  qmin=0.5                           ! Minimum wavevector magnitude Q for S(Q)
 /
+
 &INPUT_CL
-  dcl=6.0
-  ndrclus=200
+  dcl=6.0                            ! Grid spacing for cluster size distribution
+  ndrclus=200                        ! Bins for cluster radial density profiles
 /
+
 &INPUT_DYN
-nbuffer=10 ! No.of time origins to compute dynamics
-tmax=2.0
+  nbuffer=10                         ! Number of time origins for dynamics calculations
+  tmax=2.0                           ! Maximum time window for correlations
 /
+
 &INPUT_SQW
-qw=0.18
+  qw=0.18                            ! Q-vector magnitude for intermediate scattering function F(Q,t)
 /
+
 &INPUT_ORDER
-orderp=4 6 8 10 12
-print_orderp=.true.
-rclcl=110.0
+  orderp=4 6 8 10 12                 ! Steinhardt order parameter l-indices (Q_l)
+  print_orderp=.true.                ! Output per-particle order parameters to file
+  rclcl=110.0                        ! Cutoff distance for inter-cluster neighbor analysis
 /
+

@@ -1,41 +1,52 @@
+!===============================================================================
+! Input Configuration: Room Temperature Ionic Liquid + Water (Rigid Molecules)
+!===============================================================================
+
 &INPUT
-  log_output_file='trj_analysis.log'
-  trj_input_file='run.nc'
-  ndim=3
-  nsp=7
-  ncfs_from_to=25 1 25
-  nprint=5
-  topol=.true.
-  nthread=128
-  rdf_sq_cl_dyn_sqw_conf_ord=T T F F F F F
+  log_output_file='trj_analysis.log'  ! Log output filename
+  trj_input_file='run.nc'            ! Input NetCDF trajectory file
+  ndim=3                             ! Spatial dimensions (3D)
+  nsp=7                              ! Number of chemical species to analyze
+  ncfs_from_to=25 1 25               ! Trajectory frames: [start, stride, end]
+  nprint=5                           ! Progress reporting frequency (every N frames)
+  topol=.true.                       ! Read molecular topology from system.data file
+  nthread=128                        ! CUDA threads per block for GPU kernels
+  rdf_sq_cl_dyn_sqw_conf_ord=T T F F F F F ! Module flags: [RDF, S(Q), Cluster, Dyn, S(Q,w), Conf, Order]
 /
+
 &INPUT_SP
-  rigid=.true.
-  nmrigid=2
-  rigid_mols=1 3
-  sp_types_selected= 1 2 3 4 5 6 7
-  mat=16.0 1.0 0.0 67.07 15.04 57.12 86.81
+  rigid=.true.                       ! System contains rigid molecule models
+  nmrigid=2                          ! Number of rigid molecule types
+  rigid_mols=1 3                     ! Molecule type IDs treated as rigid
+  sp_types_selected=1 2 3 4 5 6 7    ! Selected LAMMPS atom type IDs for species
+  mat=16.0 1.0 0.0 67.07 15.04 57.12 86.81 ! Atomic masses for each selected species
 /
+
 &INPUT_RDF
-  deltar=0.5
-  rcrdf=20.0
+  deltar=0.5                         ! Radial grid bin spacing for RDF g(r)
+  rcrdf=20.0                         ! Cutoff distance for RDF calculation
 /
+
 &INPUT_SQ
-  qmax=20.0
-  qmin=4.0
+  qmax=20.0                          ! Maximum wavevector magnitude Q for S(Q)
+  qmin=4.0                           ! Minimum wavevector magnitude Q for S(Q)
 /
+
 &INPUT_CL
-  rcl=5.25
-  dcl=20.0
-  minclsize=500
+  rcl=5.25                           ! Cutoff distance for cluster analysis
+  dcl=20.0                           ! Grid spacing for cluster size distribution
+  minclsize=500                      ! Minimum cluster size threshold
 /
+
 &INPUT_DYN
-nbuffer=6
-tmax=20
+  nbuffer=6                          ! Number of time origins for time-correlation functions
+  tmax=20                            ! Maximum correlation time window
 /
+
 &INPUT_CONF
-  idir=3
-  zgrid=8.0
-  zslice= -100.0 0.0 100.0
+  idir=3                             ! Confinement axis (3 = z-axis)
+  zgrid=8.0                          ! Slice thickness / grid spacing for z-profiles
+  zslice= -100.0 0.0 100.0           ! Explicit z-coordinates for profile slicing
 /
+
 

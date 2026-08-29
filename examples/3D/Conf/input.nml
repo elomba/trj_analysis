@@ -1,36 +1,47 @@
+!===============================================================================
+! Input Configuration: 3D Confinement Profiling
+!===============================================================================
+
 &INPUT
-  log_output_file='trj_analysis.log'
-  trj_input_file='run.nc'
-  ndim=3
-  nsp=7
-  nthread=128
-  nslice=1
-  ncfs_from_to=1000 1 1000
-  rdf_sq_cl_dyn_sqw_conf_ord=T T F F F T F
+  log_output_file='trj_analysis.log'  ! Log output filename
+  trj_input_file='run.nc'            ! Input NetCDF trajectory file
+  ndim=3                             ! Spatial dimensions (3D)
+  nsp=7                              ! Number of chemical species to analyze
+  nthread=128                        ! CUDA threads per block for GPU kernels
+  nslice=1                           ! Number of z-slices for confinement profile
+  ncfs_from_to=1000 1 1000           ! Trajectory frames: [start, stride, end]
+  rdf_sq_cl_dyn_sqw_conf_ord=T T F F F T F ! Module flags: [RDF, S(Q), Cluster, Dyn, S(Q,w), Conf, Order]
 /
+
 &INPUT_SP
-  sp_types_selected= 1 2 3 4 5 6 7
-  mat=87.0 67.07 15.04 57.12 16.0 1.0 0.0
+  sp_types_selected=1 2 3 4 5 6 7    ! Selected LAMMPS atom type IDs for species
+  mat=87.0 67.07 15.04 57.12 16.0 1.0 0.0 ! Atomic masses for each selected species
 /
+
 &INPUT_RDF
-  deltar=0.25
-  rcrdf=150.0
+  deltar=0.25                        ! Radial grid bin spacing for RDF g(r)
+  rcrdf=150.0                        ! Cutoff distance for RDF calculation
 /
+
 &INPUT_SQ
-  qmax=8.0
-  qmin=1.4
+  qmax=8.0                           ! Maximum wavevector magnitude Q for S(Q)
+  qmin=1.4                           ! Minimum wavevector magnitude Q for S(Q)
 /
+
 &INPUT_CL
-  rcl=5.25
-  dcl=20.0
-  minclsize=500
+  rcl=5.25                           ! Cutoff distance for cluster analysis
+  dcl=20.0                           ! Grid spacing for cluster size distribution
+  minclsize=500                      ! Minimum cluster size threshold
 /
+
 &INPUT_DYN
-nbuffer=6
-tmax=20
+  nbuffer=6                          ! Number of time origins for time-correlation functions
+  tmax=20                            ! Maximum correlation time window
 /
+
 &INPUT_CONF
-zslice=0.0
-zgrid=4.0  
+  zslice=0.0                         ! Center z-coordinate position for slice
+  zgrid=4.0                          ! Slice thickness / grid spacing along z-axis
 /
+
 

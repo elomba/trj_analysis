@@ -1,44 +1,56 @@
+!===============================================================================
+! Input Configuration: 3D Lennard-Jones Binary Mixture
+!===============================================================================
+
 &INPUT
-  log_output_file='trj_analysis.log'
-  trj_input_file='run.nc'
-  ndim=3
-  nsp=2
-  nthread=64
-  ncfs_from_to=1000 1 1000
-  rdf_sq_cl_dyn_sqw_conf_ord=T T F F F  F T
-  rcl=1.5
-  norder=5
-  ener_name="ener" 
-  press_name="stress"
+  log_output_file='trj_analysis.log'  ! Log output filename
+  trj_input_file='run.nc'            ! Input NetCDF trajectory file
+  ndim=3                             ! Spatial dimensions (3D)
+  nsp=2                              ! Number of chemical species to analyze
+  nthread=64                         ! CUDA threads per block for GPU kernels
+  ncfs_from_to=1000 1 1000           ! Trajectory frames: [start, stride, end]
+  rdf_sq_cl_dyn_sqw_conf_ord=T T F F F F T ! Module flags: [RDF, S(Q), Cluster, Dyn, S(Q,w), Conf, Order]
+  rcl=1.5                            ! Cutoff distance for nearest neighbors & order parameters
+  norder=5                           ! Number of Steinhardt order parameters in orderp
+  ener_name="ener"                   ! LAMMPS compute name for potential energy
+  press_name="stress"                ! LAMMPS compute name for stress tensor
 /
+
 &INPUT_SP
-  sp_types_selected=1
-  mat=1.0 2.0
+  sp_types_selected=1                ! Selected LAMMPS atom type IDs for species
+  mat=1.0 2.0                        ! Atomic masses for each selected species
 /
+
 &INPUT_RDF
-  deltar=0.25
-  rcrdf=15.0
+  deltar=0.25                        ! Radial grid bin spacing for RDF g(r)
+  rcrdf=15.0                         ! Cutoff distance for RDF calculation
 /
+
 &INPUT_SQ
-  qmax=25.0
-  qmin=6.4
+  qmax=25.0                          ! Maximum wavevector magnitude Q for S(Q)
+  qmin=6.4                           ! Minimum wavevector magnitude Q for S(Q)
 /
+
 &INPUT_CL
-  dcl=20.0
+  dcl=20.0                           ! Grid spacing for cluster size distribution
 /
+
 &INPUT_DYN
-nbuffer=10
-jump=1
-tmax=2.0
-tlimit=10.0
+  nbuffer=10                         ! Number of time origins for time-correlation functions
+  jump=1                             ! Frame stride between time origins
+  tmax=2.0                           ! Maximum correlation time window
+  tlimit=10.0                        ! Global time limit for buffer averaging
 /
+
 &INPUT_SQW
-qw=0.183 0.567 1.95 
-tmqw=10.0 5.13 5.5
+  qw=0.183 0.567 1.95                ! Q-vector magnitudes for intermediate scattering function F(Q,t)
+  tmqw=10.0 5.13 5.5                 ! Maximum correlation times per specified Q-value
 /
+
 &INPUT_ORDER
-orderp=4 6 8 10 12
-print_orderp=.true.
-rclcl=12
+  orderp=4 6 8 10 12                 ! Steinhardt order parameter l-indices (Q_l)
+  print_orderp=.true.                ! Output per-particle order parameters to file
+  rclcl=12                           ! Cutoff distance for inter-cluster neighbor analysis
 /
+
 
