@@ -246,7 +246,7 @@ contains
          ! Loop to determine the number of i,j,k that match the input qw to calculate S(Q,w)
          do i = 0, nint(qmm/(2*pi/sidel(1)))
             do j = 0, nint(qmm/(2*pi/sidel(2)))
-               if (ndim==3.and.confined) then
+               if (ndim==3) then
                   kmaxz = nint(qmm/(2*pi/sidel(3)))
                else
                   kmaxz = 0
@@ -796,7 +796,7 @@ subroutine sq_clear()
       deallocate (sqfcl_d)
       deallocate (sqcl)
    endif
-
+   if (allocated(indqw)) deallocate(indqw)
 end subroutine sq_clear
 
 attributes(global) subroutine sqfnDcl(r_d, Nsites, Nbcl, dim, fk, sqf, kmax, q2max, dq)

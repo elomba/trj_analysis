@@ -154,6 +154,8 @@ contains
       if (run_sqw) then
          deallocate(fkt,fskt,sqw,ssqw)
          deallocate(fktb_d,fsktb_d)
+         if (allocated(indqw_d)) deallocate(indqw_d)
+         if (allocated(qw_d)) deallocate(qw_d)
       endif
    end subroutine dyn_clear
 
@@ -336,22 +338,22 @@ contains
       endif
       if (run_sqw) then
          if (tunits == 'lj') then
-            write(65,'("#",2x,"t(tau)",9x,8("F(",f6.4,",t)",4x:))')qw(1:nqw)
-            write(66,'("#",2x,"t(tau)",9x,8("Fs(",f6.4,",t)",4x:))')qw(1:nqw)
-            write(67,"('#',2x,'w(1/tau)',5x,8('S(',f6.4,',w)    Ss(',f6.4,',w)',4x:))')")(qw(j),qw(j),j=1,nqw)
+            write(65,'("#",2x,"t(tau)",9x,*(1x,"F(",f7.3,",t)",3x))')qw(1:nqw)
+            write(66,'("#",2x,"t(tau)",9x,*(1x,"Fs(",f7.3,",t)",3x))')qw(1:nqw)
+            write(67,"('#',2x,'w(1/tau)',5x,*(1x,'S(',f7.3,',w)    Ss(',f7.3,',w)',3x))")(qw(j),qw(j),j=1,nqw)
          else
-            write(65,'("#",2x,"t(ps)",9x,8("F(",f6.4,",t)",4x:))')qw(1:nqw)
-            write(66,'("#",2x,"t(ps)",9x,8("Fs(",f6.4,",t)",4x:))')qw(1:nqw)
-            write(67,"('#',2x,'w(THz)',7x,'w(meV)',5x,8('S(',f6.4,',w)    Ss(',f6.4,',w)',4x:))')")(qw(j),qw(j),j=1,nqw)
+            write(65,'("#",2x,"t(ps)",9x,*(1x,"F(",f7.3,",t)",3x))')qw(1:nqw)
+            write(66,'("#",2x,"t(ps)",9x,*(1x,"Fs(",f7.3,",t)",3x))')qw(1:nqw)
+            write(67,"('#',2x,'w(THz)',7x,'w(meV)',5x,*(1x,'S(',f7.3,',w)    Ss(',f7.3,',w)',3x))")(qw(j),qw(j),j=1,nqw)
          endif
       endif
 
       ! Time-domain outputs (1 to itlimit)
       do i = 1, itlimit
          if (ex_vel) then
-            write(55,"(f10.3,8f15.5)")t(i), r2t(i),v2t(i)
+            write(55,"(f10.3,*(1x,f15.5))")t(i), r2t(i),v2t(i)
          else
-            write(55,"(f10.3,8f15.5)")t(i), r2t(i)
+            write(55,"(f10.3,*(1x,f15.5))")t(i), r2t(i)
          endif
          if (ex_stress) then
             fw = 0.5*(1-tanh((alpha/tmaxP)*(t(i)-tmaxP)))
@@ -369,8 +371,8 @@ contains
             endif
          end if
          if (run_sqw) then
-            write(65,"(f10.3,8f15.5)")t(i),fkt(1:nqw,i)
-            write(66,"(f10.3,8f15.5)")t(i),fskt(1:nqw,i)
+            write(65,"(f10.3,*(1x,f15.5))")t(i),fkt(1:nqw,i)
+            write(66,"(f10.3,*(1x,f15.5))")t(i),fskt(1:nqw,i)
          endif
       end do
 
@@ -387,9 +389,9 @@ contains
       if (run_sqw) then
          do i = 1, n_freq
             if (tunits == 'lj') then
-               write(67,"(f10.3,8f15.5)")w(i)/(2*pi),(sqw(i,j),ssqw(i,j),j=1,nqw)
+               write(67,"(f10.3,*(1x,f15.5))")w(i)/(2*pi),(sqw(i,j),ssqw(i,j),j=1,nqw)
             else
-               write(67,"(2f10.3,8f15.5)")w(i)/(2*pi),fconv*w(i)/(2*pi),(sqw(i,j),ssqw(i,j),j=1,nqw)
+               write(67,"(2f10.3,*(1x,f15.5))")w(i)/(2*pi),fconv*w(i)/(2*pi),(sqw(i,j),ssqw(i,j),j=1,nqw)
             endif
          end do
       endif
