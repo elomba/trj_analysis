@@ -47,13 +47,13 @@ Module fftw3
 Contains
 
 
-subroutine fftw1d(fin,fout,w,nin,dtin, tmax)
+subroutine fftw1d(fin,fout,w,nin,nout,dtin, tmax)
    !
    !
    Implicit None
-   integer, intent(IN) :: nin
+   integer, intent(IN) :: nin, nout
    real(float), intent(IN) :: fin(nin), dtin
-   real(float), intent(OUT) :: fout(nin), w(nin), tmax
+   real(float), intent(OUT) :: fout(nout), w(nout), tmax
    real(float), allocatable, dimension(:) :: tx
    Complex(double), allocatable, Dimension(:) :: out, in
    Real(float) :: alpha=1.0
@@ -78,12 +78,12 @@ subroutine fftw1d(fin,fout,w,nin,dtin, tmax)
    ! Perform FFT
    Call fftw1(in,out,n,.True.)
    ! Extract positive frequencies and scale
-   Do i=1, min(nin, n/2+1)
+   Do i=1, min(nout, n/2+1)
       w(i) = (i-1)*dq
       fout(i) = real(out(i))
    End Do
-   if (nin > n/2+1) then
-      Do i = n/2+2, nin
+   if (nout > n/2+1) then
+      Do i = n/2+2, nout
          w(i) = (i-1)*dq
          fout(i) = 0.0
       End Do

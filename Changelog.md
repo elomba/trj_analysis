@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 - Correct Nyquist bin scaling and zero-padding sizing in 1D FFT routines in `src/core/fftwlib.f90` to fix spurious high-frequency divergence in $Z(\omega)$ and $S(q,\omega)$ (`0d3a332`)
 - Ensure FFT padded size $n$ satisfies $n/2 \ge nin$ to avoid negative frequency bin overflow
+- Update output routines in `src/modules/dynamics.cuf` to write the complete positive frequency spectrum up to the Nyquist limit ($f_{\text{Nyquist}} = 1/(2\Delta t)$) for $Z(\omega)$ and $S(q,\omega)$
+- Separate time-domain (up to `itlimit`) and frequency-domain (up to `n_freq`) output loops in `print_rtcor`
 - Proper deallocation of temporary array `tx` in `fftw1d`
 
 ## [1.7.1] - 2026-08-25
