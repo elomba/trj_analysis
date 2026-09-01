@@ -76,13 +76,13 @@ module mod_dyn
    real(myprec), device, allocatable, dimension(:) :: qw_d
    integer (kind=2), device, allocatable, dimension(:,:) :: indqw_d
    real(myprec), allocatable, dimension(:,:,:) :: r0, v0
-   real(myprec),  allocatable, dimension(:,:) :: fkt, fskt, sqw, ssqw
-   real(myprec),  allocatable, dimension(:) :: t, v2t
+   real(double),  allocatable, dimension(:,:) :: fkt, fskt, sqw, ssqw
+   real(double),  allocatable, dimension(:) :: t, v2t
    real(double),  allocatable, dimension(:) :: r2t, stcorr
    real(double), allocatable, dimension(:,:) :: stcorrb, p0
    real(double), allocatable, dimension(:) :: pxy, pxz, pyz
-   real(float), allocatable, dimension(:) :: w, ftv
-   real(float) :: sumvel=0
+   real(double), allocatable, dimension(:) :: w, ftv
+   real(double) :: sumvel=0
 contains
 
    subroutine dyn_init()
@@ -287,15 +287,15 @@ contains
       use fftw3
       implicit none
       integer :: i, j
-      real :: fconv=4.135
-      real :: sum_visc=0.0, pct, pct1, alpha=10.0, fw
+      real(double) :: fconv=4.135_double
+      real(double) :: sum_visc=0.0_double, pct, pct1, alpha=10.0_double, fw
       t(1:ndyn) = t(1:ndyn)-t(1)
       write(*,"(/'** Length of dynamics ',f8.3,' ps, ',i7,' configurations, '&
          ,i5,' time origins'/)")t(ndyn),ndyn, count_org
       r2t(:) = r2t(:)/count_org
       if (ex_vel) then
          v2t(:) = v2t(:)/count_org
-         call fftw1d(v2t,ftv,w,ndyn,n_freq,t(2)-t(1),tmax)
+         call fftw1d(v2t,ftv,w,ndyn,n_freq,t(2)-t(1),real(tmax, kind=double))
       end if
       if (run_sqw) then
          !
@@ -313,8 +313,8 @@ contains
          do i=1, nqw
             fkt(i,1:ndyn)=fkt(i,1:ndyn)/(Nsites*count_org*nw(i))
             fskt(i,1:ndyn)=fskt(i,1:ndyn)/(Nsites*count_org*nw(i))
-            call fftw1d(fkt(i,1:ndyn),sqw(1:n_freq,i),w,ndyn,n_freq,t(2)-t(1),tmax)
-            call fftw1d(fskt(i,1:ndyn),ssqw(1:n_freq,i),w,ndyn,n_freq,t(2)-t(1),tmax)
+            call fftw1d(fkt(i,1:ndyn),sqw(1:n_freq,i),w,ndyn,n_freq,t(2)-t(1),real(tmax, kind=double))
+            call fftw1d(fskt(i,1:ndyn),ssqw(1:n_freq,i),w,ndyn,n_freq,t(2)-t(1),real(tmax, kind=double))
          enddo
       endif
       if (ex_stress) then

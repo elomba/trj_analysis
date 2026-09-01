@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Separate time-domain (up to `itlimit`) and frequency-domain (up to `n_freq`) output loops in `print_rtcor` (`121fdf1`)
 - Fix column wrapping in `fkt.dat`, `fskt.dat`, and `sqw.dat` by using variable-length format descriptor `*(1x, f15.5)` (`8e2aaa8`)
 - Fix header numeric overflow (`******`) for $Q \ge 10.0$ in `fkt.dat`, `fskt.dat`, and `sqw.dat` using `f7.3` and unlimited repetition `*(...)` (`8e2aaa8`)
+- Upgrade host dynamic correlation arrays (`fkt`, `fskt`, `sqw`, `ssqw`, `v2t`, `ftv`, `w`) and FFTW routines to double precision (`real64`) to prevent floating-point accumulator precision loss and integer truncation when averaging over thousands of time origins
 - Proper deallocation of temporary array `tx` in `fftw1d` and GPU arrays (`indqw_d`, `qw_d`) in `dyn_clear` and `sq_clear` (`8e2aaa8`)
 
 ## [1.7.1] - 2026-08-25

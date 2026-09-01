@@ -41,8 +41,8 @@ Module fftw3
    Use, Intrinsic :: iso_c_binding
    Use mod_precision
    Include "fftw3.f03"
-   Real(float), Parameter :: pi=3.141592653589793
-   Real(float) :: dt,dq
+   Real(double), Parameter :: pi=3.14159265358979323846_double
+   Real(double) :: dt,dq
 
 Contains
 
@@ -52,11 +52,11 @@ subroutine fftw1d(fin,fout,w,nin,nout,dtin, tmax)
    !
    Implicit None
    integer, intent(IN) :: nin, nout
-   real(float), intent(IN) :: fin(nin), dtin
-   real(float), intent(OUT) :: fout(nout), w(nout), tmax
-   real(float), allocatable, dimension(:) :: tx
+   real(double), intent(IN) :: fin(nin), dtin, tmax
+   real(double), intent(OUT) :: fout(nout), w(nout)
+   real(double), allocatable, dimension(:) :: tx
    Complex(double), allocatable, Dimension(:) :: out, in
-   Real(float) :: alpha=1.0
+   Real(double) :: alpha=1.0_double
    Integer :: i, j, nu, n
    Integer(kind=8) :: plan
    ! Determine next power of 2 such that n/2 >= nin
@@ -67,25 +67,27 @@ subroutine fftw1d(fin,fout,w,nin,nout,dtin, tmax)
    dq = 2*pi/(n*dt)
    allocate(in(n),out(n),tx(n))
    ! Copy input data and zero-pad
-   in(1:nin) =  cmplx(fin(1:nin),0.0)
-   in(nin+1:n) = (0.0,0.0)
+   in(1:nin) =  cmplx(fin(1:nin),0.0_double,kind=double)
+   in(nin+1:n) = (0.0_double,0.0_double)
    forall (i=1:n) tx(i)=(i-1)*dt
    ! if tmax not defined use maximum time
-   if (abs(tmax)<1.0e-6) tmax = n*dt
-   ! Apply window function for smooth truncation
-   in(1:n) = in(1:n)*window(tx,tmax,n,alpha)
+   if (abs(tmax)<1.0e-6_double) then
+      in(1:n) = in(1:n)*window(tx,n*dt,n,alpha)
+   else
+      in(1:n) = in(1:n)*window(tx,tmax,n,alpha)
+   endif
 
    ! Perform FFT
    Call fftw1(in,out,n,.True.)
    ! Extract positive frequencies and scale
    Do i=1, min(nout, n/2+1)
       w(i) = (i-1)*dq
-      fout(i) = real(out(i))
+      fout(i) = real(out(i), kind=double)
    End Do
    if (nout > n/2+1) then
       Do i = n/2+2, nout
          w(i) = (i-1)*dq
-         fout(i) = 0.0
+         fout(i) = 0.0_double
       End Do
    endif
    deallocate(in,out,tx)
@@ -130,9 +132,9 @@ End Subroutine fftw1
 function window(t,x,n,alpha) result(w)
    implicit none
    integer, intent(in) :: n
-   real(float), intent(in) :: t(n), x, alpha
-   real(float) :: w(n)
-   w(1:n) = 0.5*(1-tanh(alpha*(t(1:n)-x)))
+   real(double), intent(in) :: t(n), x, alpha
+   real(double) :: w(n)
+   w(1:n) = 0.5_double*(1.0_double - tanh(alpha*(t(1:n) - x)))
 end function window
 
 end module fftw3
