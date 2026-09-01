@@ -59,8 +59,8 @@ subroutine fftw1d(fin,fout,w,nin,dtin, tmax)
    Real(float) :: alpha=1.0
    Integer :: i, j, nu, n
    Integer(kind=8) :: plan
-   ! Determine next power of 2 for efficient FFT
-   nu = int(log(real(nin))/log(2.00)+0.540)
+   ! Determine next power of 2 such that n/2 >= nin
+   nu = ceiling(log(real(nin))/log(2.00))
    n = 2**(nu+1)
    ! Set up time and frequency grids
    dt = dtin
@@ -78,11 +78,17 @@ subroutine fftw1d(fin,fout,w,nin,dtin, tmax)
    ! Perform FFT
    Call fftw1(in,out,n,.True.)
    ! Extract positive frequencies and scale
-   Do i=1,nin
+   Do i=1, min(nin, n/2+1)
       w(i) = (i-1)*dq
       fout(i) = real(out(i))
    End Do
-   deallocate(in,out)
+   if (nin > n/2+1) then
+      Do i = n/2+2, nin
+         w(i) = (i-1)*dq
+         fout(i) = 0.0
+      End Do
+   endif
+   deallocate(in,out,tx)
 end subroutine fftw1d
 
 Subroutine fftw1(in,out,n,forward)
@@ -113,12 +119,12 @@ Subroutine fftw1(in,out,n,forward)
    Call dfftw_execute_dft(plan,in,out)
    Call dfftw_destroy_plan(plan)
    ! Scale output and use symmetry to extract real part
-   out(1) = out(1)*dfact
-   ! For k=2 to N/2, use symmetry: F(k) = F*(-k) for real input, so we can combine them
+   out(1) = cmplx(real(out(1))*dfact, 0.0_double, kind=double)
+   ! For k=2 to N/2, use symmetry: F(k) = F*(-k) for real input
    Forall (i=2:n/2)
-      ! FT(k_x) = 2*(Real(F(k_x))+Real(F(-K_x)) and we make use of the symmetry 
-      out(i) = (out(i)+out(n-i+2))*dfact/2
+      out(i) = cmplx(real(out(i))*dfact, 0.0_double, kind=double)
    End Forall
+   out(n/2+1) = cmplx(real(out(n/2+1))*dfact, 0.0_double, kind=double)
 End Subroutine fftw1
 
 function window(t,x,n,alpha) result(w)
