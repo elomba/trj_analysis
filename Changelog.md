@@ -4,13 +4,11 @@ All notable changes to the **Trajectory Analysis for LAMMPS** (`trj_analysis`) p
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased] - 2026-09-01
+## [1.7.2] - 2026-09-01
 ### Fixed
-- **FFT 1D Transform & High-Frequency Spectrum (`src/core/fftwlib.f90`):**
-  - Fixed scaling in `fftw1` for positive frequency bins up to and including the Nyquist frequency ($i = n/2 + 1$).
-  - Corrected FFT zero-padding sizing ($n$) in `fftw1d` to ensure $n/2 \ge nin$, guaranteeing all extracted points represent physical positive frequencies strictly below the Nyquist limit.
-  - Resolved spurious high-frequency jumps/divergence in $Z(\omega)$ and $S(q,\omega)$ caused by reading unscaled negative frequency bins when $nin > n/2$.
-  - Fixed deallocation in `fftw1d` to include the temporary time grid array `tx`.
+- Correct Nyquist bin scaling and zero-padding sizing in 1D FFT routines in `src/core/fftwlib.f90` to fix spurious high-frequency divergence in $Z(\omega)$ and $S(q,\omega)$ (`0d3a332`)
+- Ensure FFT padded size $n$ satisfies $n/2 \ge nin$ to avoid negative frequency bin overflow
+- Proper deallocation of temporary array `tx` in `fftw1d`
 
 ## [1.7.1] - 2026-08-25
 ### Added
