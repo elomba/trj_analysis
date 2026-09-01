@@ -6,12 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [1.7.2] - 2026-09-01
 ### Fixed
-- Correct Nyquist bin scaling and zero-padding sizing in 1D FFT routines in `src/core/fftwlib.f90` to fix spurious high-frequency divergence in $Z(\omega)$ and $S(q,\omega)$ (`0d3a332`)
-- Ensure FFT padded size $n$ satisfies $n/2 \ge nin$ to avoid negative frequency bin overflow
-- Fix array bounds overflow in `src/modules/sq.cuf` during $S(Q,\omega)$ wavevector indexing by ensuring consistent `kmaxz` bounds across 3D vector counting and storage loops
-- Update output routines in `src/modules/dynamics.cuf` to write the complete positive frequency spectrum up to the Nyquist limit ($f_{\text{Nyquist}} = 1/(2\Delta t)$) for $Z(\omega)$ and $S(q,\omega)$
-- Separate time-domain (up to `itlimit`) and frequency-domain (up to `n_freq`) output loops in `print_rtcor`, and use variable column formatting for `fkt.dat`, `fskt.dat`, and `sqw.dat`
-- Proper deallocation of temporary array `tx` in `fftw1d` and GPU vectors in `dyn_clear` and `sq_clear`
+- Correct Nyquist bin scaling and zero-padding sizing in 1D FFT routines in `src/core/fftwlib.f90` to eliminate spurious high-frequency divergence in $Z(\omega)$ and $S(q,\omega)$ (`0d3a332`)
+- Ensure FFT padded size $n$ satisfies $n/2 \ge nin$ to avoid reading unscaled negative frequency bins (`0d3a332`)
+- Fix array bounds overflow in `src/modules/sq.cuf` during $S(Q,\omega)$ wavevector indexing by fixing `kmaxz` bounds in 3D vector counting (`8e2aaa8`)
+- Output complete positive frequency spectrum up to Nyquist limit ($f_{\text{Nyquist}} = 1/(2\Delta t)$) for $Z(\omega)$ and $S(q,\omega)$ in `src/modules/dynamics.cuf` (`121fdf1`)
+- Separate time-domain (up to `itlimit`) and frequency-domain (up to `n_freq`) output loops in `print_rtcor` (`121fdf1`)
+- Fix column wrapping in `fkt.dat`, `fskt.dat`, and `sqw.dat` by using variable-length format descriptor `*(1x, f15.5)` (`8e2aaa8`)
+- Fix header numeric overflow (`******`) for $Q \ge 10.0$ in `fkt.dat`, `fskt.dat`, and `sqw.dat` using `f7.3` and unlimited repetition `*(...)` (`8e2aaa8`)
+- Proper deallocation of temporary array `tx` in `fftw1d` and GPU arrays (`indqw_d`, `qw_d`) in `dyn_clear` and `sq_clear` (`8e2aaa8`)
 
 ## [1.7.1] - 2026-08-25
 ### Added
