@@ -348,13 +348,13 @@ contains
       endif
       if (run_sqw) then
          if (tunits == 'lj') then
-            write(65,'("#",2x,"t(tau)",9x,*(1x,"F(",f7.3,",t)",3x))')qw(1:nqw)
-            write(66,'("#",2x,"t(tau)",9x,*(1x,"Fs(",f7.3,",t)",3x))')qw(1:nqw)
-            write(67,"('#',2x,'w(1/tau)',5x,*(1x,'S(',f7.3,',w)    Ss(',f7.3,',w)',3x))")(qw(j),qw(j),j=1,nqw)
+            write(65,'("#",2x,"t(tau)",9x,*(1x,"F(",f7.3,",t)",3x:))')qw(1:nqw)
+            write(66,'("#",2x,"t(tau)",9x,*(1x,"Fs(",f7.3,",t)",3x:))')qw(1:nqw)
+            write(67,"('#',2x,'w(1/tau)',5x,*(1x,'S(',f7.3,',w)    Ss(',f7.3,',w)',3x:))")(qw(j),qw(j),j=1,nqw)
          else
-            write(65,'("#",2x,"t(ps)",9x,*(1x,"F(",f7.3,",t)",3x))')qw(1:nqw)
-            write(66,'("#",2x,"t(ps)",9x,*(1x,"Fs(",f7.3,",t)",3x))')qw(1:nqw)
-            write(67,"('#',2x,'w(THz)',7x,'w(meV)',5x,*(1x,'S(',f7.3,',w)    Ss(',f7.3,',w)',3x))")(qw(j),qw(j),j=1,nqw)
+            write(65,'("#",2x,"t(ps)",9x,*(1x,"F(",f7.3,",t)",3x:))')qw(1:nqw)
+            write(66,'("#",2x,"t(ps)",9x,*(1x,"Fs(",f7.3,",t)",3x:))')qw(1:nqw)
+            write(67,"('#',2x,'w(THz)',7x,'w(meV)',5x,*(1x,'S(',f7.3,',w)    Ss(',f7.3,',w)',3x:))")(qw(j),qw(j),j=1,nqw)
          endif
       endif
 
