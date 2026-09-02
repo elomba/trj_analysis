@@ -124,6 +124,11 @@ contains
          allocate(stcorr(ndyn),stcorrb(ndyn,nbuffer),&
             p0(1:3,1:nbuffer))
          allocate(pxy(Nsites),pxz(Nsites),pyz(Nsites))
+         stcorr(:) = 0.0_double
+         stcorrb(:,:) = 0.0_double
+         p0(:,:) = 0.0_double
+         stcorr_d(:,:) = 0.0
+         poff_d(:,:) = 0.0
       endif
       if (run_sqw) then
          allocate(fkt(nqw,ndyn),fskt(nqw,ndyn))
@@ -148,7 +153,8 @@ contains
          deallocate(w,ftv)
       endif
       if (ex_stress) then
-         deallocate(stcorr,p0)
+         deallocate(stcorr,stcorrb,p0)
+         deallocate(pxy,pxz,pyz)
          deallocate(stcorr_d,poff_d,p0_d)
       end if
       if (run_sqw) then
@@ -319,7 +325,11 @@ contains
       endif
       if (ex_stress) then
          open(56,file="viscor.dat")
-         write(56,"('#',2x,'t(ps)',9x,'P_off(t)',7x,'eta_GK(t) (bar*ps))')")
+         if (tunits == 'lj') then
+            write(56,"('#',2x,'t(tau)',9x,'P_off(t)',7x,'eta_GK(t) (eps*tau/sig^3)')")
+         else
+            write(56,"('#',2x,'t(ps)',9x,'P_off(t)',7x,'eta_GK(t) (bar*ps))')")
+         endif
       endif
       if (ex_vel) then
          if (tunits == 'lj') then
@@ -364,10 +374,13 @@ contains
                pct1 = pct
                pct =  fw*stcorr(i)/(ndim*count_org)
                ! Integrate off-diagonal pressure tensor correlation (trapezoidal rule)
-               ! Use Green-Kubo relation eta_gk = (V/NkT)*\int_0^t<pxy(t')pxy(0)>dt' in (bar*s)
-               !
+               ! Use Green-Kubo relation eta_gk = (V/kT)*\int_0^t<pxy(t')pxy(0)>dt'
                sum_visc = sum_visc + (pct+pct1)*(t(i)-t(i-1))/2
-               write(56,"(f10.3,9f17.5)")t(i),pct,(volumen/temperature/c_nktv)*sum_visc
+               if (tunits == 'lj') then
+                  write(56,"(f10.3,9f17.5)")t(i),pct,(volumen/temperature)*sum_visc
+               else
+                  write(56,"(f10.3,9f17.5)")t(i),pct,(volumen/temperature/c_nktv)*sum_visc
+               endif
             endif
          end if
          if (run_sqw) then

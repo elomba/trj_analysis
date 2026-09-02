@@ -4,6 +4,14 @@ All notable changes to the **Trajectory Analysis for LAMMPS** (`trj_analysis`) p
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.7.3] - 2026-09-02
+### Fixed
+- Initialize host and device shear stress correlation arrays (`stcorr`, `stcorrb`, `p0`, `stcorr_d`, `poff_d`) to zero upon allocation in `src/modules/dynamics.cuf` (`dyn_init`), eliminating uninitialized heap memory artifacts and NaN poisoning in `viscor.dat`.
+- Fix memory leak in `src/modules/dynamics.cuf` (`dyn_clear`) by properly deallocating `stcorrb`, `pxy`, `pxz`, and `pyz`.
+- Add unit-aware calculation and labeling for Green-Kubo shear viscosity $\eta_{\text{GK}}(t)$ in `print_rtcor`:
+  - Output header `t(tau)` and `eta_GK(t) (eps*tau/sig^3)` when running in reduced Lennard-Jones units (`tunits == 'lj'`).
+  - Use prefactor $(V/T)$ for LJ units without dividing by the real-units conversion factor `c_nktv = 138.0649`.
+
 ## [1.7.2] - 2026-09-01
 ### Fixed
 - Correct Nyquist bin scaling and zero-padding sizing in 1D FFT routines in `src/core/fftwlib.f90` to eliminate spurious high-frequency divergence in $Z(\omega)$ and $S(q,\omega)$ (`0d3a332`)
