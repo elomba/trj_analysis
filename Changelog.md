@@ -4,6 +4,15 @@ All notable changes to the **Trajectory Analysis for LAMMPS** (`trj_analysis`) p
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.7.5] - 2026-09-03
+### Added
+- Implement longitudinal current correlation function $J_L(Q,t)$ and self longitudinal current correlation $J_{L,s}(Q,t)$ in `src/modules/dynamics.cuf`:
+  - Extended GPU kernel `FqtnD` to compute velocity vector projections along unit wavevectors $\hat{\mathbf{Q}}$ simultaneously with $F(Q,t)$.
+  - Accumulated collective $J_L(\mathbf{Q},t)$ and self $J_{L,s}(\mathbf{Q},t)$ using multi-buffer temporal origin shifting.
+  - Computed spectral densities $C_L(Q,\omega)$ and $C_{L,s}(Q,\omega)$ via 1D FFTW Fourier transformation in `print_rtcor`.
+  - Output longitudinal current time correlations to `jqt.dat` and spectral densities to `clqw.dat` with 6-decimal alignment (`f16.6`) and aligned headers.
+- Renamed intermediate scattering function output file `fkt.dat` to `fqt.dat` across module routines and documentation for naming consistency with $F_s(Q,t)$ (`fskt.dat`), $J_L(Q,t)$ (`jqt.dat`), and $C_L(Q,\omega)$ (`clqw.dat`).
+
 ## [1.7.4] - 2026-09-03
 ### Added
 - Add optional non-ergodicity plateau subtraction ($F_{\text{inelastic}}(Q,t) = F(Q,t) - f_Q$) and normalization options for dynamic structure factors $S(Q,\omega)$ and $S_s(Q,\omega)$:

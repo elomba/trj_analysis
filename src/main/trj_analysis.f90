@@ -68,7 +68,7 @@
 ! Output Files:
 !   THERMODYNAMICS: thermo_run.dat
 !   STRUCTURE:      gmixsim.dat, g_xy.dat, sq_xy.dat, sq.dat, sqmix.dat, sqcl.dat, order.dat
-!   DYNAMICS:       dyn.dat, fkt.dat, fskt.dat, sqw.dat, viscor.dat, dynw.dat
+!   DYNAMICS:       dyn.dat, fqt.dat, fskt.dat, jqt.dat, sqw.dat, clqw.dat, viscor.dat, dynw.dat
 !   CLUSTERS:       rhoprof.dat, radii.dat, clustdistr.dat, distUcl_N.dat,
 !                   distUcltot.dat, clusevol.dat, fshape.dat, ordprof_clust.dat,
 !                   ordprof_clcum.dat, order_per_cl.dat, centers.lammpstrj

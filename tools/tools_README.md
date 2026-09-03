@@ -15,6 +15,8 @@ Typical utilities include:
   - **fast_sq_freud_netcdf.py** S(Q) (using Q-space sampling) with Freud package
   - **rerun_grSALRlj.lmp** LAMMPS rerun script to calculate g(r) from a lammpstrj dump
   - **rerun_grSALRlj_ord.lmp** LAMMPS rerun script to calculate $Q_l$ bond orientational order parameters
+- Dynamic properties
+  - **check_clqw_sqw.py** Consistency checker between $C_L(Q,\omega)$, $S(Q,\omega)$, $F(Q,t)$, and $J_L(Q,t)$
 
 ## Example: LAMMPS dump → NetCDF
 

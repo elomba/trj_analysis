@@ -214,9 +214,11 @@ The input uses Fortran namelist format. All variables found in the source code a
 
 * `dyn.dat`: Mean squared displacement and velocity autocorrelation.
 * `dynw.dat`: Frequency-resolved impedance $Z(\omega)$.
-* `fkt.dat`: Coherent intermediate scattering function $F(Q,t)$.
+* `fqt.dat`: Coherent intermediate scattering function $F(Q,t)$.
 * `fskt.dat`: Self-intermediate scattering function $F_s(Q,t)$.
+* `jqt.dat`: Longitudinal current correlation functions $J_L(Q,t)$ and $J_{L,s}(Q,t)$.
 * `sqw.dat`: Dynamic structure factors $S(Q,\omega)$ and $S_s(Q,\omega)$.
+* `clqw.dat`: Longitudinal current spectrum $C_L(Q,\omega)$ and $C_{L,s}(Q,\omega)$.
 * `viscor.dat`: Stress autocorrelation and shear viscosity $\eta(t)$.
 
 ### Cluster Analysis files
