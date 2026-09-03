@@ -4,6 +4,14 @@ All notable changes to the **Trajectory Analysis for LAMMPS** (`trj_analysis`) p
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.7.4] - 2026-09-03
+### Added
+- Add optional non-ergodicity plateau subtraction ($F_{\text{inelastic}}(Q,t) = F(Q,t) - f_Q$) and normalization options for dynamic structure factors $S(Q,\omega)$ and $S_s(Q,\omega)$:
+  - Added `subtract_plateau` and `norm_sqw` logical parameters to `/INPUT_SQW/` in `src/io/input.f90` (default to `.false.`).
+  - Implemented plateau estimation $f_Q = F(Q, t_{\text{max}})$ and $f_{s,Q} = F_s(Q, t_{\text{max}})$ over long-time tails in `src/modules/dynamics.cuf` (`print_rtcor`), ensuring $F_{\text{inelastic}}(Q,t) \to 0$ prior to FFT to avoid truncation ripples near $\omega \to 0$.
+  - Added optional normalization by initial amplitude $S(Q) = F(Q,0)$ via `norm_sqw = .true.` and enhanced runtime console reporting of $S(Q)$ and initial inelastic signal $F_{\text{inelastic}}(Q,0) = S(Q) - f_Q$.
+  - Updated `README.md` documentation for `/INPUT_SQW/`.
+
 ## [1.7.3] - 2026-09-02
 ### Fixed
 - Initialize host and device shear stress correlation arrays (`stcorr`, `stcorrb`, `p0`, `stcorr_d`, `poff_d`) to zero upon allocation in `src/modules/dynamics.cuf` (`dyn_init`), eliminating uninitialized heap memory artifacts and NaN poisoning in `viscor.dat`.

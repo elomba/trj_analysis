@@ -292,9 +292,11 @@ contains
       !
       use fftw3
       implicit none
-      integer :: i, j
+      integer :: i, j, n_tail, i_start
       real(double) :: fconv=4.135_double
-      real(double) :: sum_visc=0.0_double, pct, pct1, alpha=10.0_double, fw
+      real(double) :: sum_visc=0.0_double, pct, pct1, alpha=10.0_double, fw, fq, fsq
+      real(double), allocatable :: fkt_in(:), fskt_in(:)
+      character(len=17), allocatable :: h1_list(:), h2_list(:)
       t(1:ndyn) = t(1:ndyn)-t(1)
       write(*,"(/'** Length of dynamics ',f8.3,' ps, ',i7,' configurations, '&
          ,i5,' time origins'/)")t(ndyn),ndyn, count_org
@@ -316,12 +318,46 @@ contains
          open(65,file='fkt.dat')
          open(66,file='fskt.dat')
          open(67,file='sqw.dat')
+         if (subtract_plateau .or. norm_sqw) allocate(fkt_in(itlimit), fskt_in(itlimit))
          do i=1, nqw
             fkt(i,1:ndyn)=fkt(i,1:ndyn)/(Nsites*count_org*nw(i))
             fskt(i,1:ndyn)=fskt(i,1:ndyn)/(Nsites*count_org*nw(i))
-            call fftw1d(fkt(i,1:ndyn),sqw(1:n_freq,i),w,ndyn,n_freq,t(2)-t(1),real(tmax, kind=double))
-            call fftw1d(fskt(i,1:ndyn),ssqw(1:n_freq,i),w,ndyn,n_freq,t(2)-t(1),real(tmax, kind=double))
+            if (subtract_plateau) then
+               i_start = max(1, itlimit - 4)
+               n_tail = itlimit - i_start + 1
+               fq  = sum(fkt(i, i_start:itlimit)) / real(n_tail, kind=double)
+               fsq = sum(fskt(i, i_start:itlimit)) / real(n_tail, kind=double)
+               write(*,"(' *** Subtracted non-ergodicity plateau f_Q = ',f8.5,' (self f_sQ = ',f8.5,') for Q = ',f8.3,' [S(Q)=',f8.5,', F_inel(0)=',f8.5,']')") &
+                     fq, fsq, qw(i), fkt(i,1), fkt(i,1)-fq
+               fkt_in(1:itlimit)  = fkt(i, 1:itlimit)  - fq
+               fskt_in(1:itlimit) = fskt(i, 1:itlimit) - fsq
+               if (norm_sqw) then
+                  if (abs(fkt(i,1)) > 1.0e-12_double) fkt_in(1:itlimit) = fkt_in(1:itlimit) / fkt(i,1)
+                  if (abs(fskt(i,1)) > 1.0e-12_double) fskt_in(1:itlimit) = fskt_in(1:itlimit) / fskt(i,1)
+               endif
+               call fftw1d(fkt_in(1:itlimit),  sqw(1:n_freq,i),  w, itlimit, n_freq, t(2)-t(1), real(tmax, kind=double))
+               call fftw1d(fskt_in(1:itlimit), ssqw(1:n_freq,i), w, itlimit, n_freq, t(2)-t(1), real(tmax, kind=double))
+            else
+               if (norm_sqw) then
+                  if (abs(fkt(i,1)) > 1.0e-12_double) then
+                     fkt_in(1:itlimit) = fkt(i, 1:itlimit) / fkt(i,1)
+                  else
+                     fkt_in(1:itlimit) = fkt(i, 1:itlimit)
+                  endif
+                  if (abs(fskt(i,1)) > 1.0e-12_double) then
+                     fskt_in(1:itlimit) = fskt(i, 1:itlimit) / fskt(i,1)
+                  else
+                     fskt_in(1:itlimit) = fskt(i, 1:itlimit)
+                  endif
+                  call fftw1d(fkt_in(1:itlimit),  sqw(1:n_freq,i),  w, itlimit, n_freq, t(2)-t(1), real(tmax, kind=double))
+                  call fftw1d(fskt_in(1:itlimit), ssqw(1:n_freq,i), w, itlimit, n_freq, t(2)-t(1), real(tmax, kind=double))
+               else
+                  call fftw1d(fkt(i,1:itlimit),  sqw(1:n_freq,i),  w, itlimit, n_freq, t(2)-t(1), real(tmax, kind=double))
+                  call fftw1d(fskt(i,1:itlimit), ssqw(1:n_freq,i), w, itlimit, n_freq, t(2)-t(1), real(tmax, kind=double))
+               endif
+            endif
          enddo
+         if (allocated(fkt_in)) deallocate(fkt_in, fskt_in)
       endif
       if (ex_stress) then
          open(56,file="viscor.dat")
@@ -347,15 +383,32 @@ contains
          endif
       endif
       if (run_sqw) then
+         allocate(h1_list(nqw), h2_list(nqw))
+         do j = 1, nqw
+            if (subtract_plateau .and. norm_sqw) then
+               write(h1_list(j), "(' Sinel(',f6.3,')/SQ')") qw(j)
+               write(h2_list(j), "(' Ssinel(',f6.3,',w)')") qw(j)
+            else if (subtract_plateau) then
+               write(h1_list(j), "('  Sinel(',f6.3,',w)')") qw(j)
+               write(h2_list(j), "(' Ssinel(',f6.3,',w)')") qw(j)
+            else if (norm_sqw) then
+               write(h1_list(j), "('    S(',f6.3,',w)/SQ')") qw(j)
+               write(h2_list(j), "('   Ss(',f6.3,',w)  ')") qw(j)
+            else
+               write(h1_list(j), "('    S(',f6.3,',w)   ')") qw(j)
+               write(h2_list(j), "('   Ss(',f6.3,',w)   ')") qw(j)
+            endif
+         enddo
          if (tunits == 'lj') then
             write(65,'("#",2x,"t(tau)",9x,*(1x,"F(",f7.3,",t)",3x:))')qw(1:nqw)
             write(66,'("#",2x,"t(tau)",9x,*(1x,"Fs(",f7.3,",t)",3x:))')qw(1:nqw)
-            write(67,"('#',2x,'w(1/tau)',5x,*(1x,'S(',f7.3,',w)    Ss(',f7.3,',w)',3x:))")(qw(j),qw(j),j=1,nqw)
+            write(67,"('#  w(1/tau) ',*(a17,a17))") (h1_list(j), h2_list(j), j=1,nqw)
          else
             write(65,'("#",2x,"t(ps)",9x,*(1x,"F(",f7.3,",t)",3x:))')qw(1:nqw)
             write(66,'("#",2x,"t(ps)",9x,*(1x,"Fs(",f7.3,",t)",3x:))')qw(1:nqw)
-            write(67,"('#',2x,'w(THz)',7x,'w(meV)',5x,*(1x,'S(',f7.3,',w)    Ss(',f7.3,',w)',3x:))")(qw(j),qw(j),j=1,nqw)
+            write(67,"('#   w(THz)     w(meV)  ',*(a17,a17))") (h1_list(j), h2_list(j), j=1,nqw)
          endif
+         if (allocated(h1_list)) deallocate(h1_list, h2_list)
       endif
 
       ! Time-domain outputs (1 to itlimit)
@@ -402,9 +455,9 @@ contains
       if (run_sqw) then
          do i = 1, n_freq
             if (tunits == 'lj') then
-               write(67,"(f10.3,*(1x,f15.5))")w(i)/(2*pi),(sqw(i,j),ssqw(i,j),j=1,nqw)
+               write(67,"(f11.4,*(1x,f16.6))")w(i)/(2*pi),(sqw(i,j),ssqw(i,j),j=1,nqw)
             else
-               write(67,"(2f10.3,*(1x,f15.5))")w(i)/(2*pi),fconv*w(i)/(2*pi),(sqw(i,j),ssqw(i,j),j=1,nqw)
+               write(67,"(2f11.4,*(1x,f16.6))")w(i)/(2*pi),fconv*w(i)/(2*pi),(sqw(i,j),ssqw(i,j),j=1,nqw)
             endif
          end do
       endif

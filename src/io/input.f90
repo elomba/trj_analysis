@@ -51,7 +51,7 @@ module mod_input
    integer :: nthread=64, ndim, minPts,  idir=3, nsp, nbuffer=2, potnbins=100, nqw=0, &
             & jump=1, norder=1, nnbond=0, cl_thresh=10, nprint=10
    logical :: use_cell = .true., run_order = .false., print_orderp=.false., &
-               geometry=.true.
+               geometry=.true., subtract_plateau=.false., norm_sqw=.false.
    logical, dimension(7) :: rdf_sq_cl_dyn_sqw_conf_ord
    real(myprec) :: deltar, dcl, qmin, qmax, rcrdf, rclcl=0.0, &
       tmax=-1, tmaxp=-1, tlimit=-1, potengmargin=0.0, asym_threshold=0.5_myprec
@@ -71,7 +71,7 @@ module mod_input
    namelist /INPUT_CL/ dcl, minPts, ndrclus, cl_thresh, geometry, asym_threshold
    namelist /INPUT_CONF/ zslice, zgrid
    namelist /INPUT_DYN/ nbuffer, tmax, tmaxp, tlimit, jump
-   namelist /INPUT_SQW/ qw, tmqw
+   namelist /INPUT_SQW/ qw, tmqw, subtract_plateau, norm_sqw
    namelist /INPUT_ORDER/ orderp, print_orderp, nnbond, rclcl
 contains
 

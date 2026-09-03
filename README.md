@@ -175,10 +175,12 @@ The input uses Fortran namelist format. All variables found in the source code a
 
 ### `/INPUT_SQW/` - Dynamic Structure Factors
 
-| Parameter | Type | Description |
-| :--- | :--- | :--- |
-| `qw` | real(:) | Q-values for $F(Q,t)$ and $S(Q,\omega)$. |
-| `tmqw` | real(:) | Maximum times per specific Q-value. |
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `qw` | real(:) | - | Q-values for $F(Q,t)$ and $S(Q,\omega)$. |
+| `tmqw` | real(:) | - | Maximum times per specific Q-value. |
+| `subtract_plateau` | log | False | Subtract non-ergodicity plateau $f_Q$ from $F(Q,t)$ prior to FFT to avoid $\omega \to 0$ ripples. |
+| `norm_sqw` | log | False | Normalize $F(Q,t)$ by static structure factor $S(Q) = F(Q,0)$ prior to FFT. |
 
 ---
 
