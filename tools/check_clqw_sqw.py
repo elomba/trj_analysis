@@ -76,7 +76,7 @@ def extract_q_values(header_line):
     """Extract Q values from column header string."""
     if not header_line:
         return []
-    matches = re.findall(r'(?:Cl|Csl|Jl|Jls|Sinel|Ssinel|S|Ss|F|Fs)\(\s*([0-9]+\.[0-9]+)', header_line)
+    matches = re.findall(r'(?:Cl|Csl|Ct|Cst|Jl|Jls|Jt|Jts|Sinel|Ssinel|S|Ss|F|Fs)\(\s*([0-9]+\.[0-9]+)', header_line)
     q_vals = []
     for m in matches:
         q = float(m)
@@ -88,8 +88,10 @@ def extract_q_values(header_line):
 def analyze_and_plot(data_dir='.'):
     sqw_path = os.path.join(data_dir, 'sqw.dat')
     clqw_path = os.path.join(data_dir, 'clqw.dat')
+    ctqw_path = os.path.join(data_dir, 'ctqw.dat')
     fqt_path = os.path.join(data_dir, 'fqt.dat')
     jqt_path = os.path.join(data_dir, 'jqt.dat')
+    jtqt_path = os.path.join(data_dir, 'jtqt.dat')
 
     print("=" * 80)
     print(f"  Consistency Check & PDF Plotting for Dynamic Correlations: {os.path.abspath(data_dir)}")
@@ -97,8 +99,10 @@ def analyze_and_plot(data_dir='.'):
 
     sqw_h, sqw_cols, sqw_d = parse_dat_file(sqw_path)
     clqw_h, clqw_cols, clqw_d = parse_dat_file(clqw_path)
+    ctqw_h, ctqw_cols, ctqw_d = parse_dat_file(ctqw_path)
     fqt_h, fqt_cols, fqt_d = parse_dat_file(fqt_path)
     jqt_h, jqt_cols, jqt_d = parse_dat_file(jqt_path)
+    jtqt_h, jtqt_cols, jtqt_d = parse_dat_file(jtqt_path)
 
     if sqw_d is None or clqw_d is None:
         print(f"[ERROR] Could not load required files (sqw.dat: {sqw_d is not None}, clqw.dat: {clqw_d is not None})")
@@ -109,6 +113,10 @@ def analyze_and_plot(data_dir='.'):
     q_clqw = extract_q_values(clqw_h[0] if clqw_h else '')
 
     print(f"Loaded {len(freq_f)} frequency points from clqw.dat and sqw.dat.")
+    if ctqw_d is not None:
+        print("Loaded transverse spectrum dataset ctqw.dat successfully.")
+    if jtqt_d is not None:
+        print("Loaded transverse time-domain dataset jtqt.dat successfully.")
     if q_clqw:
         print(f"Detected {len(q_clqw)} Q-vectors: {[round(q, 4) for q in q_clqw]}")
 
@@ -118,18 +126,25 @@ def analyze_and_plot(data_dir='.'):
     report_lines.append("-" * 60)
 
     # 1. Time-Domain Check
-    if jqt_d is not None:
-        print("\n--- 1. Time-Domain Initial Value Limit J_{L,s}(Q, t=0) ---")
-        report_lines.append("\n1. Time-Domain Initial Value Limit J_{L,s}(Q, t=0):")
-        for i_q, q_val in enumerate(q_clqw):
-            col_jl = 1 + 2 * i_q
-            col_jls = 2 + 2 * i_q
-            if col_jls < jqt_d.shape[1]:
-                j_l0 = jqt_d[0, col_jl]
-                j_ls0 = jqt_d[0, col_jls]
-                msg = f"  Q = {q_val:6.3f} : J_L(Q,0) = {j_l0:10.5f} | J_{{L,s}}(Q,0) = {j_ls0:10.5f} (expected ~ k_B*T/m)"
-                print(msg)
-                report_lines.append(msg)
+    print("\n--- 1. Time-Domain Initial Value Limit J(Q, t=0) ---")
+    report_lines.append("\n1. Time-Domain Initial Value Limit J(Q, t=0):")
+    for i_q, q_val in enumerate(q_clqw):
+        col_jl = 1 + 2 * i_q
+        col_jls = 2 + 2 * i_q
+        msg_l = ""
+        msg_t = ""
+        if jqt_d is not None and col_jls < jqt_d.shape[1]:
+            j_l0 = jqt_d[0, col_jl]
+            j_ls0 = jqt_d[0, col_jls]
+            msg_l = f"  Q = {q_val:6.3f} : J_L(Q,0) = {j_l0:10.5f} | J_{{L,s}}(Q,0) = {j_ls0:10.5f} (expected ~ k_B*T/m)"
+            print(msg_l)
+            report_lines.append(msg_l)
+        if jtqt_d is not None and col_jls < jtqt_d.shape[1]:
+            j_t0 = jtqt_d[0, col_jl]
+            j_ts0 = jtqt_d[0, col_jls]
+            msg_t = f"  Q = {q_val:6.3f} : J_T(Q,0) = {j_t0:10.5f} | J_{{T,s}}(Q,0) = {j_ts0:10.5f} (expected ~ k_B*T/m)"
+            print(msg_t)
+            report_lines.append(msg_t)
 
     # 2. Time Derivative Check
     if fqt_d is not None and jqt_d is not None:
@@ -155,7 +170,8 @@ def analyze_and_plot(data_dir='.'):
 
     # Create Multi-Panel Figure for PDF Export
     n_q = len(q_clqw)
-    fig, axes = plt.subplots(n_q, 2, figsize=(12, 4 * n_q), squeeze=False)
+    n_cols = 3 if ctqw_d is not None else 2
+    fig, axes = plt.subplots(n_q, n_cols, figsize=(5 * n_cols, 3.5 * n_q), squeeze=False)
 
     for i_q, q_val in enumerate(q_clqw):
         col_c = 1 + 2 * i_q
@@ -197,10 +213,10 @@ def analyze_and_plot(data_dir='.'):
         ax_col.plot(freq_f, cl_calc_q1, 'g:', lw=1.5, label=r'$\omega^2 S(Q,\omega) / Q$')
         ax_col.set_xlabel(r'Frequency $\omega / (2\pi)$')
         ax_col.set_ylabel(r'$C_L(Q,\omega)$')
-        ax_col.set_title(f'Collective Longitudinal Current Spectrum ($Q = {q_val:.3f}$)')
+        ax_col.set_title(f'Collective Longitudinal $C_L(Q,\\omega)$ ($Q = {q_val:.3f}$)')
         ax_col.legend(loc='best')
         ax_col.grid(True, alpha=0.3)
-        ax_col.set_xlim(left=0, right=max(freq_f) * 0.3) # Zoom into relevant peak region
+        ax_col.set_xlim(left=0, right=max(freq_f) * 0.3)
 
         # Plot Self C_{L,s}(Q,w) vs w^2*S_s(Q,w)/Q^2
         ax_self = axes[i_q, 1]
@@ -208,10 +224,25 @@ def analyze_and_plot(data_dir='.'):
         ax_self.plot(freq_f, csl_calc, 'r--', lw=1.5, label=r'$\omega^2 S_s(Q,\omega) / Q^2$')
         ax_self.set_xlabel(r'Frequency $\omega / (2\pi)$')
         ax_self.set_ylabel(r'$C_{L,s}(Q,\omega)$')
-        ax_self.set_title(f'Self Longitudinal Current Spectrum ($Q = {q_val:.3f}$)')
+        ax_self.set_title(f'Self Longitudinal $C_{{L,s}}(Q,\\omega)$ ($Q = {q_val:.3f}$)')
         ax_self.legend(loc='best')
         ax_self.grid(True, alpha=0.3)
         ax_self.set_xlim(left=0, right=max(freq_f) * 0.3)
+
+        # Plot Transverse C_T(Q,w) if available
+        if ctqw_d is not None and col_cs < ctqw_d.shape[1]:
+            ct_actual = ctqw_d[:, col_c]
+            cst_actual = ctqw_d[:, col_cs]
+
+            ax_trans = axes[i_q, 2]
+            ax_trans.plot(freq_f, ct_actual, 'm-', lw=2, label=r'Collective $C_T(Q,\omega)$')
+            ax_trans.plot(freq_f, cst_actual, 'c--', lw=1.5, label=r'Self $C_{T,s}(Q,\omega)$')
+            ax_trans.set_xlabel(r'Frequency $\omega / (2\pi)$')
+            ax_trans.set_ylabel(r'$C_T(Q,\omega)$')
+            ax_trans.set_title(f'Transverse Current $C_T(Q,\\omega)$ ($Q = {q_val:.3f}$)')
+            ax_trans.legend(loc='best')
+            ax_trans.grid(True, alpha=0.3)
+            ax_trans.set_xlim(left=0, right=max(freq_f) * 0.3)
 
     plt.tight_layout()
 

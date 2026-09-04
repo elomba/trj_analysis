@@ -71,12 +71,12 @@ module mod_dyn
    integer, device, allocatable, dimension(:) :: origin_d
    integer, parameter :: nbmax = 1000, nblocks = 5 ! Max. number of buffers, number of blocks to split
    ! operations with particles
-   real(myprec), device, allocatable, dimension(:,:,:) :: r0_d, rt_d, v0_d, fktb_d, fsktb_d, jlktb_d, jlsktb_d
+   real(myprec), device, allocatable, dimension(:,:,:) :: r0_d, rt_d, v0_d, fktb_d, fsktb_d, jlktb_d, jlsktb_d, jtktb_d, jtsktb_d
    real(myprec), device, allocatable, dimension(:,:) :: r2tb_d, v2tb_d, poff_d, stcorr_d, p0_d
    real(myprec), device, allocatable, dimension(:) :: qw_d
    integer (kind=2), device, allocatable, dimension(:,:) :: indqw_d
    real(myprec), allocatable, dimension(:,:,:) :: r0, v0
-   real(double),  allocatable, dimension(:,:) :: fkt, fskt, sqw, ssqw, jlkt, jlskt, clqw, cslqw
+   real(double),  allocatable, dimension(:,:) :: fkt, fskt, sqw, ssqw, jlkt, jlskt, clqw, cslqw, jtkt, jtskt, ctqw, cstqw
    real(double),  allocatable, dimension(:) :: t, v2t
    real(double),  allocatable, dimension(:) :: r2t, stcorr
    real(double), allocatable, dimension(:,:) :: stcorrb, p0
@@ -140,15 +140,21 @@ contains
          fkt(:,:) = 0.0
          fskt(:,:) = 0.0
          if (ex_vel) then
-            allocate(jlkt(nqw,ndyn), jlskt(nqw,ndyn))
-            allocate(clqw(n_freq,nqw), cslqw(n_freq,nqw))
-            allocate(jlktb_d(nqw,ndyn,nbuffer), jlsktb_d(nqw,ndyn,nbuffer))
+            allocate(jlkt(nqw,ndyn), jlskt(nqw,ndyn), jtkt(nqw,ndyn), jtskt(nqw,ndyn))
+            allocate(clqw(n_freq,nqw), cslqw(n_freq,nqw), ctqw(n_freq,nqw), cstqw(n_freq,nqw))
+            allocate(jlktb_d(nqw,ndyn,nbuffer), jlsktb_d(nqw,ndyn,nbuffer), jtktb_d(nqw,ndyn,nbuffer), jtsktb_d(nqw,ndyn,nbuffer))
             jlktb_d(:,:,:) = 0.0
             jlsktb_d(:,:,:) = 0.0
+            jtktb_d(:,:,:) = 0.0
+            jtsktb_d(:,:,:) = 0.0
             jlkt(:,:) = 0.0
             jlskt(:,:) = 0.0
+            jtkt(:,:) = 0.0
+            jtskt(:,:) = 0.0
             clqw(:,:) = 0.0
             cslqw(:,:) = 0.0
+            ctqw(:,:) = 0.0
+            cstqw(:,:) = 0.0
          endif
       endif
    end  subroutine dyn_init
@@ -171,8 +177,8 @@ contains
       if (run_sqw) then
          deallocate(fkt,fskt,sqw,ssqw)
          deallocate(fktb_d,fsktb_d)
-         if (allocated(jlkt)) deallocate(jlkt, jlskt, clqw, cslqw)
-         if (allocated(jlktb_d)) deallocate(jlktb_d, jlsktb_d)
+         if (allocated(jlkt)) deallocate(jlkt, jlskt, clqw, cslqw, jtkt, jtskt, ctqw, cstqw)
+         if (allocated(jlktb_d)) deallocate(jlktb_d, jlsktb_d, jtktb_d, jtsktb_d)
          if (allocated(indqw_d)) deallocate(indqw_d)
          if (allocated(qw_d)) deallocate(qw_d)
       endif
@@ -295,6 +301,10 @@ contains
                   jlskt(1:nqw,1:ndyn) = jlskt(1:nqw,1:ndyn)+jlsktb_d(1:nqw,1:ndyn,i)
                   jlktb_d(1:nqw,1:ndyn,i) = 0
                   jlsktb_d(1:nqw,1:ndyn,i) = 0
+                  jtkt(1:nqw,1:ndyn) = jtkt(1:nqw,1:ndyn)+jtktb_d(1:nqw,1:ndyn,i)
+                  jtskt(1:nqw,1:ndyn) = jtskt(1:nqw,1:ndyn)+jtsktb_d(1:nqw,1:ndyn,i)
+                  jtktb_d(1:nqw,1:ndyn,i) = 0
+                  jtsktb_d(1:nqw,1:ndyn,i) = 0
                endif
             endif
             count_org = count_org+1
@@ -315,8 +325,8 @@ contains
       real(double) :: fconv=4.135_double
       real(double) :: sum_visc=0.0_double, pct, pct1, alpha=10.0_double, fw, fq, fsq
       real(double), allocatable :: fkt_in(:), fskt_in(:)
-      character(len=17), allocatable :: h1_list(:), h2_list(:), hj1_list(:), hj2_list(:)
-      character(len=16), allocatable :: hf_list(:), hfs_list(:), hjl1_list(:), hjl2_list(:)
+      character(len=17), allocatable :: h1_list(:), h2_list(:), hj1_list(:), hj2_list(:), hjt1_list(:), hjt2_list(:)
+      character(len=16), allocatable :: hf_list(:), hfs_list(:), hjl1_list(:), hjl2_list(:), hjtl1_list(:), hjtl2_list(:)
       t(1:ndyn) = t(1:ndyn)-t(1)
       write(*,"(/'** Length of dynamics ',f8.3,' ps, ',i7,' configurations, '&
          ,i5,' time origins'/)")t(ndyn),ndyn, count_org
@@ -341,6 +351,8 @@ contains
          if (ex_vel) then
             open(68,file='jqt.dat')
             open(69,file='clqw.dat')
+            open(70,file='jtqt.dat')
+            open(71,file='ctqw.dat')
          endif
          if (subtract_plateau .or. norm_sqw) allocate(fkt_in(itlimit), fskt_in(itlimit))
          do i=1, nqw
@@ -349,8 +361,12 @@ contains
             if (ex_vel) then
                jlkt(i,1:ndyn)=jlkt(i,1:ndyn)/(Nsites*count_org*nw(i))
                jlskt(i,1:ndyn)=jlskt(i,1:ndyn)/(Nsites*count_org*nw(i))
+               jtkt(i,1:ndyn)=jtkt(i,1:ndyn)/(Nsites*count_org*nw(i))
+               jtskt(i,1:ndyn)=jtskt(i,1:ndyn)/(Nsites*count_org*nw(i))
                call fftw1d(jlkt(i,1:itlimit),  clqw(1:n_freq,i),  w, itlimit, n_freq, t(2)-t(1), real(tmax, kind=double))
                call fftw1d(jlskt(i,1:itlimit), cslqw(1:n_freq,i), w, itlimit, n_freq, t(2)-t(1), real(tmax, kind=double))
+               call fftw1d(jtkt(i,1:itlimit),  ctqw(1:n_freq,i),  w, itlimit, n_freq, t(2)-t(1), real(tmax, kind=double))
+               call fftw1d(jtskt(i,1:itlimit), cstqw(1:n_freq,i), w, itlimit, n_freq, t(2)-t(1), real(tmax, kind=double))
             endif
             if (subtract_plateau) then
                i_start = max(1, itlimit - 4)
@@ -443,20 +459,31 @@ contains
          if (allocated(h1_list)) deallocate(h1_list, h2_list, hf_list, hfs_list)
          if (ex_vel) then
             allocate(hj1_list(nqw), hj2_list(nqw), hjl1_list(nqw), hjl2_list(nqw))
+            allocate(hjt1_list(nqw), hjt2_list(nqw), hjtl1_list(nqw), hjtl2_list(nqw))
             do j = 1, nqw
                write(hjl1_list(j), "('   Jl(',f6.3,',t) ')") qw(j)
                write(hjl2_list(j), "('  Jls(',f6.3,',t) ')") qw(j)
                write(hj1_list(j),  "('  Cl(',f6.3,',w)   ')") qw(j)
                write(hj2_list(j),  "(' Csl(',f6.3,',w)   ')") qw(j)
+
+               write(hjtl1_list(j), "('   Jt(',f6.3,',t) ')") qw(j)
+               write(hjtl2_list(j), "('  Jts(',f6.3,',t) ')") qw(j)
+               write(hjt1_list(j),  "('  Ct(',f6.3,',w)   ')") qw(j)
+               write(hjt2_list(j),  "(' Cst(',f6.3,',w)   ')") qw(j)
             enddo
             if (tunits == 'lj') then
                write(68,"('#  t(tau)   ',*(a16,a16))") (hjl1_list(j), hjl2_list(j), j=1,nqw)
                write(69,"('#  w(1/tau) ',*(a17,a17))") (hj1_list(j), hj2_list(j), j=1,nqw)
+               write(70,"('#  t(tau)   ',*(a16,a16))") (hjtl1_list(j), hjtl2_list(j), j=1,nqw)
+               write(71,"('#  w(1/tau) ',*(a17,a17))") (hjt1_list(j), hjt2_list(j), j=1,nqw)
             else
                write(68,"('#   t(ps)   ',*(a16,a16))") (hjl1_list(j), hjl2_list(j), j=1,nqw)
                write(69,"('#   w(THz)     w(meV)  ',*(a17,a17))") (hj1_list(j), hj2_list(j), j=1,nqw)
+               write(70,"('#   t(ps)   ',*(a16,a16))") (hjtl1_list(j), hjtl2_list(j), j=1,nqw)
+               write(71,"('#   w(THz)     w(meV)  ',*(a17,a17))") (hjt1_list(j), hjt2_list(j), j=1,nqw)
             endif
             if (allocated(hj1_list)) deallocate(hj1_list, hj2_list, hjl1_list, hjl2_list)
+            if (allocated(hjt1_list)) deallocate(hjt1_list, hjt2_list, hjtl1_list, hjtl2_list)
          endif
       endif
 
@@ -488,7 +515,10 @@ contains
          if (run_sqw) then
             write(65,"(f10.3,*(1x,f15.5))")t(i),fkt(1:nqw,i)
             write(66,"(f10.3,*(1x,f15.5))")t(i),fskt(1:nqw,i)
-            if (ex_vel) write(68,"(f10.3,*(1x,f15.5))")t(i),(jlkt(j,i),jlskt(j,i),j=1,nqw)
+            if (ex_vel) then
+               write(68,"(f10.3,*(1x,f15.5))")t(i),(jlkt(j,i),jlskt(j,i),j=1,nqw)
+               write(70,"(f10.3,*(1x,f15.5))")t(i),(jtkt(j,i),jtskt(j,i),j=1,nqw)
+            endif
          endif
       end do
 
@@ -506,10 +536,16 @@ contains
          do i = 1, n_freq
             if (tunits == 'lj') then
                write(67,"(f11.4,*(1x,f16.6))")w(i)/(2*pi),(sqw(i,j),ssqw(i,j),j=1,nqw)
-               if (ex_vel) write(69,"(f11.4,*(1x,f16.6))")w(i)/(2*pi),(clqw(i,j),cslqw(i,j),j=1,nqw)
+               if (ex_vel) then
+                  write(69,"(f11.4,*(1x,f16.6))")w(i)/(2*pi),(clqw(i,j),cslqw(i,j),j=1,nqw)
+                  write(71,"(f11.4,*(1x,f16.6))")w(i)/(2*pi),(ctqw(i,j),cstqw(i,j),j=1,nqw)
+               endif
             else
                write(67,"(2f11.4,*(1x,f16.6))")w(i)/(2*pi),fconv*w(i)/(2*pi),(sqw(i,j),ssqw(i,j),j=1,nqw)
-               if (ex_vel) write(69,"(2f11.4,*(1x,f16.6))")w(i)/(2*pi),fconv*w(i)/(2*pi),(clqw(i,j),cslqw(i,j),j=1,nqw)
+               if (ex_vel) then
+                  write(69,"(2f11.4,*(1x,f16.6))")w(i)/(2*pi),fconv*w(i)/(2*pi),(clqw(i,j),cslqw(i,j),j=1,nqw)
+                  write(71,"(2f11.4,*(1x,f16.6))")w(i)/(2*pi),fconv*w(i)/(2*pi),(ctqw(i,j),cstqw(i,j),j=1,nqw)
+               endif
             endif
          end do
       endif
@@ -523,6 +559,8 @@ contains
          if (ex_vel) then
             close(68)
             close(69)
+            close(70)
+            close(71)
          endif
       endif
    end subroutine print_rtcor
@@ -564,13 +602,19 @@ contains
    logical, value, intent(IN) :: ex_vel
    integer :: ibuffer, indx
    real(myprec), intent(IN) :: bsc(nsp)
-   real(myprec) :: rkxyz, rkxyzt, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q, suma
-   real(myprec) :: invq, hat_qx, hat_qy, hat_qz, vL0, vLt, tsum_j
+   real(myprec) :: rkxyz, rkxyzt, fk1, fk2, fk3, kf1, kf2, kf3, tsum, q
+   real(myprec) :: invq, hat_qx, hat_qy, hat_qz, vL0, vLt, tsum_j, tsum_jt
+   real(myprec) :: vT0_x, vT0_y, vT0_z, vTt_x, vTt_y, vTt_z
    real(myprec) :: c0, s0, ct, st
    real(double) :: sumcx, sumsx, sumcpx, sumspx, q2, bs
    real(double) :: sumcxt, sumsxt, sumcpxt, sumspxt, sumself
    real(double) :: sumjcx, sumjsx, sumjcpx, sumjspx
    real(double) :: sumjcxt, sumjsxt, sumjcpxt, sumjspxt, sumjself
+   real(double) :: sumjtcx_x, sumjtcx_y, sumjtcx_z, sumjtcpx_x, sumjtcpx_y, sumjtcpx_z
+   real(double) :: sumjtcxt_x, sumjtcxt_y, sumjtcxt_z, sumjtcpxt_x, sumjtcpxt_y, sumjtcpxt_z
+   real(double) :: sumjtsx_x, sumjtsx_y, sumjtsx_z, sumjtspx_x, sumjtspx_y, sumjtspx_z
+   real(double) :: sumjtsxt_x, sumjtsxt_y, sumjtsxt_z, sumjtspxt_x, sumjtspxt_y, sumjtspxt_z
+   real(double) :: sumjtself, vTdotvT_self
    real(myprec), intent(IN) :: fk(dim)
    real(myprec), value, intent(IN) ::  dq
    integer, dimension(buffer), intent(in) :: origin
@@ -614,6 +658,11 @@ contains
             sumjsx = 0
             sumjsxt = 0
             sumjself = 0
+            sumjtcx_x = 0; sumjtcx_y = 0; sumjtcx_z = 0
+            sumjtcxt_x = 0; sumjtcxt_y = 0; sumjtcxt_z = 0
+            sumjtsx_x = 0; sumjtsx_y = 0; sumjtsx_z = 0
+            sumjtsxt_x = 0; sumjtsxt_y = 0; sumjtsxt_z = 0
+            sumjtself = 0
          endif
          ind = 1
          found = .false.
@@ -635,6 +684,10 @@ contains
                sumjspx = 0
                sumjcpxt = 0
                sumjspxt = 0
+               sumjtcpx_x = 0; sumjtcpx_y = 0; sumjtcpx_z = 0
+               sumjtcpxt_x = 0; sumjtcpxt_y = 0; sumjtcpxt_z = 0
+               sumjtspx_x = 0; sumjtspx_y = 0; sumjtspx_z = 0
+               sumjtspxt_x = 0; sumjtspxt_y = 0; sumjtspxt_z = 0
             endif
             bs = bsc(j)
             do it = 1, ntype(j)
@@ -659,15 +712,47 @@ contains
                   if (dim==3) then
                      vL0 = v0_d(1,i,ibuffer)*hat_qx + v0_d(2,i,ibuffer)*hat_qy + v0_d(3,i,ibuffer)*hat_qz
                      vLt = v_d(1,i)*hat_qx + v_d(2,i)*hat_qy + v_d(3,i)*hat_qz
+                     vT0_x = v0_d(1,i,ibuffer) - vL0*hat_qx
+                     vT0_y = v0_d(2,i,ibuffer) - vL0*hat_qy
+                     vT0_z = v0_d(3,i,ibuffer) - vL0*hat_qz
+                     vTt_x = v_d(1,i) - vLt*hat_qx
+                     vTt_y = v_d(2,i) - vLt*hat_qy
+                     vTt_z = v_d(3,i) - vLt*hat_qz
                   else
                      vL0 = v0_d(1,i,ibuffer)*hat_qx + v0_d(2,i,ibuffer)*hat_qy
                      vLt = v_d(1,i)*hat_qx + v_d(2,i)*hat_qy
+                     vT0_x = v0_d(1,i,ibuffer) - vL0*hat_qx
+                     vT0_y = v0_d(2,i,ibuffer) - vL0*hat_qy
+                     vT0_z = 0.0
+                     vTt_x = v_d(1,i) - vLt*hat_qx
+                     vTt_y = v_d(2,i) - vLt*hat_qy
+                     vTt_z = 0.0
                   endif
                   sumjcpx = sumjcpx + vL0*c0
                   sumjspx = sumjspx + vL0*s0
                   sumjcpxt = sumjcpxt + vLt*ct
                   sumjspxt = sumjspxt + vLt*st
+
+                  sumjtcpx_x = sumjtcpx_x + vT0_x*c0
+                  sumjtcpx_y = sumjtcpx_y + vT0_y*c0
+                  sumjtcpx_z = sumjtcpx_z + vT0_z*c0
+                  sumjtspx_x = sumjtspx_x + vT0_x*s0
+                  sumjtspx_y = sumjtspx_y + vT0_y*s0
+                  sumjtspx_z = sumjtspx_z + vT0_z*s0
+                  sumjtcpxt_x = sumjtcpxt_x + vTt_x*ct
+                  sumjtcpxt_y = sumjtcpxt_y + vTt_y*ct
+                  sumjtcpxt_z = sumjtcpxt_z + vTt_z*ct
+                  sumjtspxt_x = sumjtspxt_x + vTt_x*st
+                  sumjtspxt_y = sumjtspxt_y + vTt_y*st
+                  sumjtspxt_z = sumjtspxt_z + vTt_z*st
+
                   sumjself = sumjself + vLt*vL0*__cosf(rkxyzt-rkxyz)
+                  vTdotvT_self = vTt_x*vT0_x + vTt_y*vT0_y + vTt_z*vT0_z
+                  if (dim==3) then
+                     sumjtself = sumjtself + 0.5*vTdotvT_self*__cosf(rkxyzt-rkxyz)
+                  else
+                     sumjtself = sumjtself + vTdotvT_self*__cosf(rkxyzt-rkxyz)
+                  endif
                endif
             end do
             sumcx = sumcx + bs*sumcpx
@@ -679,6 +764,18 @@ contains
                sumjcxt = sumjcxt + bs*sumjcpxt
                sumjsx = sumjsx + bs*sumjspx
                sumjsxt = sumjsxt + bs*sumjspxt
+               sumjtcx_x = sumjtcx_x + bs*sumjtcpx_x
+               sumjtcx_y = sumjtcx_y + bs*sumjtcpx_y
+               sumjtcx_z = sumjtcx_z + bs*sumjtcpx_z
+               sumjtcxt_x = sumjtcxt_x + bs*sumjtcpxt_x
+               sumjtcxt_y = sumjtcxt_y + bs*sumjtcpxt_y
+               sumjtcxt_z = sumjtcxt_z + bs*sumjtcpxt_z
+               sumjtsx_x = sumjtsx_x + bs*sumjtspx_x
+               sumjtsx_y = sumjtsx_y + bs*sumjtspx_y
+               sumjtsx_z = sumjtsx_z + bs*sumjtspx_z
+               sumjtsxt_x = sumjtsxt_x + bs*sumjtspxt_x
+               sumjtsxt_y = sumjtsxt_y + bs*sumjtspxt_y
+               sumjtsxt_z = sumjtsxt_z + bs*sumjtspxt_z
             endif
          end do
          tsum = (sumcx*sumcxt + sumsx*sumsxt)
@@ -686,8 +783,18 @@ contains
          ia = atomicadd(fsktb_d(ind,indx,ibuffer), real(sumself,kind=4))
          if (ex_vel) then
             tsum_j = (sumjcx*sumjcxt + sumjsx*sumjsxt)
+            if (dim==3) then
+               tsum_jt = 0.5 * ( (sumjtcx_x*sumjtcxt_x + sumjtsx_x*sumjtsxt_x) &
+                               + (sumjtcx_y*sumjtcxt_y + sumjtsx_y*sumjtsxt_y) &
+                               + (sumjtcx_z*sumjtcxt_z + sumjtsx_z*sumjtsxt_z) )
+            else
+               tsum_jt = (sumjtcx_x*sumjtcxt_x + sumjtsx_x*sumjtsxt_x) &
+                       + (sumjtcx_y*sumjtcxt_y + sumjtsx_y*sumjtsxt_y)
+            endif
             ia = atomicadd(jlktb_d(ind,indx,ibuffer), tsum_j)
             ia = atomicadd(jlsktb_d(ind,indx,ibuffer), real(sumjself,kind=4))
+            ia = atomicadd(jtktb_d(ind,indx,ibuffer), tsum_jt)
+            ia = atomicadd(jtsktb_d(ind,indx,ibuffer), real(sumjtself,kind=4))
          endif
       endif
    endif

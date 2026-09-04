@@ -28,7 +28,7 @@ VPATH = $(SRC_DIR)/core:$(SRC_DIR)/io:$(SRC_DIR)/modules:$(SRC_DIR)/main
 # ==========================================
 FC = nvfortran
 # NOTE: Added -module $(OBJ_DIR) to redirect .mod generation and -I$(OBJ_DIR) to read them
-FCOPTS = -O3 -gpu=cc75,cc80 -cudalib=curand
+FCOPTS = -O3 -gpu=cc75,cc80,maxregcount:96 -cudalib=curand
 FCINC = -I$(NETCDFINC) -I$(NVINCLUDE) $(if $(FFTWINC),-I$(FFTWINC)) -I$(OBJ_DIR) -module $(OBJ_DIR)
 
 F90 = $(FC)
