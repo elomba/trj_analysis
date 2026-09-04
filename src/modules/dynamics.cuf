@@ -231,9 +231,13 @@ contains
 
       call rtcal<<<nblocks,nbuffer>>>(ndim,Nsites,nbuffer,ndyn,iconf,&
          origin_d)
+      call printcudaerror(" **! rtcal GPU kernel exit")
 
-      if (ex_vel) call vtcal<<<nblocks,nbuffer>>>(ndim,Nsites,nbuffer,ndyn,iconf,&
-         origin_d)
+      if (ex_vel) then
+         call vtcal<<<nblocks,nbuffer>>>(ndim,Nsites,nbuffer,ndyn,iconf,&
+            origin_d)
+         call printcudaerror(" **! vtcal GPU kernel exit")
+      endif
 
       if (ex_stress) then
          ! CPU code for viscosity
@@ -243,17 +247,6 @@ contains
          do i = 1, nbuffer
             call stcal(Nsites,nbuffer,ndyn,iconf,origin,i)
          enddo
-         ! CPU code ends here
-         !
-         ! uncomment for GPU code for viscosity
-         !poff_d(1:3,1:Nsites) = -stress(4:6,1:Nsites)/volumen
-         !do i = 1, nbuffer
-         !   if (origin(i)==iconf) then
-         !      p0_d(1:3,i) = -sum(stress(4:6,1:Nsites),dim=2)/volumen
-         !   endif
-         !enddo
-         !call st_cal<<<nblocks,nbuffer>>>(Nsites,nbuffer,ndyn,iconf,&
-         !             origin_d)
       endif
 
       if (run_sqw) then
@@ -263,6 +256,7 @@ contains
          endif
          call  FqtnD<<<nqwmax,nbuffer>>>(nqwmax, nqw, Nsites, ndim, itype_d,&
             ntype_d, bsc_d, fk_d, nsp, dq, ndyn, iconf, nbuffer, origin_d, ex_vel)
+         call printcudaerror(" **! FqtnD GPU kernel exit")
       endif
       do i = 1, nbuffer
          iorg =  origin(i)

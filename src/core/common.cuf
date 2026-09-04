@@ -243,9 +243,8 @@ end subroutine count_q_slice
          write(*,*) &
             trim(routine),' with CUDA error: ', trim(cudaGetErrorString(ierrSync))
          if (present(retcode)) retcode = ierrSync
-         retcode = ierrSync
       else
-         if (present(retcode))retcode = 0
+         if (present(retcode)) retcode = 0
       end if
    end subroutine printcudaerror
 

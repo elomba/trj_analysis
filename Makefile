@@ -28,7 +28,7 @@ VPATH = $(SRC_DIR)/core:$(SRC_DIR)/io:$(SRC_DIR)/modules:$(SRC_DIR)/main
 # ==========================================
 FC = nvfortran
 # NOTE: Added -module $(OBJ_DIR) to redirect .mod generation and -I$(OBJ_DIR) to read them
-FCOPTS = -O3 -gpu=cc75,cc80,maxregcount:96 -cudalib=curand
+FCOPTS = -O3 -gpu=cc75,cc80,cc86,cc89,cc90,cc120,maxregcount:96 -cudalib=curand
 FCINC = -I$(NETCDFINC) -I$(NVINCLUDE) $(if $(FFTWINC),-I$(FFTWINC)) -I$(OBJ_DIR) -module $(OBJ_DIR)
 
 F90 = $(FC)
@@ -36,7 +36,7 @@ F90OPTS = -O3
 F90INC = $(FCINC)
 F90LIBS = $(FCLIBS)
 
-LKOPTS = -cuda -gpu=cc75,cc80 -c++libs -lnetcdff -lfftw3 -llapack -lblas 
+LKOPTS = -cuda -gpu=cc75,cc80,cc86,cc89,cc90,cc120 -c++libs -lnetcdff -lfftw3 -llapack -lblas 
 LKLIBS = -L$(NETCDFLIB) -L$(NVLIBS) $(if $(FFTWLIB),-L$(FFTWLIB))
 
 CC = nvcc
@@ -71,7 +71,7 @@ $(TARGET): $(OBJS)
 
 # Compile standalone C++ / CUDA file
 $(OBJ_DIR)/ex-scan.o: ex-scan.cu
-	$(CC) -O4 --std c++17 -c $< -o $@
+	$(CC) -O3 --std c++17 -gencode arch=compute_75,code=sm_75 -gencode arch=compute_80,code=sm_80 -gencode arch=compute_86,code=sm_86 -gencode arch=compute_89,code=sm_89 -gencode arch=compute_90,code=sm_90 -gencode arch=compute_90,code=compute_90 -c $< -o $@
 
 # ------------------------------------------
 # Fortran Module Dependencies (CRITICAL)
@@ -80,17 +80,24 @@ $(OBJ_DIR)/ex-scan.o: ex-scan.cu
 $(OBJ_DIR)/precision.o: precision.f90
 	$(F90) -c $(F90OPTS) $(F90INC) $(F90LIBS) $< -o $@
 
-# 2. common.cuf needs precision.o (and precision.mod) to build
+# 2. sorts.f90 needs precision.o
+$(OBJ_DIR)/sorts.o: sorts.f90 $(OBJ_DIR)/precision.o
+	$(F90) -c $(F90OPTS) $(F90INC) $(F90LIBS) $< -o $@
+
+# 3. common.cuf needs precision.o
 $(OBJ_DIR)/common.o: common.cuf $(OBJ_DIR)/precision.o
 	$(FC) -c $(FCOPTS) $(FCINC) $(FCLIBS) $< -o $@
 
-# 3. Generic rules for the remaining .cuf files
-# By adding precision.o and common.o as prerequisites, Make enforces the required order.
-$(OBJ_DIR)/%.o: %.cuf $(OBJ_DIR)/common.o $(OBJ_DIR)/precision.o
+# 4. input.f90 needs common.o and sorts.o
+$(OBJ_DIR)/input.o: input.f90 $(OBJ_DIR)/common.o $(OBJ_DIR)/sorts.o
+	$(F90) -c $(F90OPTS) $(F90INC) $(F90LIBS) $< -o $@
+
+# 5. Generic rules for the remaining .cuf files
+$(OBJ_DIR)/%.o: %.cuf $(OBJ_DIR)/common.o $(OBJ_DIR)/input.o $(OBJ_DIR)/precision.o
 	$(FC) -c $(FCOPTS) $(FCINC) $(FCLIBS) $< -o $@
 
-# 4. Generic rules for the remaining .f90 files
-$(OBJ_DIR)/%.o: %.f90 $(OBJ_DIR)/common.o $(OBJ_DIR)/precision.o
+# 6. Generic rules for the remaining .f90 files
+$(OBJ_DIR)/%.o: %.f90 $(OBJ_DIR)/common.o $(OBJ_DIR)/input.o $(OBJ_DIR)/precision.o
 	$(F90) -c $(F90OPTS) $(F90INC) $(F90LIBS) $< -o $@
 
 # Clean up build artifacts
