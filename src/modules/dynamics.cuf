@@ -81,7 +81,7 @@ module mod_dyn
    real(double),  allocatable, dimension(:) :: r2t, stcorr
    real(double), allocatable, dimension(:,:) :: stcorrb, p0
    real(double), allocatable, dimension(:) :: pxy, pxz, pyz
-   real(double), allocatable, dimension(:) :: w, ftv
+   real(double), allocatable, dimension(:) :: w, w_dyn, ftv
    real(double) :: sumvel=0
 contains
 
@@ -115,7 +115,7 @@ contains
          allocate(v0_d(ndim,Nsites,nbuffer),v2tb_d(ndyn,nbuffer))
          v2tb_d(:,:) = 0
          v2t(:) = 0
-         allocate(w(n_freq),ftv(n_freq))
+         allocate(w(n_freq),w_dyn(n_freq),ftv(n_freq))
       endif
       if (ex_stress) then
          allocate(poff_d(1:3,1:Nsites),stcorr_d(ndyn,nbuffer),&
@@ -167,7 +167,7 @@ contains
       if (ex_vel) then
          deallocate(v0,v2t)
          deallocate(v0_d,v2tb_d)
-         deallocate(w,ftv)
+         deallocate(w,w_dyn,ftv)
       endif
       if (ex_stress) then
          deallocate(stcorr,stcorrb,p0)
@@ -333,7 +333,7 @@ contains
       r2t(:) = r2t(:)/count_org
       if (ex_vel) then
          v2t(:) = v2t(:)/count_org
-         call fftw1d(v2t,ftv,w,ndyn,n_freq,t(2)-t(1),real(tmax, kind=double))
+         call fftw1d(v2t,ftv,w_dyn,ndyn,n_freq,t(2)-t(1),real(tmax, kind=double))
       end if
       if (run_sqw) then
          !
@@ -526,9 +526,9 @@ contains
       if (ex_vel) then
          do i = 1, n_freq
             if (tunits=='lj') then
-               write(555,"(8f15.5)")w(i)/(2*pi),ftv(i)
+               write(555,"(8f15.5)")w_dyn(i)/(2*pi),ftv(i)
             else 
-               write(555,"(8f15.5)")w(i)/(2*pi),fconv*w(i)/(2*pi),ftv(i)
+               write(555,"(8f15.5)")w_dyn(i)/(2*pi),fconv*w_dyn(i)/(2*pi),ftv(i)
             endif
          end do
       endif
