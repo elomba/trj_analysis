@@ -22,7 +22,7 @@ This program performs advanced structural, thermodynamic, and dynamic analysis o
 **A. Díaz-Pozuelo** & **E. Lomba** (Main developers)  
 **R. Lomba** (Optimized G-DBSCAN implementation)  
 Instituto de Química Física Blas Cabrera, CSIC (Madrid) / Universidade de Santiago de Compostela (USC)  
-Version 1.7 - July 2026
+Version 1.7.6 - September 2026
 
 ## License
 
@@ -163,10 +163,12 @@ The input uses Fortran namelist format. All variables found in the source code a
 | `zslice` | real(:) | Explicit slice positions. |
 | `zgrid` | real | Grid spacing for profiles. |
 
-### `/INPUT_DYN/` - Dynamics
+### `/INPUT_DYN/` - Dynamic Correlations
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
+| `ex_vel` | log | False | Calculate velocity autocorrelations and current correlations. |
+| `ex_stress` | log | False | Calculate stress tensor autocorrelations and viscosity. |
 | `nbuffer` | int | 2 | Number of time origins for correlation. |
 | `tmax` | real | -1.0 | Max time window for correlations (ps). |
 | `tmaxp` | real | -1.0 | Max time for viscosity windowing. |
@@ -217,8 +219,10 @@ The input uses Fortran namelist format. All variables found in the source code a
 * `fqt.dat`: Coherent intermediate scattering function $F(Q,t)$.
 * `fskt.dat`: Self-intermediate scattering function $F_s(Q,t)$.
 * `jqt.dat`: Longitudinal current correlation functions $J_L(Q,t)$ and $J_{L,s}(Q,t)$.
+* `jtqt.dat`: Transverse current correlation functions $J_T(Q,t)$ and $J_{T,s}(Q,t)$.
 * `sqw.dat`: Dynamic structure factors $S(Q,\omega)$ and $S_s(Q,\omega)$.
 * `clqw.dat`: Longitudinal current spectrum $C_L(Q,\omega)$ and $C_{L,s}(Q,\omega)$.
+* `ctqw.dat`: Transverse current spectrum $C_T(Q,\omega)$ and $C_{T,s}(Q,\omega)$.
 * `viscor.dat`: Stress autocorrelation and shear viscosity $\eta(t)$.
 
 ### Cluster Analysis files

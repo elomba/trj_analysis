@@ -4,6 +4,19 @@ All notable changes to the **Trajectory Analysis for LAMMPS** (`trj_analysis`) p
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.7.6] - 2026-09-04
+### Added
+- Implement transverse current correlation function $J_T(Q,t)$ and self transverse current correlation $J_{T,s}(Q,t)$ in `src/modules/dynamics.cuf`:
+  - Extended CUDA GPU kernel `FqtnD` to compute 3D transverse velocity projections $\mathbf{v}_{T,i}(t) = \mathbf{v}_i(t) - (\mathbf{v}_i(t) \cdot \hat{\mathbf{Q}})\hat{\mathbf{Q}}$ concurrently with longitudinal and density correlations.
+  - Streamlined register usage in `FqtnD` GPU kernel and added `-gpu=maxregcount:96` to `FCOPTS` in `Makefile` to avoid register spill CUDA launch errors on large origin buffer allocations ($N_{\text{buffer}} \ge 400$).
+  - Accumulated collective $J_T(Q,t)$ and self $J_{T,s}(Q,t)$ across wavevector orientation shells and multi-buffer origin shifts into GPU device buffers (`jtktb_d`, `jtsktb_d`).
+  - Computed transverse spectral densities $C_T(Q,\omega)$ and $C_{T,s}(Q,\omega)$ via 1D FFTW Fourier transformations in `print_rtcor`.
+  - Output transverse time correlations to `jtqt.dat` and spectral densities to `ctqw.dat` with 6-decimal precision and aligned headers matching `jqt.dat` and `clqw.dat`.
+- Expanded dynamic correlation python verification script `tools/check_clqw_sqw.py`:
+  - Added support for loading, verifying initial equipartition limits $J_{T,s}(Q,0) = k_B T / m$, and plotting transverse spectra $C_T(Q,\omega)$ alongside longitudinal $C_L(Q,\omega)$ and dynamic structure factor $S(Q,\omega)$ in vector PDF figures.
+- Added comprehensive theoretical LaTeX report `doc/report_current_correlations.tex` (and compiled `doc/report_current_correlations.pdf`), covering longitudinal and transverse current correlation functions, equipartition limits, and sound vs shear wave spectral characteristics.
+- Updated `README.md` documentation reference for dynamic correlation output files (`jtqt.dat` and `ctqw.dat`).
+
 ## [1.7.5] - 2026-09-03
 ### Added
 - Implement longitudinal current correlation function $J_L(Q,t)$ and self longitudinal current correlation $J_{L,s}(Q,t)$ in `src/modules/dynamics.cuf`:
