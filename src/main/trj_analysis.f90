@@ -12,7 +12,7 @@
 !     - Static structure factors S(Q) with adaptive Q-sampling, including partial S_αβ(Q), and charge-charge S_qq(Q)
 !     - Steinhardt orientational order parameters Q_l (2D and 3D)
 !     - Density and charge density profiles for confined systems
-!     - Correlation functions accross sections in confined systems
+!     - Correlation functions across sections in confined systems
 !     - Cluster-cluster correlations (RDF and S(Q))
 !
 !   CLUSTER ANALYSIS:
@@ -22,11 +22,18 @@
 !     - Cluster shape descriptors (sphericity, cylindricity)
 !     - Center-of-mass trajectory generation (centers.lammpstrj)
 !     - Internal energy distributions (per particle and total)
+!     - Geometric surface/end-point detection using asym_threshold (default 0.5)
+!       and export of final surface atoms to last_brdconf.lammpstrj
 !
 !   DYNAMICS:
 !     - Mean squared displacement (MSD) and velocity autocorrelation
 !     - Intermediate scattering functions F(Q,t) and Fs(Q,t)
 !     - Dynamic structure factors S(Q,ω) and Ss(Q,ω)
+!     - Collective/self longitudinal and transverse current correlations and spectra
+!       (SQW with velocities; transverse normalization by ndim-1)
+!     - Optional subtract_plateau and norm_sqw processing of density FFT inputs
+!       (both false by default; original time-domain correlations are preserved)
+!     - Double-precision host accumulation/FFTW; spectra through the Nyquist limit
 !     - Multi-buffer time correlation averaging with configurable origins
 !     - Shear viscosity from stress tensor autocorrelation
 !
@@ -41,14 +48,21 @@
 !   
 !   Key namelists:
 !     /INPUT/       - General parameters, module selection, file paths
-!     /INPUT_SP/    - Species selection (types, labels, masses)
+!     /INPUT_SP/    - Species selection (types, masses, rigid molecule types)
 !     /INPUT_RDF/   - RDF grid and cutoff parameters
 !     /INPUT_SQ/    - Structure factor Q-range and scattering lengths
 !     /INPUT_CL/    - Cluster analysis thresholds and binning
-!     /INPUT_ORD/   - Order parameter settings and neighbor criteria
+!     /INPUT_ORDER/   - Order parameter settings and neighbor criteria
 !     /INPUT_CONF/  - Confinement geometry (wall positions)
 !     /INPUT_DYN/   - Dynamics buffers, time limits, and windowing
-!     /INPUT_SQW/   - Dynamic S(Q,ω) Q-values and time ranges
+!     /INPUT_SQW/   - Dynamic Q-values, time ranges, plateau subtraction/normalization
+!
+!   INPUT and INPUT_SP are always required. Conditional read order:
+!   INPUT_RDF, INPUT_SQ, INPUT_CL, INPUT_DYN, INPUT_SQW, INPUT_CONF, INPUT_ORDER.
+!   RDF input is also read for CL/CONF; SQ input for CL/SQW; DYN input for SQW.
+!   ncfs_from_to = [number of configurations, starting index, ending index].
+!   ex_vel/ex_stress are trajectory detection flags, not namelist parameters.
+!   INPUT also accepts is_hs/model for hard-sphere thermodynamic labeling.
 !
 !   LAMMPS dump requirements for full functionality:
 !     compute stress all stress/atom NULL
@@ -62,27 +76,34 @@
 !   - NetCDF trajectory format required (LAMMPS dump netcdf)
 !   - Orthogonal simulation cells only (no triclinic)
 !   - Constant particle number (NpT allowed with minor S(Q) errors)
-!   - Atomic-level analysis (molecular internal DOF not considered)
-!   - LAMMPS units: "real" or "lj" (automatic conversion)
+!   - Atomic observables; topology supports molecule IDs and rigid-body DOF accounting
+!   - LAMMPS units: "real", "metal", or "lj"
+!   - Confinement: z-axis in 3D; dynamic scattering/current analysis disabled
 !
 ! Output Files:
 !   THERMODYNAMICS: thermo_run.dat
-!   STRUCTURE:      gmixsim.dat, g_xy.dat, sq_xy.dat, sq.dat, sqmix.dat, sqcl.dat, order.dat
-!   DYNAMICS:       dyn.dat, fqt.dat, fskt.dat, jqt.dat, sqw.dat, clqw.dat, viscor.dat, dynw.dat
+!   STRUCTURE:      gmixsim.dat, sq.dat, sqmix.dat, sqcl.dat, order.dat, s2n.dat
+!   CONFINEMENT:    densprof.dat, qdens.dat, gxy_i-j.dat, gxy_qq.dat,
+!                   sqxy.dat, sqxy_qq.dat, sqpxy_i-i.dat
+!   DYNAMICS:       dyn.dat, dynw.dat, fqt.dat (formerly fkt.dat), fskt.dat,
+!                   jqt.dat, jtqt.dat, sqw.dat, clqw.dat, ctqw.dat, viscor.dat
 !   CLUSTERS:       rhoprof.dat, radii.dat, clustdistr.dat, distUcl_N.dat,
 !                   distUcltot.dat, clusevol.dat, fshape.dat, ordprof_clust.dat,
-!                   ordprof_clcum.dat, order_per_cl.dat, centers.lammpstrj
+!                   ordprof_clcum.dat, order_per_clust.dat, centers.lammpstrj,
+!                   last_clconf.lammpstrj, last_brdconf.lammpstrj
+!   CONFIGURATION: last_conf.lammpstrj (optional mol/charge/energy fields)
 !
 ! Usage:
-!   ./trj_analysis.exe input.nml GPU_device_number (optional)
+!   ./bin/trj_analysis input.nml [GPU_device_number] (default device 0)
 !
 ! Units:
-!   Output: LAMMPS "real" units (time in ps) or "lj" units (reduced)
+!   Time: ps for dimensional trajectories; reduced time for "lj".
+!   Viscosity: bar*ps for dimensional units; epsilon*tau/sigma^3 for "lj".
 !
 ! Authors:
 !   A. Díaz-Pozuelo & E. Lomba (optimized G-DBSCAN contributed by R. Lomba)
 !   CSIC Madrid / USC Santiago de Compostela
-!   April 2026
+!   Version 1.7.6 - September 2026
 !
 ! Implementation:
 !   NVIDIA CUDA Fortran with GPU acceleration

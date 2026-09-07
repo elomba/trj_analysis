@@ -11,7 +11,7 @@ This program performs advanced structural, thermodynamic, and dynamic analysis o
 * **Only LAMMPS NetCDF files are supported (use tools --eg Ovito-- or `lammpstrj_to_netcdf.py` script in tools/ directory)**
 * **Only orthorhombic simulation cells are contemplated**
 * **Confinement is <span style="color:red">restricted to the Z-axis</span> and only for 3D systems**
-* **Dynamic $S(q,\omega)$ and $F(q,t)$ computation disabled for confined systems**
+* **Dynamic scattering and the associated current correlations are disabled for confined systems**
 * **Charge-charge and density/correlation profiles across z-axis not enabled for cluster correlations**
 * **Units limited to LAMMPS `real`, `lj`, and `metal`**
 * **Constant particle number (NpT allowed with minor S(Q) errors)**
@@ -32,7 +32,19 @@ GNU General Public License v3.0
 
 ## Usage
 
-`trj_analysis input.nml GPU_ID (optional)`
+From the repository root, after building:
+
+```bash
+./bin/trj_analysis input.nml [GPU_ID]
+```
+
+`GPU_ID` is optional and defaults to `0`; omit the square brackets when supplying a device number. Outputs are written in the current working directory.
+
+### Build requirements
+
+The supplied `Makefile` uses NVIDIA HPC SDK (`nvfortran`), CUDA (`nvcc`, C++17), NetCDF C/Fortran libraries compatible with `nvfortran`, FFTW3, and BLAS/LAPACK. Configure `NVBIN`, `NVINCLUDE`, `NVLIBS`, `NETCDFINC`, `NETCDFLIB`, and, when needed, `FFTWINC` and `FFTWLIB`, then run `make`. The executable is `bin/trj_analysis`.
+
+The Fortran build targets compute capabilities 7.5, 8.0, 8.6, 8.9, 9.0 and 12.0. The CUDA C++ helper contains native targets through 9.0 and forward-compatible PTX. Adjust architecture flags to match the installed GPU and compiler support.
 
 ## LAMMPS dump format (first two lines to compute energy and pressure)
 
@@ -44,7 +56,9 @@ dump trj1 all netcdf ${Ndump} run.nc id type mol x y z vx vy vz q c_stress[*] c_
 
 or  positions only:
 
-`dump trj1 all netcdf ${Ndump} run.nc id mol type x y z`
+`dump trj1 all netcdf ${Ndump} run.nc id type x y z`
+
+The `mol` field is optional. If present, molecule IDs are mapped with the selected atoms and retained in configuration exports. Velocities enable VACF and current correlations; the named per-atom stress and energy fields enable their respective analyses. Set `press_name='c_stress'` and `ener_name='c_ener'` to match the full dump example. Properties remain atom-based; topology analysis supports molecule identification and rigid-body degrees-of-freedom accounting.
 
 ## Main Features
 
@@ -59,7 +73,7 @@ or  positions only:
 ### Cluster Analysis
 
 * **G-DBSCAN Optimization**: Highly optimized density-based spatial clustering.
-* **Border/Surface Atom Identification**: Identification of cluster surfaces and chain endpoints in patchy networks using a geometric asymmetry parameter $\alpha_i \ge 0.50$, where $\alpha_i = |\sum_{j} \vec{r}_{ij}/r_{ij}| / N_{\text{neighbors}}$.
+* **Border/Surface Atom Identification**: Identification of cluster surfaces and chain endpoints in patchy networks using a geometric asymmetry parameter $\alpha_i \ge \texttt{asym_threshold}$ (default 0.5), where $\alpha_i = |\sum_{j} \vec{r}_{ij}/r_{ij}| / N_{\text{neighbors}}$.
 * **Cluster Distributions**: Analysis of cluster sizes and radii of gyration.
 * **Geometric Descriptors**: Cluster shape descriptors including sphericity and cylindricity.
 * **Internal Energy**: Distributions of potential energy per particle and total energy within clusters.
@@ -70,6 +84,8 @@ or  positions only:
 
 * **Time Correlation Functions**: Mean squared displacement (MSD) and velocity autocorrelation (VACF).
 * **Dynamic Structure Factors**: Coherent $F(Q,t)$, $S(Q,\omega)$ and self-part $F_s(Q,t)$, $S_s(Q,\omega)$.
+* **Current Correlations**: Collective and self longitudinal $J_L(Q,t)$, $J_{L,s}(Q,t)$ and transverse $J_T(Q,t)$, $J_{T,s}(Q,t)$ correlations, with spectra $C_L$ and $C_T$. Computed with SQW when velocities are present.
+* **Spectral Processing**: Optional tail-plateau subtraction and zero-time normalization for density spectra; double-precision host accumulation and FFTW processing, with nonnegative-frequency output through the Nyquist limit.
 * **Viscosity**: Shear viscosity $\eta(t)$ derived from stress tensor autocorrelation.
 * **Multi-buffer Algorithm**: Efficient temporal sampling using configurable origins and windowing.
 
@@ -83,7 +99,21 @@ or  positions only:
 
 ## Input Configuration Reference
 
-The input uses Fortran namelist format. All variables found in the source code are documented below.
+The input uses Fortran namelists. The reference below follows the public namelists in `src/io/input.f90`; internal detection flags are not input parameters. Supply `/INPUT/` and `/INPUT_SP/` for every run, including single-component systems, with explicit species type IDs and masses.
+
+Place the remaining required groups after them in this read order:
+
+| Namelist | Required when |
+| :--- | :--- |
+| `/INPUT_RDF/` | RDF, CL, or CONF is requested |
+| `/INPUT_SQ/` | SQ, CL, or SQW is requested |
+| `/INPUT_CL/` | CL is requested |
+| `/INPUT_DYN/` | DYN or SQW is requested |
+| `/INPUT_SQW/` | SQW is requested |
+| `/INPUT_CONF/` | CONF is requested |
+| `/INPUT_ORDER/` | ORD is requested |
+
+A dash in a default column means no usable default is documented: set the parameter when its analysis needs it. Time windows use ps for dimensional trajectories and reduced time for `lj`.
 
 ### `/INPUT/` - General Parameters
 
@@ -94,11 +124,11 @@ The input uses Fortran namelist format. All variables found in the source code a
 | `ndim` | int | - | Spatial dimensions (2 or 3). |
 | `nsp` | int | - | Number of species to analyze. |
 | `nthread` | int | 64 | CUDA threads per block. |
-| `ncfs_from_to(3)` | int | 0,0,0 | Config range: [start, end, stride]. |
+| `ncfs_from_to(3)` | int | 0,0,0 | Configuration selection: [number of configurations, starting index, ending index]; all zeros requests the full trajectory. This is not a start/end/stride triplet. |
 | `rdf_sq_cl_dyn_sqw_conf_ord` | log(7) | False | Enable modules: RDF, S(Q), CL, DYN, SQW, CONF, ORD. |
 | `nqw` | int | 0 | Number of Q-values for dynamic analysis. |
 | `nslice` | int | 1 | Number of slices for confinement or profiling. |
-| `norder` | int | 1 | Maximum order for Steinhardt parameters. |
+| `norder` | int | 1 | Number of harmonic indices supplied in `orderp`. |
 | `ener_name` | char | - | LAMMPS compute name for potential energy. |
 | `press_name` | char | - | LAMMPS compute name for stress tensor. |
 | `potnbins` | int | 100 | Bins for energy histograms. |
@@ -107,7 +137,11 @@ The input uses Fortran namelist format. All variables found in the source code a
 | `periodic(ndim)` | log | True | Periodic boundary conditions per dimension. |
 | `topol` | log | False | Molecules are identified using a LAMMPS data file|
 | `system_data_file`| char | system.data | LAMMPS data file name |
+| `is_hs` | log | False | Use hard-sphere thermodynamic labels. |
+| `model` | char | empty | `HS` or `hs` enables hard-sphere mode. |
 | `nprint` | int | 10 | Printout frequency. |
+
+Hard-sphere mode affects thermodynamic labeling. It is also selected by `ener_name='HS'`, `'hs'`, `'none'`, or `'NONE'`; it does not add a force calculation or simulation engine.
 
 ### `/INPUT_SP/` - Species Selection
 
@@ -117,7 +151,7 @@ The input uses Fortran namelist format. All variables found in the source code a
 | `mat` | real(:) | - | Array of atomic masses for each selected species. |
 | `rigid` | log | False | Presence of rigid molecules. |
 | `nmrigid` | int | - | Number of rigid molecule types. |
-| `rigid_mols` | int(:) | - | Array of rigid molecule IDs. |
+| `rigid_mols` | int(:) | - | IDs of rigid molecule types used with topology analysis (`topol=.true.`). |
 
 
 ### `/INPUT_RDF/` - RDF Parameters
@@ -140,8 +174,8 @@ The input uses Fortran namelist format. All variables found in the source code a
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `dcl` | real | - | Grid spacing for cluster distributions. |
-| `minPts` | int | 2*ndim+1 | Minimum cluster size. |
+| `dcl` | real | - | Grid spacing for cluster distributions; clamped to at least 1. |
+| `minPts` | int | 2*ndim+1 | Core threshold: at least `minPts-1` neighbors (excluding the central atom). |
 | `ndrclus` | int | - | Bins for cluster radial profiles. |
 | `cl_thresh` | int | 10 | Min cluster count for correlations. |
 | `geometry` | log | True | Enable geometry and correlation computations. |
@@ -165,12 +199,12 @@ The input uses Fortran namelist format. All variables found in the source code a
 
 ### `/INPUT_DYN/` - Dynamic Correlations
 
+`ex_vel` and `ex_stress` are internal flags set when the trajectory reader finds velocities and the named stress field. Do not put them in this namelist.
+
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `ex_vel` | log | False | Calculate velocity autocorrelations and current correlations. |
-| `ex_stress` | log | False | Calculate stress tensor autocorrelations and viscosity. |
-| `nbuffer` | int | 2 | Number of time origins for correlation. |
-| `tmax` | real | -1.0 | Max time window for correlations (ps). |
+| `nbuffer` | int | 2 | Number of simultaneous origin buffers (use at least 2). |
+| `tmax` | real | -1.0 | Maximum correlation window (ps or reduced LJ time). |
 | `tmaxp` | real | -1.0 | Max time for viscosity windowing. |
 | `tlimit` | real | -1.0 | Global time limit for buffer averaging. |
 | `jump` | int | 1 | Config stride between buffers. |
@@ -180,13 +214,38 @@ The input uses Fortran namelist format. All variables found in the source code a
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `qw` | real(:) | - | Q-values for $F(Q,t)$ and $S(Q,\omega)$. |
-| `tmqw` | real(:) | - | Maximum times per specific Q-value. |
-| `subtract_plateau` | log | False | Subtract non-ergodicity plateau $f_Q$ from $F(Q,t)$ prior to FFT to avoid $\omega \to 0$ ripples. |
-| `norm_sqw` | log | False | Normalize $F(Q,t)$ by static structure factor $S(Q) = F(Q,0)$ prior to FFT. |
+| `tmqw` | real(:) | 0.0 | Q-dependent time windows; when all entries are zero, use `tmax`. |
+| `subtract_plateau` | log | False | Subtract the tail mean from coherent and self density correlations before FFT. |
+| `norm_sqw` | log | False | Divide coherent and self density FFT inputs by their original zero-time amplitudes. |
 
 ---
 
+## Correlation and surface-analysis conventions
+
+### Density and current spectra
+
+Enable SQW (the fifth module flag), set `nqw`, and provide `/INPUT_SQ/`, `/INPUT_DYN/`, and `/INPUT_SQW/`. Current correlations are added automatically if velocities exist. Coherent density/current amplitudes use species scattering lengths `bsc`; self correlations are unweighted particle averages. The dynamic files contain total coherent and self results, not separate species cross-correlation files.
+
+For a nonzero wavevector, the longitudinal velocity is $v_L=\mathbf v\cdot\hat{\mathbf Q}$ and the transverse velocity is $\mathbf v_T=\mathbf v-v_L\hat{\mathbf Q}$. Transverse correlations are averaged over the $d-1$ polarizations: a factor of 1/2 in 3D and 1 in 2D. For an equilibrium single-component system, the self zero-time limits are $J_{L,s}(Q,0)=J_{T,s}(Q,0)=k_BT/m$.
+
+`subtract_plateau` estimates each density plateau from the last five available samples (or fewer if the correlation window is shorter). `norm_sqw` divides by the original zero-time amplitude, even when plateau subtraction is enabled. Both options default to false, affect only the density-spectrum transform inputs, and leave `fqt.dat` and `fskt.dat` unchanged. The tail must be sampled sufficiently long for a plateau interpretation to be meaningful. For example, add these settings to an existing `/INPUT_SQW/` group:
+
+```fortran
+subtract_plateau = .true.
+norm_sqw = .true.
+```
+
+Correlations use direct buffered accumulation over sampled origins. FFTW transforms the accumulated functions with windowing and zero-padding; buffering is not itself an FFT correlation algorithm. Spectra include the nonnegative-frequency range through the Nyquist limit, with separate frequency storage for the VACF spectrum. Green--Kubo viscosity is labeled in bar ps for dimensional units and in `epsilon*tau/sigma^3` for `lj`, using the reduced-unit prefactor `V/T`.
+
+### Cluster surfaces and RDF bins
+
+`last_brdconf.lammpstrj` contains atoms in the final configuration with a positive cluster label and geometric asymmetry at least `asym_threshold`. This is a surface/end-point diagnostic distinct from DBSCAN's core/border classification; the cutoff and threshold affect the result.
+
+RDF bins use centers $(k-1/2)\Delta r$ and edges $(k-1)\Delta r$, $k\Delta r$. Normalization uses exact spherical-shell volumes in 3D or annular areas in 2D.
+
 ## Output Files Reference
+
+Files depend on the enabled modules and available trajectory fields. Velocity-dependent outputs require velocities; stress and potential-energy outputs require their named fields. In particular, all four current files require SQW and velocities. `fqt.dat` replaces the earlier name `fkt.dat`.
 
 ### Thermodynamics
 
@@ -215,7 +274,7 @@ The input uses Fortran namelist format. All variables found in the source code a
 ### Dynamics
 
 * `dyn.dat`: Mean squared displacement and velocity autocorrelation.
-* `dynw.dat`: Frequency-resolved impedance $Z(\omega)$.
+* `dynw.dat`: VACF spectrum $Z(\omega)$.
 * `fqt.dat`: Coherent intermediate scattering function $F(Q,t)$.
 * `fskt.dat`: Self-intermediate scattering function $F_s(Q,t)$.
 * `jqt.dat`: Longitudinal current correlation functions $J_L(Q,t)$ and $J_{L,s}(Q,t)$.
@@ -240,3 +299,17 @@ The input uses Fortran namelist format. All variables found in the source code a
 * `centers.lammpstrj`: Cluster center-of-mass trajectory for visualization.
 * `last_clconf.lammpstrj`: Final configuration with particles colored by cluster ID.
 * `last_brdconf.lammpstrj`: Final configuration showing border/surface atoms colored by cluster ID.
+
+
+### General configuration output
+
+* `last_conf.lammpstrj`: Final selected-atom configuration, with optional molecule IDs, charges and energies when available.
+
+## Recent changes and verification resources
+
+Version 1.7.6 adds transverse currents and spectra, following longitudinal currents in 1.7.5 and optional density-spectrum processing in 1.7.4. Recent fixes cover stress-buffer initialization, reduced-unit viscosity scaling, FFT padding/Nyquist scaling and full frequency output, dynamic wavevector indexing, double-precision host arrays, the separate VACF frequency grid, bond-order recursion, and consistent RDF binning. See [Changelog.md](Changelog.md) for the commit history, including experiments later removed from the code.
+
+* [Ideal lattice examples](examples/order): BCC, FCC and simple-cubic bond-order cases.
+* [Current correlation report](doc/report_current_correlations.tex): Definitions and normalization conventions (also supplied as a PDF).
+* [Spectrum verification tool](tools/check_clqw_sqw.py): Checks and plots for density and current spectra; run `python3 tools/check_clqw_sqw.py DATA_DIRECTORY` on existing outputs.
+* [Example guide](examples/examples_README.md) and [tools guide](tools/tools_README.md): Sample workflows and utilities.
