@@ -44,6 +44,8 @@ From the repository root, after building:
 
 The supplied `Makefile` uses NVIDIA HPC SDK (`nvfortran`), CUDA (`nvcc`, C++17), NetCDF C/Fortran libraries compatible with `nvfortran`, FFTW3, and BLAS/LAPACK. Configure `NVBIN`, `NVINCLUDE`, `NVLIBS`, `NETCDFINC`, `NETCDFLIB`, and, when needed, `FFTWINC` and `FFTWLIB`, then run `make`. The executable is `bin/trj_analysis`.
 
+For detailed, step-by-step installation instructions, compiler requirements, cluster/module setup, and automated helper scripts to compile NetCDF with `nvfortran`, please refer to [INSTALL.md](INSTALL.md).
+
 The Fortran build targets compute capabilities 7.5, 8.0, 8.6, 8.9, 9.0 and 12.0. The CUDA C++ helper contains native targets through 9.0 and forward-compatible PTX. Adjust architecture flags to match the installed GPU and compiler support.
 
 ## LAMMPS dump format (first two lines to compute energy and pressure)
