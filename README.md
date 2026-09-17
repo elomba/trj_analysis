@@ -141,7 +141,6 @@ A dash in a default column means no usable default is documented: set the parame
 | `system_data_file`| char | system.data | LAMMPS data file name |
 | `is_hs` | log | False | Use hard-sphere thermodynamic labels. |
 | `model` | char | empty | `HS` or `hs` enables hard-sphere mode. |
-| `idir` | int | 3 | Direction of confinement (1=x, 2=y, 3=z). If 1 or 2, coordinates are automatically swapped with z on input. |
 | `nprint` | int | 10 | Printout frequency. |
 
 Hard-sphere mode affects thermodynamic labeling. It is also selected by `ener_name='HS'`, `'hs'`, `'none'`, or `'NONE'`; it does not add a force calculation or simulation engine.
@@ -249,7 +248,7 @@ RDF bins use centers $(k-1/2)\Delta r$ and edges $(k-1)\Delta r$, $k\Delta r$. N
 
 ### Generalized confinement geometry (idir)
 
-Slit-pore confinement analysis supports arbitrary confinement axes specified via `idir` in `/INPUT/` or `/INPUT_CONF/`:
+Slit-pore confinement analysis supports arbitrary confinement axes specified via `idir` in `/INPUT_CONF/`:
 * `idir = 1`: confinement along $x$ (in-plane slice dimensions $y$ and $z$).
 * `idir = 2`: confinement along $y$ (in-plane slice dimensions $x$ and $z$).
 * `idir = 3` (default): standard confinement along $z$ (in-plane slice dimensions $x$ and $y$).

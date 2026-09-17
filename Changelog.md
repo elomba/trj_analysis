@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.7.7] - 2026-09-17
 ### Added
 - Generalized slit-pore confinement analysis to arbitrary Cartesian axes (`idir = 1, 2, 3` for $x$, $y$, $z$):
-  - Added `idir` to namelists `/INPUT/` and `/INPUT_CONF/` in `src/io/input.f90` (defaults to 3).
+  - Added `idir` to namelist `/INPUT_CONF/` in `src/io/input.f90` (defaults to 3).
   - Implemented automatic coordinate and cell transposition upon NetCDF trajectory reading in `src/core/netcdf.f90`: when `idir /= 3`, atomic coordinates, velocities, forces, stress tensor components (with proper Voigt index mapping), cell lengths, angles, and origins are swapped with the $z$-axis.
   - Preserved internal $z$-axis confinement and in-plane $x$-$y$ slice orientation across all GPU kernels (`densprof.cuf`, `sq.cuf`, `rdf.cuf`) without duplicating or breaking existing code paths.
   - Transparently handle cell origin offsets in LAMMPS non-periodic boundary conventions when cell dimensions are positive ($L_{\text{idir}} > 0$), wrapping coordinates to $[0, L_{\text{idir}})$ and setting slit walls to $[0, L_{\text{idir}}]$, while preserving adaptive wall positioning from coordinate extrema when $L_{\text{idir}} = 0$.
