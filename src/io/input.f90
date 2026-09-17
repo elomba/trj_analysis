@@ -48,8 +48,8 @@ module mod_input
    !
    ! nthread : number of threads for CUDA kernels is preset to 64 by default, beware of larger values for big systems
    !
-   integer :: nthread=64, ndim, minPts,  idir=3, nsp, nbuffer=2, potnbins=100, nqw=0, &
-            & jump=1, norder=1, nnbond=0, cl_thresh=10, nprint=10
+   integer :: nthread=64, ndim, minPts, nsp, nbuffer=2, potnbins=100, nqw=0, &
+            & jump=1, norder=1, nnbond=0, cl_thresh=10, nprint=10, idir_traj=3
    logical :: use_cell = .true., run_order = .false., print_orderp=.false., &
                geometry=.true., subtract_plateau=.false., norm_sqw=.false.
    logical, dimension(7) :: rdf_sq_cl_dyn_sqw_conf_ord
@@ -64,12 +64,12 @@ module mod_input
    namelist /INPUT/ log_output_file, trj_input_file, ndim, nsp, nthread,  &
       & ncfs_from_to,  rdf_sq_cl_dyn_sqw_conf_ord, nqw, nslice, norder, ener_name, &
       & press_name, potnbins, potengmargin, rcl, periodic, nprint, topol, &
-      &  system_data_file, is_hs, model
+      &  system_data_file, is_hs, model, idir
    namelist /INPUT_SP/ sp_types_selected, mat, rigid, nmrigid, rigid_mols 
    namelist /INPUT_RDF/ deltar, rcrdf, nrandom
    namelist /INPUT_SQ/ qmax, qmin, bsc
    namelist /INPUT_CL/ dcl, minPts, ndrclus, cl_thresh, geometry, asym_threshold
-   namelist /INPUT_CONF/ zslice, zgrid
+   namelist /INPUT_CONF/ idir, zslice, zgrid
    namelist /INPUT_DYN/ nbuffer, tmax, tmaxp, tlimit, jump
    namelist /INPUT_SQW/ qw, tmqw, subtract_plateau, norm_sqw
    namelist /INPUT_ORDER/ orderp, print_orderp, nnbond, rclcl
@@ -194,6 +194,18 @@ contains
          countslice(:) = 0
          countsliced(:) = 0
          confined = .true.
+         if (idir == 0) idir = 3
+         if (idir < 1 .or. idir > ndim) then
+            write(*,'("*** Error: idir must be between 1 and ndim (1 to ",I1,") !")') ndim
+            stop
+         endif
+         idir_traj = idir
+         idir = 3
+         if (idir_traj /= 3) then
+            write(*,'(/" ** Confinement specified along trajectory axis ",I1,": will swap with z-axis (axis 3) upon input")') idir_traj
+         else
+            write(*,'(/" ** Confinement along standard z-axis (axis 3)")')
+         endif
          if (rdf_sq_cl_dyn_sqw_conf_ord(1) == .true. .or. rdf_sq_cl_dyn_sqw_conf_ord(2) == .true.) then
             twoDstruc_3D = .true.
          endif

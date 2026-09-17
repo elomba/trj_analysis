@@ -36,7 +36,8 @@ module mod_util
    use mod_common, only : shmsize, maxthread,  run_thermo, ex_stress, &
       printDevPropShort, printDeviceProperties, common_clear, nit, ener_name, press_name, &
       run_sq, run_sqw, run_rdf, run_clusters, run_dyn, rigid, &
-      printcudaerror, ex_qc, nconf, qcharge, lsmax, maxcln, zsliced, countsliced, zslice, countslice, t_ascii_io
+      printcudaerror, ex_qc, nconf, qcharge, lsmax, maxcln, zsliced, countsliced, zslice, countslice, t_ascii_io, &
+      confined, twoDstruc_3D
    use mod_densprof, only : prof_init, prof_clear
    use mod_sq, only : sq_init, printsq, sq_clear, sq_transfer_gpu_cpu
    use mod_rdf, only : rdf_init, printrdf, rdf_clear, test_alloc
@@ -150,7 +151,6 @@ contains
       integer, intent(in) :: Nsites
       if (use_cell.or.run_order) call cells_init_pre_nc_read(Nsites)
       if (run_dyn) call dyn_init()
-      if (confined) call prof_init()
    end subroutine basic_init
 
    subroutine form_dependencies()
@@ -179,8 +179,10 @@ contains
          run_dyn = .true.
          run_sq = .true.  ! Need S(q) for normalization
       endif
-      ! Confined system (density profile analysis in the direction of confinement)
-      if (rdf_sq_cl_dyn_sqw_conf_ord(6) == .true.) run_rdf = .true.
+      ! Confined system: if RDF or SQ is requested, 2D slices in 3D are active
+      if (confined .and. (run_rdf .or. run_sq)) then
+         twoDstruc_3D = .true.
+      endif
       ! Calculation of order parameters set to .true
       if (rdf_sq_cl_dyn_sqw_conf_ord(7) == .true.) run_order = .true.
    end subroutine form_dependencies
@@ -191,6 +193,7 @@ contains
       integer, intent(in) :: nsp, Nsites, nbcuda
       integer :: istat
       if (use_cell) call cells_init_post_nc_read()
+      if (confined) call prof_init()
       if (run_rdf) call RDF_init(nsp)
       if (run_sq) call sq_init(Nsites, nsp, nbcuda)
       if (run_clusters) call clusters_sq_init()

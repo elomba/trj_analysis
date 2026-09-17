@@ -513,8 +513,8 @@ contains
          Do j = 1, nsp
             Do l = j, nsp
                if (twoDstruc_3D) then
-                  ! Compute 2D rdf in xy plane for 3D systems with confinement, using appropriate normalization for cylindrical shells and accounting for slice thickness
-                  gmix_xy(j,l,:) = (j/l + 1)*volumen*(zgrid/sidel(3))*histomix_xy(i, j, l,:)/(deltaV*Nconf)
+                  ! Compute 2D rdf in plane perpendicular to idir for 3D systems with confinement, using appropriate normalization for cylindrical shells and accounting for slice thickness
+                  gmix_xy(j,l,:) = (j/l + 1)*volumen*(zgrid/sidel(idir))*histomix_xy(i, j, l,:)/(deltaV*Nconf)
                   gmix_xy(l,j,:) = gmix_xy(j,l,:)
  
                else
@@ -525,8 +525,8 @@ contains
          End Do
          if (twoDstruc_3D) then
             if (ex_qc) then
-               ! Compute 2D concentration-concentration rdf in xy plane for 3D systems with confinement, using appropriate normalization for cylindrical shells and accounting for slice thickness
-               gmix_cc_xy(:) = volumen*(zgrid/sidel(3))*gqqxy(i,:)/(deltaV*Nconf)
+               ! Compute 2D concentration-concentration rdf in plane perpendicular to idir for 3D systems with confinement, using appropriate normalization for cylindrical shells and accounting for slice thickness
+               gmix_cc_xy(:) = volumen*(zgrid/sidel(idir))*gqqxy(i,:)/(deltaV*Nconf)
             endif
          endif
          ! Print number fluctuations to check for hyperuniformity, if requested

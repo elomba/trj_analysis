@@ -55,7 +55,17 @@ contains
       if (rcrdf > 0.0) then
          lsmax = nint(rcrdf/deltar) + 1
       else
-         lsmax = nint(minval(sidel(1:ndim))/2.0/deltar) + 1
+         if (twoDstruc_3D) then
+            if (idir == 1) then
+               lsmax = nint(min(sidel(2), sidel(3))/2.0/deltar) + 1
+            else if (idir == 2) then
+               lsmax = nint(min(sidel(1), sidel(3))/2.0/deltar) + 1
+            else
+               lsmax = nint(min(sidel(1), sidel(2))/2.0/deltar) + 1
+            endif
+         else
+            lsmax = nint(minval(sidel(1:ndim))/2.0/deltar) + 1
+         endif
       end if
       ! Check shared memory requirements for GPU kernel
       if (.not.twoDstruc_3D .and. lsmax*nit*4>shmsize) then
@@ -115,6 +125,8 @@ contains
 
       if(allocated(histomix)) histomix(:, :, :) = 0
       if(allocated(histomix_d)) histomix_d(:, :) = 0
+      if(allocated(histomix_xy)) histomix_xy(:, :, :, :) = 0.0_myprec
+      if(allocated(histomix_xy_d)) histomix_xy_d(:, :, :) = 0
       if (nrandom>0) then
          if(allocated(g2i)) g2i(:) = 0
          if(allocated(gi)) gi(:) = 0
@@ -188,7 +200,7 @@ contains
       implicit none
       integer, intent(IN) :: Nsites, Iconf, nbcuda, nthread
       character(len=*), intent(IN) :: units
-      integer :: istart, i, ind, k, j, l, istat=0, ierrSync, rdfb, rdfth, islice
+      integer :: istart, i, ind, k, j, l, istat=0, ierrSync, rdfb, rdfth, islice, ip1, ip2
       real :: time_gpu, suma, deltaV, ri
       ! Initialize histograms to zero for this configuration
       if (allocated(histomix_d)) histomix_d(:, :) = 0
@@ -226,7 +238,18 @@ contains
                gqqxy_d(:,:) = 0
                qcharge_d(:) = qcharge(:)
             endif
-            call rdfxy<<<rdfb, rdfth>>>(Nsites, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, nslice, zgrid, zsliced, countsliced, countpslice_d, ex_qc)
+            if (idir == 1) then
+               ip1 = 2
+               ip2 = 3
+            else if (idir == 2) then
+               ip1 = 1
+               ip2 = 3
+            else
+               ip1 = 1
+               ip2 = 2
+            end if
+            call rdfxy<<<rdfb, rdfth>>>(Nsites, ndim, nit, nsp, lsmax, side2, sidel_d, deltar, &
+               & nslice, zgrid, zsliced, countsliced, countpslice_d, ex_qc, idir, ip1, ip2)
            
             call printcudaerror(" *** Warning: 3D rdfxy GPU kernel exit with errors: reduce nthread",istat)
             countslice(:) = countsliced(:)
@@ -335,7 +358,7 @@ contains
             end do
          end do
          if (twoDstruc_3D) then
-            gtotxy(i,:) = 2*volumen*(zgrid/sidel(3))*gtotxy(i,:)/(deltaV)
+            gtotxy(i,:) = 2*volumen*(zgrid/sidel(idir))*gtotxy(i,:)/(deltaV)
          else  
             gtot(i) = 2*volumen*gtot(i)/(deltaV*natms*natms)
          end if
@@ -669,12 +692,13 @@ if (i <= Nsites - 1) then
 end if
 end subroutine rdf2_sh
 
-attributes(global) subroutine rdfxy(Nsites, dim, nit, nsp, lsmax, side2, sidel, deltar, nslice, zgrid, zslice, count, countp, ex_qc)
+attributes(global) subroutine rdfxy(Nsites, dim, nit, nsp, lsmax, side2, sidel, deltar, &
+   & nslice, zgrid, zslice, count, countp, ex_qc, idir, ip1, ip2)
 
 !
 ! Masively parallel rdf calculation using shared memory (2D)
 !
-integer, value, intent(IN) :: Nsites, dim, nit, lsmax, nsp
+integer, value, intent(IN) :: Nsites, dim, nit, lsmax, nsp, idir, ip1, ip2
 integer, intent(IN), value :: nslice
 integer i, j, ind, ia, fact, iti, itj, istart, ij, islice, jslice 
 real ::  rr2, rr, xi, yi, zi, xd, yd, zj, qci, qcj
@@ -686,9 +710,9 @@ logical, value, intent(IN) :: ex_qc
 ! Assumed size histogram (memory size must be assigned in the kernel call)
 i = (blockidx%x - 1)*blockdim%x + threadidx%x
 if (i <= Nsites - 1) then
-   xi = r_d(1, i)
-   yi = r_d(2, i)
-   zi = r_d(3, i)
+   xi = r_d(ip1, i)
+   yi = r_d(ip2, i)
+   zi = r_d(idir, i)
    islice =  minloc(abs(zslice - zi),dim=1)
    if (islice < 1 .or. islice > nslice) then
       print *, " Error: wrong slice index in rdfxy_sh kernel ", islice, nslice, zi, zslice(1), zslice(nslice)
@@ -704,16 +728,16 @@ if (i <= Nsites - 1) then
        ! Loop over pairs and accumulate histogram for this slice
        !
       Do j = i + 1, Nsites
-         zj = r_d(3, j)
+         zj = r_d(idir, j)
          jslice =  minloc(abs(zslice(:) - zj),dim=1)
          if (jslice < 1 .or. jslice > nslice) then
             print *, " Error: wrong slice index in rdfxy_sh kernel ", jslice, nslice, zj, zslice(1), zslice(nslice)
          end if
          if (islice == jslice .and. abs(zslice(jslice) - zj) <= zgrid/2.0) then
-            xd = r_d(1, j) - xi
-            yd = r_d(2, j) - yi
-            xd = xd - sidel(1)*nint(xd/sidel(1))
-            yd = yd - sidel(2)*nint(yd/sidel(2))
+            xd = r_d(ip1, j) - xi
+            yd = r_d(ip2, j) - yi
+            xd = xd - sidel(ip1)*nint(xd/sidel(ip1))
+            yd = yd - sidel(ip2)*nint(yd/sidel(ip2))
             rr2 = xd*xd + yd*yd
             If (rr2 .Lt. side2) Then
                itj = itype_d(j)

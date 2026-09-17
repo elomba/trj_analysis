@@ -52,7 +52,7 @@ module mod_common
    integer :: nbcuda, natms, Nsites=0, width, nqmax, nqwmax, lmaxx, lmaxy, lmaxz, &
       lsmax, nqmin, ndr, shmsize, maxthread, nit, nconf, nmzero = 0, maxcln,&
       voigt, nrandom=0, ndrclus=100, maxnbpp=65, nmrigid=0, rigid_mols(nrig_max)
-   integer :: cntch(100), ncharge, nslice=-1
+   integer :: cntch(100), ncharge, nslice=-1, idir = 0
    real(double), dimension(100) :: chgh
    integer, allocatable, dimension(:) :: ntype, itype, i_mol, lty, list, label, nq, countslice
    integer, allocatable, dimension(:, :) :: ipos, densprofi,  histomixi, countpslice
@@ -203,9 +203,9 @@ module mod_common
          real(myprec), dimension(size(a),size(b)) :: vv
       end function outer_product
 
-      subroutine common_init(natoms, ndim, nthread, idir, units, factor, nsp)
+      subroutine common_init(natoms, ndim, nthread, idir_in, units, factor, nsp)
          use mod_precision
-         integer, intent(in) :: natoms, ndim, nthread, idir, nsp
+         integer, intent(in) :: natoms, ndim, nthread, idir_in, nsp
          real(myprec), intent(in) :: factor
          character(*), intent(in) :: units
       end subroutine common_init
@@ -215,15 +215,20 @@ contains
 
 subroutine count_q_slice()
    implicit none
-   integer :: i, islice
+   integer :: i, islice, kdir
    real(myprec) :: zi
             if(.not.allocated(q2slice)) then
                allocate(q2slice(nslice),counts(nslice))
             endif
             q2slice(:) = 0.0
             counts(:) = 0
+            if (idir > 0 .and. idir <= 3) then
+               kdir = idir
+            else
+               kdir = 3
+            end if
             do i=1,  Nsites
-               zi = r(3, i)
+               zi = r(kdir, i)
                islice = minloc(abs(zslice(1:nslice) - zi),dim=1)   
                if (abs(zslice(islice) - zi) <= zgrid/2.0) then
                   counts(islice)  = counts(islice) +1
@@ -378,10 +383,10 @@ end subroutine count_q_slice
 
    end subroutine transfer_cpu_gpu
 
-   subroutine common_init(natoms, ndim, nthread, idir, units, factor, nsp)
+   subroutine common_init(natoms, ndim, nthread, idir_in, units, factor, nsp)
       use mod_precision
       real(myprec), intent(in) :: factor
-      integer, intent(in) :: natoms, ndim, nthread, idir, nsp
+      integer, intent(in) :: natoms, ndim, nthread, idir_in, nsp
       character(*), intent(in) :: units
       if (rcl>0) then
          if (units == 'lj') then
@@ -420,6 +425,7 @@ end subroutine count_q_slice
          stop
       end if
 
+      idir = idir_in
       if (idir>0)   pdir(idir) = .false.
 
       ! Allocate CPU memory

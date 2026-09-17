@@ -57,7 +57,7 @@ contains
 
    subroutine SQcalc()
       implicit none
-      integer :: istat, ierrSync, islice, i
+      integer :: istat, ierrSync, islice, i, ip1, ip2
       real :: time_gpu, zi
       !
       ! Sample all 3D vectors for q<qmin and
@@ -68,6 +68,18 @@ contains
       if (twoDstruc_3D.and.ex_qc) then
          call count_q_slice()
       endif 
+      if (twoDstruc_3D) then
+         if (idir == 1) then
+            ip1 = 2
+            ip2 = 3
+         else if (idir == 2) then
+            ip1 = 1
+            ip2 = 3
+         else
+            ip1 = 1
+            ip2 = 2
+         endif
+      endif
       !
       ! Full q-space sampling for small q (uniform fluid)
       if (nqmin > 1) then
@@ -78,11 +90,11 @@ contains
                stop
             endif
             call sqf3xy<<<tBlock, grid>>>(Nsites, ndim, ntype_d, bsc_d, fk_d, &
-            & nsp, nqmax, qmin2, dq, nslice, zgrid, zsliced,ex_qc)
+            & nsp, nqmax, qmin2, dq, nslice, zgrid, zsliced, ex_qc, idir, ip1, ip2)
                call printcudaerror(" *** Warning: 3D sqf3xy GPU kernel exit with errors: reduce nthread",istat)
                ! For large q, use directional sampling for computational efficiency
             call sqf2xy<<<nqmax/nthread + 1, nthread>>>(Nsites, ndim, ntype_d, bsc_d, fk_d,& 
-            & nsp, nqmax, nqmin + 1, nslice, zgrid, zsliced,ex_qc)
+            & nsp, nqmax, nqmin + 1, nslice, zgrid, zsliced, ex_qc, idir, ip1, ip2)
                call printcudaerror(" *** Warning: 3D sqf2xy GPU kernel exit with errors: reduce nthread",istat)
          else
             ! Isotropic sampling for small q (spherical averaging)
@@ -108,12 +120,12 @@ contains
          ! just sample   (1,0,0),(0,1,0),(0,0,1) directions
          !
          if (ndim == 3) then
-            if (idir == 0) then
+            if (twoDstruc_3D) then
+               call sqf2xy<<<nqmax/nthread + 1, nthread>>>(Nsites, ndim, ntype_d, bsc_d, fk_d, &
+               & nsp, nqmax, nqmin + 1, nslice, zgrid, zsliced, ex_qc, idir, ip1, ip2)
+            else
                call sqfact<<<nqmax/nthread + 1, nthread>>>(Nsites, ndim, ntype_d, bsc_d, fk_d, &
                nsp, nqmax, nqmin,ex_qc)
-            else
-               call sqf2xy<<<nqmax/nthread + 1, nthread>>>(Nsites, ndim, ntype_d, bsc_d, fk_d, &
-               & nsp, nqmax, nqmin + 1, nslice, zgrid, zsliced, ex_qc)
             end if
          else
             call sqfact2<<<nqmax/nthread + 1, nthread>>>(Nsites, ndim, ntype_d, bsc_d, fk_d, &
@@ -154,49 +166,57 @@ contains
    subroutine sq_init(Nsites, nsp, nbcuda)
       Implicit none
       integer, intent(IN) :: Nsites, nsp, nbcuda
-      integer :: i, j, k, ind, indm, l, iq, kmaxz, ndg, ndg2
-      real :: rr, qmm, qedge
+      integer :: i, j, k, ind, indm, l, iq, kmaxz, ndg, ndg2, ip1, ip2
+      real :: rr, qmm
       logical :: found
-      if (twoDstruc_3D.or.ndim==2) then
-         dq = min(2*pi/sidel(1), 2*pi/sidel(2))
-      else
-         dq = minval(2*pi/sidel(:))         
-      end if
-      nqmax = nint(qmax/dq)
-      lmaxx = nint(qmin/(2*pi/sidel(1)))
-      lmaxy = nint(qmin/(2*pi/sidel(2)))
-      ! Set qedge to the edge of the full q-space sampling region over a cubic region
-      lmaxx = lmaxx - nint((qmin-qedge)/(2*pi/sidel(1)))
-      lmaxy = lmaxy - nint((qmin-qedge)/(2*pi/sidel(2)))
-      if (ndim == 3) then 
-         lmaxz = nint(qmin/(2*pi/sidel(3)))
-         qedge = min(qedge, 2*pi/sidel(3)*lmaxz)
-      endif
-      ! Set qmin to the edge of the full q-space sampling region over a spherical region
-      ndg = 4
-      ! Adjust grid and block sizes for GPU kernels based on dimensionality and sampling strategy
-      if (ndim == 3.and..not.twoDstruc_3D) then
-         grid = dim3(ndg, ndg, ndg)
-         if (mod(lmaxx, ndg) .ne. 0) lmaxx = lmaxx - ndg + mod(lmaxx, ndg)
-         if (mod(lmaxy, ndg) .ne. 0) lmaxy = lmaxy - ndg + mod(lmaxy, ndg)
-         if (mod(lmaxz, ndg) .ne. 0) lmaxz = lmaxz - ndg + mod(lmaxz, ndg)
-         tBlock = dim3(lmaxx/grid%x + 1, lmaxy/grid%y + 1, lmaxz/grid%z + 1)
-         nqmin = min(lmaxx, lmaxy, lmaxz)
-      else
+      if (twoDstruc_3D) then
+         if (idir == 1) then
+            ip1 = 2
+            ip2 = 3
+         else if (idir == 2) then
+            ip1 = 1
+            ip2 = 3
+         else
+            ip1 = 1
+            ip2 = 2
+         endif
+         dq = min(2*pi/sidel(ip1), 2*pi/sidel(ip2))
+         nqmax = nint(qmax/dq)
+         lmaxx = nint(qmin/(2*pi/sidel(ip1)))
+         lmaxy = nint(qmin/(2*pi/sidel(ip2)))
+         ndg = 4
          ndg2 = ndg*ndg
          grid = dim3(ndg2, ndg2, 1)
-         if (mod(lmaxx, ndg2) .ne. 0) lmaxx = lmaxx - ndg2 + mod(lmaxx, ndg2)
-         if (mod(lmaxy, ndg2) .ne. 0) lmaxy = lmaxy - ndg2 + mod(lmaxy, ndg2)
          tBlock = dim3(lmaxx/grid%x + 1, lmaxy/grid%y + 1, 1)
          nqmin = min(lmaxx, lmaxy)
-      end if
-      fk(:) = 2*pi/sidel(:)
-      if (ndim == 2.or.twoDstruc_3D) then
+         fk(:) = 2*pi/sidel(:)
+         qmin = min(2*pi/sidel(ip1)*lmaxx, 2*pi/sidel(ip2)*lmaxy)
+      else if (ndim == 2) then
+         dq = min(2*pi/sidel(1), 2*pi/sidel(2))
+         nqmax = nint(qmax/dq)
+         lmaxx = nint(qmin/(2*pi/sidel(1)))
+         lmaxy = nint(qmin/(2*pi/sidel(2)))
+         ndg = 4
+         ndg2 = ndg*ndg
+         grid = dim3(ndg2, ndg2, 1)
+         tBlock = dim3(lmaxx/grid%x + 1, lmaxy/grid%y + 1, 1)
+         nqmin = min(lmaxx, lmaxy)
+         fk(:) = 2*pi/sidel(:)
          qmin = min(2*pi/sidel(1)*lmaxx, 2*pi/sidel(2)*lmaxy)
       else
+         dq = minval(2*pi/sidel(:))
+         nqmax = nint(qmax/dq)
+         lmaxx = nint(qmin/(2*pi/sidel(1)))
+         lmaxy = nint(qmin/(2*pi/sidel(2)))
+         lmaxz = nint(qmin/(2*pi/sidel(3)))
+         ndg = 4
+         grid = dim3(ndg, ndg, ndg)
+         tBlock = dim3(lmaxx/grid%x + 1, lmaxy/grid%y + 1, lmaxz/grid%z + 1)
+         nqmin = min(lmaxx, lmaxy, lmaxz)
+         fk(:) = 2*pi/sidel(:)
          qmin = min(2*pi/sidel(1)*lmaxx, 2*pi/sidel(2)*lmaxy, 2*pi/sidel(3)*lmaxz)
       end if
-      if (nqmin == 0) then
+      if (nqmin <= 0) then
          nqmin = 1
          lmaxx = 1
          lmaxy = 1
@@ -217,6 +237,10 @@ contains
       if (twoDstruc_3D) then
          allocate(sqfxy(0:nqmax,nslice), sqfpxy(0:nqmax,nsp, nslice))
          allocate(sqfxy_d(0:nqmax,nslice), sqfpxy_d(0:nqmax,nsp,nslice))
+         sqfxy(:, :) = 0.0d0
+         sqfpxy(:, :, :) = 0.0d0
+         sqfxy_d(:, :) = 0.0
+         sqfpxy_d(:, :, :) = 0.0
          if (.not.allocated(zsliced)) allocate(zsliced(nslice))
          if (ex_qc) then
             allocate(sqfqxy(0:nqmax,nslice), sqfqxy_d(0:nqmax,nslice))
@@ -328,21 +352,21 @@ contains
                end do
             end do
             nq(indm + 1:nqmax) = 2
-         else
-            do i = 0, lmaxx - 1
-               do j = 0, lmaxy - 1
-                  do k = 0, lmaxz - 1
-                     if (i + j + k .ne. 0) then
-                        rr = sqrt((i*fk(1))**2 + (j*fk(2))**2 + (k*fk(3))**2)
-                        if (rr .lt. qmin) then
-                           ind = nint(rr/dq)
-                           if (ind > indm) indm = ind
-                           if (ind <= nqmax) nq(ind) = nq(ind) + 1
-                        end if
-                     end if
-                  end do
-               end do
-            end do
+          else
+             do i = 0, lmaxx
+                do j = 0, lmaxy
+                   do k = 0, lmaxz
+                      if (i + j + k .ne. 0) then
+                         rr = sqrt((i*fk(1))**2 + (j*fk(2))**2 + (k*fk(3))**2)
+                         if (rr .lt. qmin) then
+                            ind = nint(rr/dq)
+                            if (ind > indm) indm = ind
+                            if (ind <= nqmax) nq(ind) = nq(ind) + 1
+                         end if
+                      end if
+                   end do
+                end do
+             end do
             nq(indm + 1:nqmax) = 3
          end if
          qmin2 = qmin**2
@@ -595,9 +619,9 @@ end if
 end subroutine sqfnD
 
 
-attributes(global) subroutine sqf3xy(Nsites, dim, ntype, bsc, fk, nsp, kmax, q2max, dq, nslice, zgrid, zslice, ex_qc)
+attributes(global) subroutine sqf3xy(Nsites, dim, ntype, bsc, fk, nsp, kmax, q2max, dq, nslice, zgrid, zslice, ex_qc, idir, ip1, ip2)
 integer, intent(IN) :: ntype(nsp)
-integer, value, intent(IN) :: Nsites, dim, nsp, kmax, nslice
+integer, value, intent(IN) :: Nsites, dim, nsp, kmax, nslice, idir, ip1, ip2
 real(kind=4), intent(IN) :: bsc(nsp)
 real(kind=4) :: rkxyz, fk1, fk2, fk3, kf1, kf2, kf3,  q, suma(nslice), tsum, qsum, qci
 real(kind=8) :: sumcx(nslice), sumsx(nslice), sumcpx(nslice), sumspx(nslice), q2, bs
@@ -610,8 +634,8 @@ integer :: count(nslice), countsp(nslice,nsp)
 logical, value :: ex_qc
 kx = (blockidx%x - 1)*blockdim%x + threadidx%x - 1
 ky = (blockidx%y - 1)*blockdim%y + threadidx%y - 1
-fk1 = fk(1)
-fk2 = fk(2)
+fk1 = fk(ip1)
+fk2 = fk(ip2)
 kf1 = kx*fk1
 kf2 = ky*fk2
 q2 = kf1*kf1 + kf2*kf2
@@ -634,7 +658,7 @@ if (q2 > 0.0 .and. q2 <= q2max) then
       countsp(:,:) = 0
       do it = 1, ntype(j)
          i = i + 1
-         z = r_d(3, i)
+         z = r_d(idir, i)
          islice = minloc(abs(zslice - z),dim=1)   
          if (abs(zslice(islice) - z) <= zgrid/2.0) then
             ! 
@@ -642,7 +666,7 @@ if (q2 > 0.0 .and. q2 <= q2max) then
             !
             count(islice) = count(islice) + 1
             countsp(islice, j) = countsp(islice, j) + 1
-            rkxyz = r_d(2, i)*kf2+r_d(1, i)*kf1
+            rkxyz = r_d(ip1, i)*kf1 + r_d(ip2, i)*kf2
             sumcpx(islice) = sumcpx(islice) + __cosf(rkxyz)
             sumspx(islice) = sumspx(islice) + __sinf(rkxyz)
             if (ex_qc) then
@@ -677,8 +701,8 @@ if (q2 > 0.0 .and. q2 <= q2max) then
 end if
 end subroutine sqf3xy
 
-attributes(global) subroutine sqf2xy(Nsites, dim, ntype, bsc, fk, nsp, kmax, minPts, nslice, zgrid, zslice, ex_qc)
-integer, value, intent(IN) :: Nsites, dim, nsp, kmax, minPts, nslice
+attributes(global) subroutine sqf2xy(Nsites, dim, ntype, bsc, fk, nsp, kmax, minPts, nslice, zgrid, zslice, ex_qc, idir, ip1, ip2)
+integer, value, intent(IN) :: Nsites, dim, nsp, kmax, minPts, nslice, idir, ip1, ip2
 integer, intent(IN) :: ntype(nsp)
 real, intent(in), value :: zgrid
 real(kind=4), intent(IN) ::bsc(nsp), zslice(nslice)
@@ -692,8 +716,8 @@ integer :: count(nslice), countsp(nslice,nsp)
 logical, value :: ex_qc
 k = (blockidx%x - 1)*blockdim%x + threadidx%x
 if (k .le. kmax .and. k .ge. minPts) then
-   fk1 = fk(1)
-   fk2 = fk(2)
+   fk1 = fk(ip1)
+   fk2 = fk(ip2)
    sumcx = 0
    sumsx = 0
    sumcy = 0
@@ -717,14 +741,14 @@ if (k .le. kmax .and. k .ge. minPts) then
       countsp(:,:) = 0
       do it = 1, ntype(j)
          i = i + 1
-         z = r_d(3, i)
+         z = r_d(idir, i)
          if (ex_qc) qci = qcharge_d(i)
          islice = minloc(abs(zslice(:) - z),dim=1)   
          if (abs(zslice(islice) - z) <= zgrid/2.0) then
             count(islice) = count(islice) + 1
             countsp(islice, j) = countsp(islice, j) + 1
-            rkx = r_d(1, i)*kf1
-            rky = r_d(2, i)*kf2
+            rkx = r_d(ip1, i)*kf1
+            rky = r_d(ip2, i)*kf2
             ckx = __cosf(rkx)
             skx = __sinf(rkx)
             cky = __cosf(rky)
@@ -748,7 +772,7 @@ if (k .le. kmax .and. k .ge. minPts) then
       do islice = 1, nslice
          if (countsp(islice, j)>0)then
              suma(islice) = (sumcpx(islice)**2 + sumspx(islice)**2 + sumcpy(islice)**2 + sumspy(islice)**2)/countsp(islice, j)
-            if (ind<=kmax) then
+            if (k<=kmax) then
                ia = atomicadd(sqfpxy_d(k, j, islice), suma(islice))
             end if
          endif
@@ -764,7 +788,7 @@ if (k .le. kmax .and. k .ge. minPts) then
          tsum = 0.0
          qsum = 0.0
       endif
-      if (ind<=kmax) then
+      if (k<=kmax) then
          ia = atomicadd(sqfxy_d(k, islice), tsum)
          if (ex_qc) then
             ia = atomicadd(sqfqxy_d(k, islice), qsum) 

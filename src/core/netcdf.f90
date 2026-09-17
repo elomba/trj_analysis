@@ -37,8 +37,8 @@ module mod_nc
    use mod_precision
    use mod_common, Only : ex_vel, ex_force, ex_stress, run_thermo, &
       u_p, stress, ex_mol, ex_qc, periodic, voigt, &
-      ener_name, press_name, pwall, pwallp, tunits, vunits, nstep, auto_zslice, zslice, zgrid
-   use mod_input, only : idir
+      ener_name, press_name, pwall, pwallp, tunits, vunits, nstep, auto_zslice, zslice, zgrid, confined
+   use mod_input, only : idir, idir_traj
    interface
       subroutine read_nc_cfg(ncid, ncstart, io, unit)
          integer, intent(in) :: ncid, ncstart
@@ -185,6 +185,10 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
    integer, dimension(:), allocatable :: tempty
    logical, save :: first = .true., typedefined = .false.
    integer :: i, j, tipo, iunit, k, ioerr, tmty(1), ntt
+   real(myprec), allocatable :: tmp_swap(:)
+   real(double), allocatable :: tmp_swap_d(:)
+   real(myprec) :: tmp_scalar
+   logical :: tmp_log
    logical, allocatable :: seen_type(:)
    integer :: max_ity
    if (.not.present(unit)) then
@@ -314,47 +318,6 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          start(3) = ncstart
          count(2) = natoms
          call check(nf90_get_var(ncid, i, r, start, count), ioerr)
-         ! LAMMPS uses 3D arrays even for 2D systems, so we need to check
-         do k = 1, 3
-            !
-            ! Simulation box origin set to zero, except along confinement 
-            ! direction
-            !
-            if (periodic(k)) then
-               r(k, 1:natoms, 1) = r(k, 1:natoms, 1) - org(k, 1)
-            end if
-            if (cell(k, 1) == 0) then
-               periodic(k) = .false.
-               ! LAMMPS sets cell length to zero if not periodic
-               ! so we set it to a default value
-               cell(k, 1) = abs(maxval(r(k, 1:natoms, 1)) - minval(r(k&
-               &, 1:natoms, 1))) + 8.0
-               if (first) then
-                  if (k == idir) then
-                     pwall = minval(r(k,1:natoms,1)) - 6.0
-                     pwallp = pwall + cell(k,1)
-                     if (auto_zslice) then
-                        zslice(1) = (maxval(r(k,1:natoms,1)) + minval(r(k,1:natoms,1)))/2.0
-                        zgrid = (maxval(r(k,1:natoms,1)) - minval(r(k,1:natoms,1)))/real(10)
-                        write(*,'(" ** Auto-defined z-slices: zslice(1) = ",F8.2,", zgrid = ",F8.2)') zslice(1), zgrid
-                     else
-                        if (minval(zslice(:)) < pwall .or. maxval(zslice(:)) > pwallp) then
-                           write(*,'(" ** Error: z-slices out of box limits, check your input parameters !")')
-                           stop
-                        endif
-                     endif
-                  endif
-               endif
-               if (minval(r(idir, 1:natoms, 1)) < pwall) then
-                  write(*,'(///"*** Error: some particles have coodinates ",f8.2," left of  ",f8.2," !")') minval(r(idir, 1:natoms, 1)), pwall
-                  stop(" Out of box coordinates detected, check your trajectory file and input parameters, or equilibration !")
-               endif
-               if (maxval(r(idir, 1:natoms, 1)) > pwallp) then
-                  write(*,'(///"*** Error: some particles have coodinates ",f8.2," right of ",f8.2," !")') maxval(r(idir, 1:natoms, 1)), pwallp
-                  stop(" Out of box coordinates detected, check your trajectory file and input parameters, or equilibration !")
-               endif
-            end if
-         end do
       else if (conf(i)%varname == "velocities") then
          ex_vel = .true.
          if (first) then
@@ -451,6 +414,127 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
       if (ioerr /= nf90_noerr) then
          ioerr = -1
          return
+      end if
+   end do
+
+   ! If confinement was requested along an axis other than z (e.g. idir_traj = 1 or 2),
+   ! swap coordinates, velocities, forces, stress, cell lengths, and origins with axis 3 (z).
+   ! This maps the trajectory confinement direction to internal z, keeping standard slit-pore orientation.
+   if (confined .and. idir_traj > 0 .and. idir_traj /= 3) then
+      if (first) then
+         write(*,'(/" ** Confinement specified along trajectory direction ",I1,": swapping coordinates with z-axis (direction 3)")') idir_traj
+      endif
+      ! Swap positions
+      allocate(tmp_swap(natoms))
+      tmp_swap(1:natoms) = r(idir_traj, 1:natoms, 1)
+      r(idir_traj, 1:natoms, 1) = r(3, 1:natoms, 1)
+      r(3, 1:natoms, 1) = tmp_swap(1:natoms)
+      ! Swap velocities
+      if (ex_vel .and. allocated(v)) then
+         tmp_swap(1:natoms) = v(idir_traj, 1:natoms, 1)
+         v(idir_traj, 1:natoms, 1) = v(3, 1:natoms, 1)
+         v(3, 1:natoms, 1) = tmp_swap(1:natoms)
+      end if
+      ! Swap forces
+      if (ex_force .and. allocated(fxyz)) then
+         tmp_swap(1:natoms) = fxyz(idir_traj, 1:natoms, 1)
+         fxyz(idir_traj, 1:natoms, 1) = fxyz(3, 1:natoms, 1)
+         fxyz(3, 1:natoms, 1) = tmp_swap(1:natoms)
+      end if
+      deallocate(tmp_swap)
+      ! Swap stress tensor if present
+      if (ex_stress .and. allocated(stress_i)) then
+         allocate(tmp_swap_d(natoms))
+         if (idir_traj == 1) then
+            ! Swap xx and zz (1 and 3)
+            tmp_swap_d(1:natoms) = stress_i(1, 1:natoms, 1)
+            stress_i(1, 1:natoms, 1) = stress_i(3, 1:natoms, 1)
+            stress_i(3, 1:natoms, 1) = tmp_swap_d(1:natoms)
+            ! Swap xy and yz (4 and 6)
+            tmp_swap_d(1:natoms) = stress_i(4, 1:natoms, 1)
+            stress_i(4, 1:natoms, 1) = stress_i(6, 1:natoms, 1)
+            stress_i(6, 1:natoms, 1) = tmp_swap_d(1:natoms)
+         else if (idir_traj == 2) then
+            ! Swap yy and zz (2 and 3)
+            tmp_swap_d(1:natoms) = stress_i(2, 1:natoms, 1)
+            stress_i(2, 1:natoms, 1) = stress_i(3, 1:natoms, 1)
+            stress_i(3, 1:natoms, 1) = tmp_swap_d(1:natoms)
+            ! Swap xy and xz (4 and 5)
+            tmp_swap_d(1:natoms) = stress_i(4, 1:natoms, 1)
+            stress_i(4, 1:natoms, 1) = stress_i(5, 1:natoms, 1)
+            stress_i(5, 1:natoms, 1) = tmp_swap_d(1:natoms)
+         end if
+         deallocate(tmp_swap_d)
+      end if
+      ! Swap cell lengths and origins
+      tmp_scalar = cell(idir_traj, 1)
+      cell(idir_traj, 1) = cell(3, 1)
+      cell(3, 1) = tmp_scalar
+      tmp_scalar = org(idir_traj, 1)
+      org(idir_traj, 1) = org(3, 1)
+      org(3, 1) = tmp_scalar
+      tmp_scalar = cell_a(idir_traj, 1)
+      cell_a(idir_traj, 1) = cell_a(3, 1)
+      cell_a(3, 1) = tmp_scalar
+   end if
+
+   do k = 1, 3
+      if (confined .and. k == 3) then
+         periodic(3) = .false.
+         if (cell(3, 1) > 0.0_myprec) then
+            ! Shift box origin
+            r(3, 1:natoms, 1) = r(3, 1:natoms, 1) - org(3, 1)
+            ! Wrap coordinates within [0, cell] to handle periodic-boundary simulation dumps
+            r(3, 1:natoms, 1) = r(3, 1:natoms, 1) - floor(r(3, 1:natoms, 1)/cell(3, 1))*cell(3, 1)
+            where (r(3, 1:natoms, 1) >= cell(3, 1)) r(3, 1:natoms, 1) = 0.0_myprec
+            if (first) then
+               pwall = 0.0_myprec
+               pwallp = cell(3, 1)
+               if (auto_zslice) then
+                  zslice(1) = (pwall + pwallp)/2.0_myprec
+                  zgrid = cell(3, 1)/10.0_myprec
+                  write(*,'(" ** Auto-defined z-slices: zslice(1) = ",F8.2,", zgrid = ",F8.2)') zslice(1), zgrid
+               else
+                  if (minval(zslice(:)) < pwall .or. maxval(zslice(:)) > pwallp) then
+                     write(*,'(" ** Error: slices out of box limits [",F8.2,", ",F8.2,"], check your input parameters !")') pwall, pwallp
+                     stop
+                  endif
+               endif
+            endif
+         else
+            cell(3, 1) = abs(maxval(r(3, 1:natoms, 1)) - minval(r(3, 1:natoms, 1))) + 8.0_myprec
+            if (first) then
+               pwall = minval(r(3, 1:natoms, 1)) - 6.0_myprec
+               pwallp = pwall + cell(3, 1)
+               if (auto_zslice) then
+                  zslice(1) = (maxval(r(3, 1:natoms, 1)) + minval(r(3, 1:natoms, 1)))/2.0_myprec
+                  zgrid = (maxval(r(3, 1:natoms, 1)) - minval(r(3, 1:natoms, 1)))/10.0_myprec
+                  write(*,'(" ** Auto-defined z-slices: zslice(1) = ",F8.2,", zgrid = ",F8.2)') zslice(1), zgrid
+               else
+                  if (minval(zslice(:)) < pwall .or. maxval(zslice(:)) > pwallp) then
+                     write(*,'(" ** Error: slices out of box limits [",F8.2,", ",F8.2,"], check your input parameters !")') pwall, pwallp
+                     stop
+                  endif
+               endif
+            endif
+         endif
+         if (minval(r(3, 1:natoms, 1)) < pwall) then
+            write(*,'(///"*** Error: some particles have coordinates ",f8.2," left of  ",f8.2," !")') minval(r(3, 1:natoms, 1)), pwall
+            stop(" Out of box coordinates detected, check your trajectory file and input parameters, or equilibration !")
+         endif
+         if (maxval(r(3, 1:natoms, 1)) > pwallp) then
+            write(*,'(///"*** Error: some particles have coordinates ",f8.2," right of ",f8.2," !")') maxval(r(3, 1:natoms, 1)), pwallp
+            stop(" Out of box coordinates detected, check your trajectory file and input parameters, or equilibration !")
+         endif
+      else
+         if (cell(k, 1) == 0.0_myprec) then
+            periodic(k) = .false.
+            cell(k, 1) = abs(maxval(r(k, 1:natoms, 1)) - minval(r(k, 1:natoms, 1))) + 8.0_myprec
+         else if (periodic(k)) then
+            r(k, 1:natoms, 1) = r(k, 1:natoms, 1) - org(k, 1)
+            r(k, 1:natoms, 1) = r(k, 1:natoms, 1) - floor(r(k, 1:natoms, 1)/cell(k, 1))*cell(k, 1)
+            where (r(k, 1:natoms, 1) >= cell(k, 1)) r(k, 1:natoms, 1) = 0.0_myprec
+         end if
       end if
    end do
    
@@ -587,11 +671,11 @@ subroutine select_ncdfinput()
    use mod_common, only: vel, r, force, cell, sidel, sidelv, side, volumen, itype, bscat, tunit, &
       ntype, masa, nstep, vector_product, Nsites, ex_vel, ex_force, ex_qc, &
       tuniti, side2, u_p, stress, voigt, run_thermo, ex_stress, ex_mol, qcharge, i_mol, &
-      chgh, ncharge, cntch, periodic
+      chgh, ncharge, cntch, periodic, twoDstruc_3D
    use mod_input, only: ndim, mat, bsc, rcrdf, nsp, charge, idir, sp_types_selected, nsp
 
    implicit none
-   integer :: i, j, k, it(1), index, ipch(1)
+   integer :: i, j, k, it(1), index, ipch(1), ip1, ip2
    logical :: pass = .true., compcharge = .true., first=.true.
    if (.not.allocated(nct)) allocate(nct(nsp))
    if (.not.allocated(counter)) allocate(counter(nsp))
@@ -607,7 +691,21 @@ subroutine select_ncdfinput()
          sidelv(k) = sidel(k)
       end if
    end do
-   side = Minval(sidel(1:ndim))
+   if (twoDstruc_3D) then
+      if (idir == 1) then
+         ip1 = 2
+         ip2 = 3
+      else if (idir == 2) then
+         ip1 = 1
+         ip2 = 3
+      else
+         ip1 = 1
+         ip2 = 2
+      endif
+      side = min(sidel(ip1), sidel(ip2))
+   else
+      side = Minval(sidel(1:ndim))
+   end if
    ! secure rcrdf to be less that half the simulation box
    rcrdf = min(rcrdf,side/2)
    if (rcrdf > 0.0) then

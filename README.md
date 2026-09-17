@@ -141,6 +141,7 @@ A dash in a default column means no usable default is documented: set the parame
 | `system_data_file`| char | system.data | LAMMPS data file name |
 | `is_hs` | log | False | Use hard-sphere thermodynamic labels. |
 | `model` | char | empty | `HS` or `hs` enables hard-sphere mode. |
+| `idir` | int | 3 | Direction of confinement (1=x, 2=y, 3=z). If 1 or 2, coordinates are automatically swapped with z on input. |
 | `nprint` | int | 10 | Printout frequency. |
 
 Hard-sphere mode affects thermodynamic labeling. It is also selected by `ener_name='HS'`, `'hs'`, `'none'`, or `'NONE'`; it does not add a force calculation or simulation engine.
@@ -194,10 +195,11 @@ Hard-sphere mode affects thermodynamic labeling. It is also selected by `ener_na
 
 ### `/INPUT_CONF/` - Confinement
 
-| Parameter | Type | Description |
-| :--- | :--- | :--- |
-| `zslice` | real(:) | Explicit slice positions. |
-| `zgrid` | real | Grid spacing for profiles. |
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `idir` | int | 3 | Confinement direction in trajectory (1=x, 2=y, 3=z). Swapped to internal z upon input. |
+| `zslice` | real(:) | - | Explicit slice positions along confinement axis. |
+| `zgrid` | real | - | Grid spacing / slice thickness for profiles. |
 
 ### `/INPUT_DYN/` - Dynamic Correlations
 
@@ -245,6 +247,19 @@ Correlations use direct buffered accumulation over sampled origins. FFTW transfo
 
 RDF bins use centers $(k-1/2)\Delta r$ and edges $(k-1)\Delta r$, $k\Delta r$. Normalization uses exact spherical-shell volumes in 3D or annular areas in 2D.
 
+### Generalized confinement geometry (idir)
+
+Slit-pore confinement analysis supports arbitrary confinement axes specified via `idir` in `/INPUT/` or `/INPUT_CONF/`:
+* `idir = 1`: confinement along $x$ (in-plane slice dimensions $y$ and $z$).
+* `idir = 2`: confinement along $y$ (in-plane slice dimensions $x$ and $z$).
+* `idir = 3` (default): standard confinement along $z$ (in-plane slice dimensions $x$ and $y$).
+
+When `idir /= 3`, `trj_analysis` automatically transposes atomic coordinates, velocities, forces, stress tensor components, and simulation cell parameters upon reading each trajectory frame into canonical slit orientation ($z$ perpendicular to walls, $x$ and $y$ in-plane). This ensures that internal GPU kernels remain invariant and performant.
+
+Wall locations along the confinement dimension are determined based on cell parameters:
+* When box dimensions are defined ($L_{\text{idir}} > 0$), coordinates are origin-shifted ($r - r_{\text{org}}$) and wrapped into $[0, L_{\text{idir}})$, placing slit walls at $[0, L_{\text{idir}}]$. Non-zero origin offsets in LAMMPS non-periodic boundary conditions are handled transparently.
+* When box dimensions are zero ($L_{\text{idir}} = 0$), wall locations adapt dynamically to particle coordinate extrema with safety buffers ($p_{\text{wall}} = r_{\min} - 6\sigma$, $p_{\text{wall}}' = p_{\text{wall}} + L_{\text{eff}}$).
+
 ## Output Files Reference
 
 Files depend on the enabled modules and available trajectory fields. Velocity-dependent outputs require velocities; stress and potential-energy outputs require their named fields. In particular, all four current files require SQW and velocities. `fqt.dat` replaces the earlier name `fkt.dat`.
@@ -265,13 +280,13 @@ Files depend on the enabled modules and available trajectory fields. Velocity-de
 
 ### Directional & Confinement Analysis
 
-* `densprof.dat`: Density profile along the confinement direction (z).
+* `densprof.dat`: Density profile along the confinement axis (`idir`).
 * `qdens.dat`: Total and species-resolved charge density profiles (if charges present).
-* `gxy_i-j.dat`: 2D RDFs calculated within slices in the xy plane.
-* `gxy_qq.dat`: 2D charge-charge RDF calculated within slices in the xy plane.
-* `sqxy.dat`: 2D structure factor calculated within slices in the xy plane.
-* `sqxy_qq.dat`: 2D charge-charge structure factor calculated within slices in the xy plane.
-* `sqpxy_i-i.dat`: Partial 2D structure factors per species in the xy plane.
+* `gxy_i-j.dat`: In-plane 2D RDFs calculated within planar slices parallel to walls.
+* `gxy_qq.dat`: In-plane 2D charge-charge RDF within planar slices parallel to walls.
+* `sqxy.dat`: In-plane 2D structure factor calculated within planar slices parallel to walls.
+* `sqxy_qq.dat`: In-plane 2D charge-charge structure factor within planar slices parallel to walls.
+* `sqpxy_i-i.dat`: In-plane partial 2D structure factors per species within planar slices.
 
 ### Dynamics
 
@@ -309,9 +324,9 @@ Files depend on the enabled modules and available trajectory fields. Velocity-de
 
 ## Recent changes and verification resources
 
-Version 1.7.6 adds transverse currents and spectra, following longitudinal currents in 1.7.5 and optional density-spectrum processing in 1.7.4. Recent fixes cover stress-buffer initialization, reduced-unit viscosity scaling, FFT padding/Nyquist scaling and full frequency output, dynamic wavevector indexing, double-precision host arrays, the separate VACF frequency grid, bond-order recursion, and consistent RDF binning. See [Changelog.md](Changelog.md) for the commit history, including experiments later removed from the code.
+Version 1.7.7 generalizes slit-pore confinement analysis to arbitrary Cartesian axes (`idir = 1, 2, 3`), automatically transposing coordinates and simulation box dimensions upon trajectory input while preserving internal GPU kernels. It supports transparent origin shifts for LAMMPS non-periodic dumps and fixes uninitialized host/device arrays for 2D sliced correlations. Version 1.7.6 added transverse currents and spectra, following longitudinal currents in 1.7.5 and optional density-spectrum processing in 1.7.4. Recent fixes cover stress-buffer initialization, reduced-unit viscosity scaling, FFT padding/Nyquist scaling and full frequency output, dynamic wavevector indexing, double-precision host arrays, the separate VACF frequency grid, bond-order recursion, and consistent RDF binning. See [Changelog.md](Changelog.md) for the commit history, including experiments later removed from the code.
 
 * [Ideal lattice examples](examples/order): BCC, FCC and simple-cubic bond-order cases.
-* [Current correlation report](doc/report_current_correlations.tex): Definitions and normalization conventions (also supplied as a PDF).
+* [CPC manuscript manual](doc/CPCms.pdf): Comprehensive method descriptions, formal definitions, and benchmark results.
 * [Spectrum verification tool](tools/check_clqw_sqw.py): Checks and plots for density and current spectra; run `python3 tools/check_clqw_sqw.py DATA_DIRECTORY` on existing outputs.
 * [Example guide](examples/examples_README.md) and [tools guide](tools/tools_README.md): Sample workflows and utilities.
