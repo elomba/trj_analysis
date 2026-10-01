@@ -417,7 +417,7 @@ contains
          do j = i + 1, nbcl
             rv(1:dim) = centers(1:dim, i) - centers(1:dim, j)
             ! PBC (unwrap if necessary)
-            rv(1:dim) = rv(1:dim) - sidel*nint(rv(1:dim)/sidel(1:dim))
+            rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
             rr2 = Dot_product(rv(1:dim), rv(1:dim))
             If (rr2 .Lt. side2) Then
                rr = sqrt(rr2)
@@ -431,9 +431,9 @@ contains
          call random_number(xrand(1:ndim))
          gi(:) = 0
          do j = 1, nbcl
-            rv(1:dim) = centers(1:dim, j) - sidel*xrand(1:ndim)
+            rv(1:dim) = centers(1:dim, j) - sidel(1:dim)*xrand(1:ndim)
             ! PBC (unwrap if necessary)
-            rv(1:dim) = rv(1:dim) - sidel*nint(rv(1:dim)/sidel(1:dim))
+            rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
             rr2 = Dot_product(rv(1:dim), rv(1:dim))
             If (rr2 .Lt. side2) Then
                rr = sqrt(rr2)

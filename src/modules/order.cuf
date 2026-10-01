@@ -351,8 +351,8 @@ contains
                 do j = goffset(i), goffset(i) + ncount - 1
                     k = gadjacency(j)
                     rv(1:dim) = r(1:dim, i) - r(1:dim, k)
-                    rv = rv - sidel*nint(rv/sidel)
-                    rr2 = Dot_product(rv, rv)
+                    rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+                    rr2 = Dot_product(rv(1:dim), rv(1:dim))
                     d = __fsqrt_rn(rr2)
                     if (d > 0.0_myprec) then
                         cx = rv(1)/d
@@ -388,8 +388,8 @@ contains
                     idx = idx + 1
                     k = gadjacency(j)
                     rv(1:dim) = r(1:dim, i) - r(1:dim, k)
-                    rv = rv - sidel*nint(rv/sidel)
-                    rr2 = Dot_product(rv, rv)
+                    rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+                    rr2 = Dot_product(rv(1:dim), rv(1:dim))
                     vecinos(idx)%dist2 = rr2
                     vecinos(idx)%id = k
                     do n=1,idx-1
@@ -408,7 +408,7 @@ contains
                 do k = 1, nlimit
                     j = vecinos(k)%id
                     rv(1:dim) = r(1:dim, i) - r(1:dim, j)
-                    rv = rv - sidel*nint(rv/sidel)
+                    rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
                     rr2 = vecinos(k)%dist2
                     d = __fsqrt_rn(rr2)
                     cx = rv(1)/d
@@ -465,8 +465,8 @@ contains
                 do j = goffset(i), goffset(i) + ncount - 1
                     k = gadjacency(j)
                     rv(1:dim) = r(1:dim, i) - r(1:dim, k)
-                    rv = rv - sidel*nint(rv/sidel)
-                    rr2 = Dot_product(rv, rv)
+                    rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+                    rr2 = Dot_product(rv(1:dim), rv(1:dim))
                     if (rr2 < rcl2) then
                         d = __fsqrt_rn(rr2)
                         if (d > 0.0_myprec) then
@@ -509,8 +509,8 @@ contains
                     idx = idx + 1
                     k = gadjacency(j)
                     rv(1:dim) = r(1:dim, i) - r(1:dim, k)
-                    rv = rv - sidel*nint(rv/sidel)
-                    rr2 = Dot_product(rv, rv)
+                    rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+                    rr2 = Dot_product(rv(1:dim), rv(1:dim))
                     vecinos(idx)%dist2 = rr2
                     vecinos(idx)%id = k
                     do n=1,idx-1
@@ -529,7 +529,7 @@ contains
                 do k = 1, nlimit
                     j = vecinos(k)%id
                     rv(1:dim) = r(1:dim, i) - r(1:dim, j)
-                    rv = rv - sidel*nint(rv/sidel)
+                    rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
                     rr2 = vecinos(k)%dist2
                     d = __fsqrt_rn(rr2)
                     cx = rv(3)/d
@@ -583,8 +583,8 @@ contains
             do j = 1, Nsites
                 if (j.ne.i) then
                     rv(1:dim) = r(1:dim, i) - r(1:dim, j)
-                    rv = rv - sidel*nint(rv/sidel)
-                    rr2 = Dot_product(rv, rv)
+                    rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+                    rr2 = Dot_product(rv(1:dim), rv(1:dim))
                     if (rr2 < rcl2) then
                         ncount = ncount + 1
                         ! count neighbors within cutoff and
@@ -653,8 +653,8 @@ contains
                 do j = 1, Nsites
                     if (j /= i) then
                         rv(1:dim) = r(1:dim, i) - r(1:dim, j)
-                        rv = rv - sidel*nint(rv/sidel)
-                        rr2 = Dot_product(rv, rv)
+                        rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+                        rr2 = Dot_product(rv(1:dim), rv(1:dim))
                         if (rr2 < rcl2) then
                             ncount = ncount + 1
                             d = sqrt(rr2)
@@ -696,8 +696,8 @@ contains
                 do j = 1, Nsites
                     if (j.ne.i) then
                         rv(1:dim) = r(1:dim, i) - r(1:dim, j)
-                        rv = rv - sidel*nint(rv/sidel)
-                        rr2 = Dot_product(rv, rv)
+                        rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+                        rr2 = Dot_product(rv(1:dim), rv(1:dim))
                         if (rr2 < rcl2) then
                             ncount = ncount + 1
                             if (ncount > nmbmax) then
@@ -726,7 +726,7 @@ contains
                 do k = 1, nlimit
                     ix = vecinos(k)%id
                     rv(1:dim) = r(1:dim, i) - r(1:dim, ix)
-                    rv = rv - sidel*nint(rv/sidel)
+                    rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
                     rr2 = vecinos(k)%dist2
                     d = sqrt(rr2)
                     cx = rv(3)/d

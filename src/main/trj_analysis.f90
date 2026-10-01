@@ -103,7 +103,7 @@
 ! Authors:
 !   A. Díaz-Pozuelo & E. Lomba (optimized G-DBSCAN contributed by R. Lomba)
 !   CSIC Madrid / USC Santiago de Compostela
-!   Version 1.7.6 - September 2026
+!   Version 1.7.8 - October 2026
 !
 ! Implementation:
 !   NVIDIA CUDA Fortran with GPU acceleration

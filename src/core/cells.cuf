@@ -322,8 +322,14 @@ contains
             !
             ix = int((r(1, i))/cellxd)
             jy = int((r(2, i))/cellyd)
+            if (ix < 0) ix = 0
+            if (ix >= maxid) ix = maxid - 1
+            if (jy < 0) jy = 0
+            if (jy >= maxjd) jy = maxjd - 1
             if (dim == 3) then
                 kz = int((r(3, i))/cellzd)
+                if (kz < 0) kz = 0
+                if (kz >= maxkd) kz = maxkd - 1
                 cell = (ix*maxjd + jy)*maxkd + kz
             else
                 cell = ix*maxjd + jy
@@ -336,8 +342,8 @@ contains
                 do while (j .ne. 0)
                     if (j .ne. i) then
                         rv(1:dim) = r(1:dim, i) - r(1:dim, j)
-                        rv = rv - sidel*nint(rv/sidel)
-                        rr2 = Dot_product(rv, rv)
+                        rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+                        rr2 = Dot_product(rv(1:dim), rv(1:dim))
 
                         if (rr2 <= rcl2) then
                             counter = counter + 1
@@ -367,8 +373,8 @@ contains
                 if (i .ne. j) then
                     rv(1:dim) = r(1:dim, i) - r(1:dim, j)
                     ! PBC
-                    rv = rv - sidel*nint(rv/sidel)
-                    rr2 = Dot_product(rv, rv)
+                    rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+                    rr2 = Dot_product(rv(1:dim), rv(1:dim))
                     if (rr2 <= rcl2) then
                         counter = counter + 1
                     end if
@@ -392,8 +398,14 @@ contains
             !
             ix = int((r(1, i))/cellxd)
             jy = int((r(2, i))/cellyd)
+            if (ix < 0) ix = 0
+            if (ix >= maxid) ix = maxid - 1
+            if (jy < 0) jy = 0
+            if (jy >= maxjd) jy = maxjd - 1
             if (dim == 3) then
                 kz = int((r(3, i))/cellzd)
+                if (kz < 0) kz = 0
+                if (kz >= maxkd) kz = maxkd - 1
                 cell = (ix*maxjd + jy)*maxkd + kz
             else
                 cell = (ix*maxjd + jy)
@@ -406,8 +418,8 @@ contains
                 do while (j .ne. 0)
                     if (j .ne. i) then
                         rv(1:dim) = r(1:dim, i) - r(1:dim, j)
-                        rv = rv - sidel*nint(rv/sidel)
-                        rr2 = Dot_product(rv, rv)
+                        rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+                        rr2 = Dot_product(rv(1:dim), rv(1:dim))
                         if (rr2 <= rcl2) then
                             gadjacency(goffset(i) + counter) = j
                             counter = counter + 1
@@ -433,8 +445,8 @@ contains
                 if (i .ne. j) then
                     rv(1:dim) = r(1:dim, i) - r(1:dim, j)
                     ! PBC
-                    rv = rv - sidel*nint(rv/sidel)
-                    rr2 = Dot_product(rv, rv)
+                    rv(1:dim) = rv(1:dim) - sidel(1:dim)*nint(rv(1:dim)/sidel(1:dim))
+                    rr2 = Dot_product(rv(1:dim), rv(1:dim))
                     if (rr2 <= rcl2) then
                         gadjacency(goffset(i) + counter) = j
                         counter = counter + 1

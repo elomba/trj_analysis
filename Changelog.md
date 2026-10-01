@@ -4,6 +4,15 @@ All notable changes to the **Trajectory Analysis for LAMMPS** (`trj_analysis`) p
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.7.8] - 2026-10-01
+### Fixed
+- Fix cluster collapse and neighbor-finding inconsistency in 2D systems (`ndim = 2`):
+  - In `src/core/cells.cuf` (`gpu_graph_cell`, `gpu_adj_cell`, `gpu_graf`, `gpu_adj`), ensure displacement vectors `rv`, box lengths `sidel`, and periodic minimum image evaluations are strictly sliced to `1:dim` (`rv(1:dim)`, `sidel(1:dim)`, `Dot_product(rv(1:dim), rv(1:dim))`). Previously, evaluating `Dot_product(rv, rv)` and `rv - sidel*nint(rv/sidel)` on 3D vectors in 2D simulations accessed uninitialized register garbage in `rv(3)` and out-of-bounds `sidel(3)`, causing non-deterministic neighbor rejection on configuration 1 and multi-frame register reuse to erroneously merge all particles into a single giant cluster.
+  - Added coordinate index boundary clamping to `[0, max_coord - 1]` for `ix, jy, kz` in `gpu_graph_cell` and `gpu_adj_cell` to prevent out-of-bounds reads in `neighd`.
+  - In `src/modules/clusters.cuf`, updated `radius`, `radiusRg`, and cluster kinetic energy calculations to slice `rv`, `center`, `sidel`, `vel`, and `cluster%vl` to `1:ndim`.
+  - In `src/modules/order.cuf`, sliced all `rv`, `sidel`, and `Dot_product` calls to `1:dim` across 2D and 3D bond-orientational order parameter routines (`gpu_comp_order2D`, `gpu_comp_order3D`, `cl_comp_order2D`, `cl_comp_order3D`).
+  - In `src/modules/rdf.cuf`, ensured `sidel(1:dim)` is used in `rdfclcl2`.
+
 ## [1.7.7] - 2026-09-17
 ### Added
 - Generalized slit-pore confinement analysis to arbitrary Cartesian axes (`idir = 1, 2, 3` for $x$, $y$, $z$):

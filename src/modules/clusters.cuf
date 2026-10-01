@@ -236,8 +236,8 @@ contains
          if (ex_vel) then
             do k = 1, j
                ip = cluster(i)%members(k)
-               ekcls = ekcls + 0.5*masa(ip)*dot_product(vel(:, ip)&
-               &- cluster(i)%vl(:), vel(:, ip) - cluster(i)%vl(:))
+               ekcls = ekcls + 0.5*masa(ip)*dot_product(vel(1:ndim, ip)&
+               &- cluster(i)%vl(1:ndim), vel(1:ndim, ip) - cluster(i)%vl(1:ndim))
             end do
          endif
          cluster(i)%ekin = ekcls
@@ -279,7 +279,7 @@ contains
       do i = 1, cluster_id
          suma = suma + cluster(i)%clsize
          ekincl = ekincl + 0.5*cluster(i)%mass&
-         &*dot_product(cluster(i)%vl(:), cluster(i)%vl(:))
+         &*dot_product(cluster(i)%vl(1:ndim), cluster(i)%vl(1:ndim))
          ekincls = ekincls + cluster(i)%ekin
       end do
       ekclaver = ekclaver + ekincl
@@ -425,7 +425,7 @@ contains
       denscl = 0.0
       do i = 1, cluster_id
             clussize = cluster(i)%clsize
-            clcent(:) = cluster(i)%center(1:ndim)
+            clcent(1:ndim) = cluster(i)%center(1:ndim)
             rclxyz(1:ndim, i) = clcent(1:ndim)
             rcluster = radius(cluster(i)%members(:), clussize, clcent, sidel)
             cluster(i)%radio = rcluster
@@ -994,9 +994,9 @@ function radius(members, nm, center, sidel)
    real(myprec) :: radius
    radius = 0
    do i = 1, nm
-      rv(:) = r(:, members(i)) - center(:)
-      rv = rv - sidel*nint(rv/sidel)
-      rr2 = Dot_product(rv, rv)
+      rv(1:ndim) = r(1:ndim, members(i)) - center(1:ndim)
+      rv(1:ndim) = rv(1:ndim) - sidel(1:ndim)*nint(rv(1:ndim)/sidel(1:ndim))
+      rr2 = Dot_product(rv(1:ndim), rv(1:ndim))
       if (rr2 > radius) radius = rr2
    end do
    radius = sqrt(radius)
@@ -1014,9 +1014,9 @@ function radiusRg(members, nm, center, sidel, masat)
    radiusrg = 0
    do i = 1, nm
       ip = members(i)
-      rv(:) = r(:, ip) - center(:)
-      rv = rv - sidel*nint(rv/sidel)
-      rr2 = Dot_product(rv, rv)
+      rv(1:ndim) = r(1:ndim, ip) - center(1:ndim)
+      rv(1:ndim) = rv(1:ndim) - sidel(1:ndim)*nint(rv(1:ndim)/sidel(1:ndim))
+      rr2 = Dot_product(rv(1:ndim), rv(1:ndim))
       radiusrg = radiusrg+masa(ip)*rr2
    end do
    radiusrg = sqrt(radiusrg/masat)
