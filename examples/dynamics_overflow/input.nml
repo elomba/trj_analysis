@@ -1,0 +1,29 @@
+&INPUT
+  log_output_file='trj_analysis.log'
+  trj_input_file='run.nc'
+  ndim=3
+  nsp=2
+  nqw=2
+  nthread=128
+  ncfs_from_to=700 1 700
+  rdf_sq_cl_dyn_sqw_conf_ord=F T F T T F F
+  periodic=.t. .t. .t.
+  nprint=700
+/
+&INPUT_SP
+  sp_types_selected=1 2
+  mat=1.0 1.0
+/
+&INPUT_SQ
+  qmax=15.0
+  qmin=15.0
+/
+&INPUT_DYN
+  nbuffer=256
+  jump=1
+  tmax=0.1
+  tlimit=0.1
+/
+&INPUT_SQW
+  qw=10.75 14.17
+/

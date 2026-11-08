@@ -4,6 +4,13 @@ All notable changes to the **Trajectory Analysis for LAMMPS** (`trj_analysis`) p
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+### Fixed
+- Convert the S(Q,w) normalization product to double precision before multiplying particle, origin, and wavevector counts. The former 32-bit integer product could overflow and reverse the sign of F(Q,0), Fs(Q,0), and current correlations at populated Q shells.
+- Bound the GPU dynamics time index and skip a wavevector if its shell lookup finds no valid shell, preventing out-of-bounds atomic additions.
+### Added
+- A generated NetCDF trajectory and automated zero-time dynamics regression in `examples/dynamics_overflow`.
+
 ## [1.7.8] - 2026-10-01
 ### Fixed
 - Fix cluster collapse and neighbor-finding inconsistency in 2D systems (`ndim = 2`):

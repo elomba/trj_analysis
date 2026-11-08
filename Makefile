@@ -27,16 +27,19 @@ VPATH = $(SRC_DIR)/core:$(SRC_DIR)/io:$(SRC_DIR)/modules:$(SRC_DIR)/main
 # Compilers and Flags
 # ==========================================
 FC = nvfortran
+# Host CPU target: haswell (AVX2) runs on every node of the cluster (no AVX-512 required).
+# Override with e.g. `make TARGET_CPU=-tp=native` for a node-specific build.
+TARGET_CPU ?= -tp=haswell
 # NOTE: Added -module $(OBJ_DIR) to redirect .mod generation and -I$(OBJ_DIR) to read them
-FCOPTS = -O3 -gpu=cc75,cc80,cc86,cc89,cc90,cc120,maxregcount:96 -cudalib=curand
+FCOPTS = -O3 $(TARGET_CPU) -gpu=cc75,cc80,cc86,cc89,cc90,cc120,maxregcount:96 -cudalib=curand
 FCINC = -I$(NETCDFINC) -I$(NVINCLUDE) $(if $(FFTWINC),-I$(FFTWINC)) -I$(OBJ_DIR) -module $(OBJ_DIR)
 
 F90 = $(FC)
-F90OPTS = -O3  
+F90OPTS = -O3 $(TARGET_CPU)
 F90INC = $(FCINC)
 F90LIBS = $(FCLIBS)
 
-LKOPTS = -cuda -gpu=cc75,cc80,cc86,cc89,cc90,cc120 -c++libs -lnetcdff -lfftw3 -llapack -lblas 
+LKOPTS = $(TARGET_CPU) -cuda -gpu=cc75,cc80,cc86,cc89,cc90,cc120 -c++libs -lnetcdff -lfftw3 -llapack -lblas 
 LKLIBS = -L$(NETCDFLIB) -L$(NVLIBS) $(if $(FFTWLIB),-L$(FFTWLIB))
 
 CC = nvcc

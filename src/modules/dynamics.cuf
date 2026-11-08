@@ -350,13 +350,14 @@ contains
          endif
          if (subtract_plateau .or. norm_sqw) allocate(fkt_in(itlimit), fskt_in(itlimit))
          do i=1, nqw
-            fkt(i,1:ndyn)=fkt(i,1:ndyn)/(Nsites*count_org*nw(i))
-            fskt(i,1:ndyn)=fskt(i,1:ndyn)/(Nsites*count_org*nw(i))
+            ! Convert before multiplying: Nsites*count_org*nw(i) can overflow an integer.
+            fkt(i,1:ndyn)=fkt(i,1:ndyn)/(real(Nsites,kind=double)*count_org*nw(i))
+            fskt(i,1:ndyn)=fskt(i,1:ndyn)/(real(Nsites,kind=double)*count_org*nw(i))
             if (ex_vel) then
-               jlkt(i,1:ndyn)=jlkt(i,1:ndyn)/(Nsites*count_org*nw(i))
-               jlskt(i,1:ndyn)=jlskt(i,1:ndyn)/(Nsites*count_org*nw(i))
-               jtkt(i,1:ndyn)=jtkt(i,1:ndyn)/(Nsites*count_org*nw(i))
-               jtskt(i,1:ndyn)=jtskt(i,1:ndyn)/(Nsites*count_org*nw(i))
+               jlkt(i,1:ndyn)=jlkt(i,1:ndyn)/(real(Nsites,kind=double)*count_org*nw(i))
+               jlskt(i,1:ndyn)=jlskt(i,1:ndyn)/(real(Nsites,kind=double)*count_org*nw(i))
+               jtkt(i,1:ndyn)=jtkt(i,1:ndyn)/(real(Nsites,kind=double)*count_org*nw(i))
+               jtskt(i,1:ndyn)=jtskt(i,1:ndyn)/(real(Nsites,kind=double)*count_org*nw(i))
                call fftw1d(jlkt(i,1:itlimit),  clqw(1:n_freq,i),  w, itlimit, n_freq, t(2)-t(1), real(tmax, kind=double))
                call fftw1d(jlskt(i,1:itlimit), cslqw(1:n_freq,i), w, itlimit, n_freq, t(2)-t(1), real(tmax, kind=double))
                call fftw1d(jtkt(i,1:itlimit),  ctqw(1:n_freq,i),  w, itlimit, n_freq, t(2)-t(1), real(tmax, kind=double))
@@ -620,7 +621,7 @@ contains
       iorg =  origin(ibuffer)
       indx = iconf - iorg + 1
       ! Check origin and final configuration of each averaging buffer
-      if (iconf>=iorg .and. indx >= 1) then
+      if (iconf>=iorg .and. indx >= 1 .and. indx <= dyn) then
          kx = indqw_d(blockidx%x,1)
          ky = indqw_d(blockidx%x,2)
          fk1 = fk(1)
@@ -667,6 +668,7 @@ contains
                ind = ind+1
             endif
          enddo
+         if (ind > nqw) return
          i = 0
          do j = 1, nsp
             sumcpx = 0
