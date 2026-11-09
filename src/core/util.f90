@@ -101,7 +101,7 @@ contains
             stop
          endif
          do i = 1, nsp 
-            if (any(wtypes(1:ntypes) == sp_types_selected(i))) then
+            if (any(wtypes(1:nsp) == sp_types_selected(i))) then
                continue
             else
                ! If the species type is not in the trajectory, stop

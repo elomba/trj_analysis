@@ -562,17 +562,28 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
                ntt = ntt + 1
                tempty(ntt) = ity(i,1)
                
-               ! Check if this discovered type is one of our selected species
-               tmty = findloc(sp_types_selected(1:nsp), ity(i,1))
-               
-               if (tmty(1) > 0) then
-                  ntypes = ntypes + 1
-                  wtypes(ntypes) = tempty(ntt)
-                  nmass(ntypes) = mat(tmty(1))
-                  nbscat(ntypes) = bsc(tmty(1))
-               endif
             endif
          end do
+
+         ! Assign internal species indices in the order requested by the user.
+         do k = 1, nsp
+            if (any(sp_types_selected(1:k-1) == sp_types_selected(k))) then
+               write(*,'("*** Error: duplicate selected trajectory type ",i0)') sp_types_selected(k)
+               stop
+            endif
+            if (sp_types_selected(k) > 0 .and. sp_types_selected(k) <= max_ity) then
+               if (seen_type(sp_types_selected(k))) then
+                  ntypes = ntypes + 1
+                  wtypes(ntypes) = sp_types_selected(k)
+                  nmass(ntypes) = mat(k)
+                  nbscat(ntypes) = bsc(k)
+                  cycle
+               endif
+            endif
+            write(*,'("*** Warning: selected trajectory type ",i0," is absent; skipping")') sp_types_selected(k)
+            write(iunit,'("*** Warning: selected trajectory type ",i0," is absent; skipping")') sp_types_selected(k)
+         end do
+         if (ntypes == 0) stop 'No selected trajectory types found'
          
          ! Clean up the temporary tracking array
          deallocate(seen_type)
@@ -588,12 +599,10 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          write (*, "(' ** Number of atoms types =',i3/)") ntypes
          allocate (atypes(ntypes),orgty(ntypes_tr))
          orgty(1:ntypes_tr) = tempty(1:ntypes_tr)
-         if (nsp == ntypes) then
-            mat(1:ntypes) = nmass(1:ntypes)
-            bsc(1:ntypes) = nbscat(1:ntypes)
-         else
-            write(*,'("*** Fatal error: some species not in trajectory file !")')
-         endif
+         mat(1:ntypes) = nmass(1:ntypes)
+         bsc(1:ntypes) = nbscat(1:ntypes)
+         sp_types_selected(1:ntypes) = wtypes(1:ntypes)
+         nsp = ntypes
          deallocate(tempty)
          atypes(:) = 0
          !
@@ -612,6 +621,8 @@ subroutine read_nc_cfg(ncid, ncstart, io, unit)
          do i = 1, ntypes
             write (iunit, "('  ··Number of atoms of type ',i2,' (',i2,')=',i8)") i, wtypes(i),atypes(i)
             write (*, "('  ··Number of atoms of type ',i2,' (',i2,')=',i8)") i, wtypes(i),atypes(i)
+            write (iunit, "('species ',i0,' -> trajectory type ',i0,' (',i0,' atoms)')") i, wtypes(i), atypes(i)
+            write (*, "('species ',i0,' -> trajectory type ',i0,' (',i0,' atoms)')") i, wtypes(i), atypes(i)
          end do
       else
          !
@@ -739,8 +750,8 @@ subroutine select_ncdfinput()
    r(:,:) = 0.0
    if (ex_vel) vel(:,:) = 0.0
    do i = 1, natoms
-      if (any(sp_types_selected(1:nsp) == wtypes(ity_in(i,1)))) then
-         it = findloc(wtypes,wtypes(ity_in(i, 1)))
+      if (ity_in(i,1) > 0) then
+         it(1) = ity_in(i,1)
          counter(it(1)) = counter(it(1)) + 1
          j = counter(it(1))
          !

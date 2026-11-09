@@ -4,6 +4,13 @@ All notable changes to the **Trajectory Analysis for LAMMPS** (`trj_analysis`) p
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.7.10] - 2026-11-09
+### Fixed
+- Map internal species indices to `sp_types_selected` order, independent of the first atom type in a NetCDF trajectory. Keep masses, scattering lengths, per-atom species indices, and partial outputs aligned with that order.
+- Warn and skip selected types absent from the trajectory, and report each species-to-trajectory-type mapping with its atom count.
+### Added
+- Two atom-order variants of a real 20-frame NetCDF trajectory and a partial RDF/S(Q) comparison in `tools/test_species_order`.
+
 ## [1.7.9] - 2026-11-08
 ### Fixed
 - Convert the S(Q,w) normalization product to double precision before multiplying particle, origin, and wavevector counts. The former 32-bit integer product could overflow and reverse the sign of F(Q,0), Fs(Q,0), and current correlations at populated Q shells.
